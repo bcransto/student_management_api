@@ -5,15 +5,16 @@ from datetime import timedelta
 from dotenv import load_dotenv
 
 # Load environment variables
-load_dotenv()
+load_dotenv(override=True)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Auto-detect environment
 def is_pythonanywhere():
     """Detect if running on PythonAnywhere"""
-    hostname = socket.gethostname()
-    return 'pythonanywhere' in hostname.lower() or 'PYTHONANYWHERE_DOMAIN' in os.environ
+    return ('PYTHONANYWHERE_DOMAIN' in os.environ or 
+            'PYTHONANYWHERE_SITE' in os.environ or
+            os.environ.get('DJANGO_ENV') == 'production')
 
 def is_production():
     """Check if this is a production environment"""
@@ -35,7 +36,7 @@ DEBUG = not PRODUCTION
 # Dynamic ALLOWED_HOSTS based on environment
 if PRODUCTION:
     ALLOWED_HOSTS = [
-        os.environ.get('PYTHONANYWHERE_DOMAIN', 'yourusername.pythonanywhere.com'),
+        'bcranston.pythonanywhere.com',
         'localhost',
         '127.0.0.1',
     ]
@@ -80,7 +81,7 @@ ROOT_URLCONF = 'student_project.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR / 'templates'],
+        'DIRS': [],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -161,7 +162,7 @@ SIMPLE_JWT = {
 if PRODUCTION:
     # Production CORS settings
     CORS_ALLOWED_ORIGINS = [
-        f"https://{os.environ.get('PYTHONANYWHERE_DOMAIN', 'yourusername.pythonanywhere.com')}",
+        f"https://{'bcranston.pythonanywhere.com'}",
         "http://localhost:3000",  # Still allow local development
         "http://127.0.0.1:3000",
     ]

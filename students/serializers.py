@@ -97,3 +97,22 @@ class UpdateRosterSerializer(serializers.ModelSerializer):
     def validate_seat_number(self, value):
         # Remove validation since max_students no longer exists
         return value
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    username_field = 'email'
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Add email field to the serializer
+        self.fields['email'] = self.fields['username']
+    
+    def validate(self, attrs):
+        # Use email as username for authentication
+        email = attrs.get('email') or attrs.get('username')
+        password = attrs.get('password')
+        
+        if email and password:
+            attrs['username'] = email
+        
+        return super().validate(attrs)
