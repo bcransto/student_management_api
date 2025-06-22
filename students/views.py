@@ -38,10 +38,11 @@ def frontend_view(request):
             with open(frontend_path, 'r', encoding='utf-8') as f:
                 content = f.read()
             
-            # Update API URLs for production
-            content = content.replace('localhost:8000', 'bcranston.pythonanywhere.com')
-            content = content.replace('127.0.0.1:8000', 'bcranston.pythonanywhere.com') 
-            content = content.replace('http://bcranston.pythonanywhere.com', 'https://bcranston.pythonanywhere.com')
+            # Only update API URLs for production
+            if hasattr(settings, 'PRODUCTION') and settings.PRODUCTION:
+                content = content.replace('localhost:8000', 'bcranston.pythonanywhere.com')
+                content = content.replace('127.0.0.1:8000', 'bcranston.pythonanywhere.com') 
+                content = content.replace('http://bcranston.pythonanywhere.com', 'https://bcranston.pythonanywhere.com')
             
             return HttpResponse(content, content_type='text/html')
         else:
