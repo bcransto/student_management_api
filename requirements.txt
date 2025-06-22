@@ -4,5 +4,10 @@ django-filter==25.1
 djangorestframework==3.16.0
 djangorestframework_simplejwt==5.5.0
 python-dotenv==1.0.0
+
+# Production dependencies (install on PythonAnywhere)
 whitenoise==6.6.0
 mysqlclient==2.2.0
+
+# Note: mysqlclient is only needed on PythonAnywhere
+# For local development, it will use SQLite
