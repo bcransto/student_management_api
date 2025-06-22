@@ -1,0 +1,1049 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Management System</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .app {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .header h1 {
+            color: #4a5568;
+            font-weight: 700;
+            font-size: 1.8rem;
+        }
+
+        .header .user-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            color: #718096;
+        }
+
+        .main-content {
+            flex: 1;
+            padding: 2rem;
+            display: flex;
+            gap: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .sidebar {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            width: 300px;
+            height: fit-content;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .sidebar h3 {
+            margin-bottom: 1rem;
+            color: #4a5568;
+            font-size: 1.2rem;
+        }
+
+        .nav-item {
+            padding: 0.75rem 1rem;
+            margin-bottom: 0.5rem;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-weight: 500;
+        }
+
+        .nav-item:hover {
+            background: rgba(102, 126, 234, 0.1);
+            transform: translateX(4px);
+        }
+
+        .nav-item.active {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .content-area {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            overflow-y: auto;
+            max-height: calc(100vh - 8rem);
+        }
+
+        .login-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        .login-form {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 3rem;
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 400px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .login-form h2 {
+            text-align: center;
+            margin-bottom: 2rem;
+            color: #4a5568;
+            font-size: 2rem;
+            font-weight: 700;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #4a5568;
+            font-weight: 600;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.8);
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            width: 100%;
+            justify-content: center;
+            font-size: 1.1rem;
+            padding: 1rem;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-secondary {
+            background: #e2e8f0;
+            color: #4a5568;
+        }
+
+        .btn-secondary:hover {
+            background: #cbd5e0;
+        }
+
+        .btn-success {
+            background: #48bb78;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #38a169;
+        }
+
+        .btn-danger {
+            background: #f56565;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #e53e3e;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        .card h3 {
+            margin-bottom: 1rem;
+            color: #4a5568;
+        }
+
+        .grid {
+            display: grid;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .grid-2 {
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        }
+
+        .grid-3 {
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .table th,
+        .table td {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .table th {
+            background: #f7fafc;
+            font-weight: 600;
+            color: #4a5568;
+        }
+
+        .table tr:hover {
+            background: #f7fafc;
+        }
+
+        .group-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin: 0.25rem;
+        }
+
+        .group-1 { background: #fed7d7; color: #c53030; }
+        .group-2 { background: #feebc8; color: #dd6b20; }
+        .group-3 { background: #fefcbf; color: #d69e2e; }
+        .group-4 { background: #c6f6d5; color: #38a169; }
+        .group-5 { background: #bee3f8; color: #3182ce; }
+        .group-6 { background: #e9d8fd; color: #805ad5; }
+
+        .seating-chart {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .seat {
+            aspect-ratio: 1;
+            border: 2px dashed #cbd5e0;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            font-size: 0.75rem;
+            color: #718096;
+            transition: all 0.3s ease;
+        }
+
+        .seat.occupied {
+            border: 2px solid #667eea;
+            background: rgba(102, 126, 234, 0.1);
+            color: #4a5568;
+        }
+
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 2rem;
+            border-radius: 16px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            color: #4a5568;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #718096;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #718096;
+        }
+
+        .error {
+            background: #fed7d7;
+            color: #c53030;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+
+        .success {
+            background: #c6f6d5;
+            color: #38a169;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .stat-card h4 {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-card p {
+            opacity: 0.9;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                flex-direction: column;
+                padding: 1rem;
+            }
+
+            .sidebar {
+                width: 100%;
+                margin-bottom: 1rem;
+            }
+
+            .header {
+                padding: 1rem;
+                flex-direction: column;
+                gap: 1rem;
+                text-align: center;
+            }
+
+            .seating-chart {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useCallback } = React;
+
+        // API Configuration
+        const API_BASE_URL = 'http://127.0.0.1:8000/api';
+
+        // API Helper Functions
+        const api = {
+            setToken: (token) => {
+                localStorage.setItem('access_token', token);
+            },
+            
+            getToken: () => {
+                return localStorage.getItem('access_token');
+            },
+            
+            clearToken: () => {
+                localStorage.removeItem('access_token');
+                localStorage.removeItem('refresh_token');
+            },
+            
+            request: async (endpoint, options = {}) => {
+                const token = api.getToken();
+                const headers = {
+                    'Content-Type': 'application/json',
+                    ...(token && { 'Authorization': `Bearer ${token}` }),
+                    ...options.headers,
+                };
+
+                try {
+                    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+                        ...options,
+                        headers,
+                    });
+
+                    if (!response.ok) {
+                        if (response.status === 401) {
+                            api.clearToken();
+                            window.location.reload();
+                        }
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    return await response.json();
+                } catch (error) {
+                    console.error('API request failed:', error);
+                    throw error;
+                }
+            },
+
+            login: async (email, password) => {
+                try {
+                    console.log('Attempting login to:', `${API_BASE_URL}/token/`);
+                    const response = await fetch(`${API_BASE_URL}/token/`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            username: email, 
+                            password: password,
+                            email: email 
+                        }),
+                    });
+                    
+                    console.log('Response status:', response.status);
+                    console.log('Response URL:', response.url);
+                    
+                    if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({}));
+                        console.error('Login error:', response.status, errorData);
+                        throw new Error(errorData.detail || `Login failed: ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    api.setToken(data.access);
+                    localStorage.setItem('refresh_token', data.refresh);
+                    return data;
+                } catch (error) {
+                    console.error('Login request failed:', error);
+                    throw error;
+                }
+            },
+
+            getClasses: () => api.request('/classes/'),
+            getStudents: () => api.request('/students/'),
+            getRoster: () => api.request('/roster/'),
+            getClassDetail: (id) => api.request(`/classes/${id}/`),
+            enrollStudent: (classId, studentId) => api.request(`/classes/${classId}/enroll/`, {
+                method: 'POST',
+                body: JSON.stringify({ student_id: studentId }),
+            }),
+            updateRoster: (rosterId, data) => api.request(`/roster/${rosterId}/`, {
+                method: 'PATCH',
+                body: JSON.stringify(data),
+            }),
+            createStudent: (data) => api.request('/students/', {
+                method: 'POST',
+                body: JSON.stringify(data),
+            }),
+            createClass: (data) => api.request('/classes/', {
+                method: 'POST',
+                body: JSON.stringify(data),
+            }),
+        };
+
+        // Login Component
+        const Login = ({ onLogin }) => {
+            const [email, setEmail] = useState('');
+            const [password, setPassword] = useState('');
+            const [loading, setLoading] = useState(false);
+            const [error, setError] = useState('');
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                setLoading(true);
+                setError('');
+
+                try {
+                    await api.login(email, password);
+                    onLogin();
+                } catch (err) {
+                    console.error('Login error:', err);
+                    setError(err.message || 'Login failed. Please check your credentials.');
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <div className="login-container">
+                    <form className="login-form" onSubmit={handleSubmit}>
+                        <h2><i className="fas fa-graduation-cap"></i> Student Management</h2>
+                        {error && <div className="error">{error}</div>}
+                        
+                        <div className="form-group">
+                            <label>Email</label>
+                            <input
+                                type="email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                required
+                                placeholder="bcranston@carlisle.k12.ma.us"
+                            />
+                        </div>
+                        
+                        <div className="form-group">
+                            <label>Password</label>
+                            <input
+                                type="password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                required
+                                placeholder="Enter your password"
+                            />
+                        </div>
+                        
+                        <button type="submit" className="btn btn-primary" disabled={loading}>
+                            {loading ? 'Signing in...' : 'Sign In'}
+                        </button>
+                    </form>
+                </div>
+            );
+        };
+
+        // Dashboard Component
+        const Dashboard = ({ classes, students }) => {
+            const totalEnrollment = classes.reduce((sum, cls) => sum + cls.current_enrollment, 0);
+            const averageClassSize = classes.length ? (totalEnrollment / classes.length).toFixed(1) : 0;
+
+            return (
+                <div>
+                    <h2>Dashboard</h2>
+                    
+                    <div className="stats-grid">
+                        <div className="stat-card">
+                            <h4>{classes.length}</h4>
+                            <p>Total Classes</p>
+                        </div>
+                        <div className="stat-card">
+                            <h4>{students.length}</h4>
+                            <p>Total Students</p>
+                        </div>
+                        <div className="stat-card">
+                            <h4>{totalEnrollment}</h4>
+                            <p>Total Enrollments</p>
+                        </div>
+                        <div className="stat-card">
+                            <h4>{averageClassSize}</h4>
+                            <p>Avg Class Size</p>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-2">
+                        <div className="card">
+                            <h3>Recent Classes</h3>
+                            {classes.slice(0, 5).map(cls => (
+                                <div key={cls.id} style={{ padding: '0.5rem 0', borderBottom: '1px solid #e2e8f0' }}>
+                                    <strong>{cls.name}</strong> - {cls.subject}
+                                    <span style={{ float: 'right', color: '#718096' }}>
+                                        {cls.current_enrollment} students
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="card">
+                            <h3>Quick Actions</h3>
+                            <div className="grid">
+                                <button className="btn btn-primary">
+                                    <i className="fas fa-plus"></i> Add Student
+                                </button>
+                                <button className="btn btn-secondary">
+                                    <i className="fas fa-users"></i> Create Class
+                                </button>
+                                <button className="btn btn-success">
+                                    <i className="fas fa-chart-bar"></i> View Reports
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // Classes Component
+        const Classes = ({ classes, onClassSelect }) => {
+            return (
+                <div>
+                    <h2>Classes</h2>
+                    <div className="grid grid-2">
+                        {classes.map(cls => (
+                            <div key={cls.id} className="card" onClick={() => onClassSelect(cls)}>
+                                <h3>{cls.name}</h3>
+                                <p><strong>Subject:</strong> {cls.subject}</p>
+                                {cls.grade_level && <p><strong>Grade:</strong> {cls.grade_level}</p>}
+                                <p><strong>Enrollment:</strong> {cls.current_enrollment} students</p>
+                                <div className="action-buttons">
+                                    <button className="btn btn-primary">
+                                        <i className="fas fa-eye"></i> View Details
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
+        // Class Detail Component
+        const ClassDetail = ({ classData, onBack }) => {
+            const [roster, setRoster] = useState([]);
+            const [loading, setLoading] = useState(true);
+
+            useEffect(() => {
+                const fetchClassDetail = async () => {
+                    try {
+                        const detail = await api.getClassDetail(classData.id);
+                        setRoster(detail.roster || []);
+                    } catch (error) {
+                        console.error('Error fetching class detail:', error);
+                    } finally {
+                        setLoading(false);
+                    }
+                };
+
+                fetchClassDetail();
+            }, [classData.id]);
+
+            const getGroupBadge = (groupNumber) => {
+                if (!groupNumber) return null;
+                return (
+                    <span className={`group-badge group-${groupNumber}`}>
+                        Group {groupNumber}
+                    </span>
+                );
+            };
+
+            if (loading) {
+                return <div className="loading">Loading class details...</div>;
+            }
+
+            return (
+                <div>
+                    <div style={{ display: 'flex', alignItems: 'center', marginBottom: '2rem' }}>
+                        <button className="btn btn-secondary" onClick={onBack}>
+                            <i className="fas fa-arrow-left"></i> Back
+                        </button>
+                        <h2 style={{ marginLeft: '1rem' }}>{classData.name}</h2>
+                    </div>
+
+                    <div className="grid grid-2">
+                        <div className="card">
+                            <h3>Class Information</h3>
+                            <p><strong>Subject:</strong> {classData.subject}</p>
+                            {classData.grade_level && <p><strong>Grade:</strong> {classData.grade_level}</p>}
+                            <p><strong>Teacher:</strong> {classData.teacher_name}</p>
+                            <p><strong>Enrollment:</strong> {classData.current_enrollment} students</p>
+                        </div>
+
+                        <div className="card">
+                            <h3>Actions</h3>
+                            <div className="grid">
+                                <button className="btn btn-primary">
+                                    <i className="fas fa-user-plus"></i> Enroll Student
+                                </button>
+                                <button className="btn btn-secondary">
+                                    <i className="fas fa-users"></i> Manage Groups
+                                </button>
+                                <button className="btn btn-success">
+                                    <i className="fas fa-chair"></i> Seating Chart
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="card">
+                        <h3>Class Roster</h3>
+                        <table className="table">
+                            <thead>
+                                <tr>
+                                    <th>Student</th>
+                                    <th>Student ID</th>
+                                    <th>Group</th>
+                                    <th>Role</th>
+                                    <th>Seat</th>
+                                    <th>Enrolled</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {roster.map(entry => (
+                                    <tr key={entry.id}>
+                                        <td>{entry.student_name}</td>
+                                        <td>{entry.student_id}</td>
+                                        <td>{getGroupBadge(entry.group_number)}</td>
+                                        <td>{entry.group_role || '-'}</td>
+                                        <td>{entry.seat_number || '-'}</td>
+                                        <td>{new Date(entry.enrollment_date).toLocaleDateString()}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            );
+        };
+
+        // Students Component
+        const Students = ({ students }) => {
+            return (
+                <div>
+                    <h2>Students</h2>
+                    <div className="card">
+                        <table className="table">
+                            <thead>
+                                <tr>
+                                    <th>Student ID</th>
+                                    <th>Name</th>
+                                    <th>Email</th>
+                                    <th>Enrolled</th>
+                                    <th>Status</th>
+                                    <th>Classes</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {students.map(student => (
+                                    <tr key={student.id}>
+                                        <td>{student.student_id}</td>
+                                        <td>{student.first_name} {student.last_name}</td>
+                                        <td>{student.email || '-'}</td>
+                                        <td>{new Date(student.enrollment_date).toLocaleDateString()}</td>
+                                        <td>
+                                            <span className={`group-badge ${student.is_active ? 'group-4' : 'group-1'}`}>
+                                                {student.is_active ? 'Active' : 'Inactive'}
+                                            </span>
+                                        </td>
+                                        <td>{student.active_classes?.length || 0}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            );
+        };
+
+        // Main App Component
+        const App = () => {
+            const [isAuthenticated, setIsAuthenticated] = useState(false);
+            const [loading, setLoading] = useState(true);
+            const [currentView, setCurrentView] = useState('dashboard');
+            const [selectedClass, setSelectedClass] = useState(null);
+            const [classes, setClasses] = useState([]);
+            const [students, setStudents] = useState([]);
+
+            useEffect(() => {
+                const token = api.getToken();
+                if (token) {
+                    setIsAuthenticated(true);
+                    fetchData();
+                } else {
+                    setLoading(false);
+                }
+            }, []);
+
+            const fetchData = async () => {
+                try {
+                    const [classesData, studentsData] = await Promise.all([
+                        api.getClasses(),
+                        api.getStudents(),
+                    ]);
+                    setClasses(classesData.results || classesData);
+                    setStudents(studentsData.results || studentsData);
+                } catch (error) {
+                    console.error('Error fetching data:', error);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const handleLogin = () => {
+                setIsAuthenticated(true);
+                fetchData();
+            };
+
+            const handleLogout = () => {
+                api.clearToken();
+                setIsAuthenticated(false);
+                setCurrentView('dashboard');
+                setSelectedClass(null);
+            };
+
+            const handleClassSelect = (classObj) => {
+                setSelectedClass(classObj);
+                setCurrentView('class-detail');
+            };
+
+            const navigateTo = (view) => {
+                setCurrentView(view);
+                setSelectedClass(null);
+            };
+
+            if (loading) {
+                return <div className="loading">Loading...</div>;
+            }
+
+            if (!isAuthenticated) {
+                return <Login onLogin={handleLogin} />;
+            }
+
+            return (
+                <div className="app">
+                    <header className="header">
+                        <h1><i className="fas fa-graduation-cap"></i> Student Management System</h1>
+                        <div className="user-info">
+                            <span>Welcome, Teacher</span>
+                            <button className="btn btn-secondary" onClick={handleLogout}>
+                                <i className="fas fa-sign-out-alt"></i> Logout
+                            </button>
+                        </div>
+                    </header>
+
+                    <div className="main-content">
+                        <nav className="sidebar">
+                            <h3>Navigation</h3>
+                            <div 
+                                className={`nav-item ${currentView === 'dashboard' ? 'active' : ''}`}
+                                onClick={() => navigateTo('dashboard')}
+                            >
+                                <i className="fas fa-tachometer-alt"></i>
+                                Dashboard
+                            </div>
+                            <div 
+                                className={`nav-item ${currentView === 'classes' ? 'active' : ''}`}
+                                onClick={() => navigateTo('classes')}
+                            >
+                                <i className="fas fa-chalkboard-teacher"></i>
+                                Classes
+                            </div>
+                            <div 
+                                className={`nav-item ${currentView === 'students' ? 'active' : ''}`}
+                                onClick={() => navigateTo('students')}
+                            >
+                                <i className="fas fa-users"></i>
+                                Students
+                            </div>
+                            <div 
+                                className={`nav-item ${currentView === 'reports' ? 'active' : ''}`}
+                                onClick={() => navigateTo('reports')}
+                            >
+                                <i className="fas fa-chart-bar"></i>
+                                Reports
+                            </div>
+                        </nav>
+
+                        <main className="content-area">
+                            {currentView === 'dashboard' && (
+                                <Dashboard classes={classes} students={students} />
+                            )}
+                            {currentView === 'classes' && (
+                                <Classes classes={classes} onClassSelect={handleClassSelect} />
+                            )}
+                            {currentView === 'class-detail' && selectedClass && (
+                                <ClassDetail 
+                                    classData={selectedClass} 
+                                    onBack={() => navigateTo('classes')} 
+                                />
+                            )}
+                            {currentView === 'students' && (
+                                <Students students={students} />
+                            )}
+                            {currentView === 'reports' && (
+                                <Reports classes={classes} students={students} />
+                            )}
+                        </main>
+                    </div>
+                </div>
+            );
+        };
+
+        // Reports Component
+        const Reports = ({ classes, students }) => {
+            const subjectCounts = classes.reduce((acc, cls) => {
+                acc[cls.subject] = (acc[cls.subject] || 0) + 1;
+                return acc;
+            }, {});
+
+            const enrollmentByClass = classes.map(cls => ({
+                name: cls.name,
+                enrollment: cls.current_enrollment
+            })).sort((a, b) => b.enrollment - a.enrollment);
+
+            return (
+                <div>
+                    <h2>Reports</h2>
+                    
+                    <div className="grid grid-2">
+                        <div className="card">
+                            <h3>Classes by Subject</h3>
+                            {Object.entries(subjectCounts).map(([subject, count]) => (
+                                <div key={subject} style={{ 
+                                    display: 'flex', 
+                                    justifyContent: 'space-between', 
+                                    padding: '0.5rem 0',
+                                    borderBottom: '1px solid #e2e8f0'
+                                }}>
+                                    <span>{subject}</span>
+                                    <strong>{count} classes</strong>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="card">
+                            <h3>Enrollment by Class</h3>
+                            {enrollmentByClass.slice(0, 10).map((cls, index) => (
+                                <div key={index} style={{ 
+                                    display: 'flex', 
+                                    justifyContent: 'space-between', 
+                                    padding: '0.5rem 0',
+                                    borderBottom: '1px solid #e2e8f0'
+                                }}>
+                                    <span>{cls.name}</span>
+                                    <strong>{cls.enrollment} students</strong>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="card">
+                        <h3>System Overview</h3>
+                        <div className="grid grid-3">
+                            <div style={{ textAlign: 'center' }}>
+                                <h4 style={{ color: '#667eea', fontSize: '2rem' }}>
+                                    {students.filter(s => s.is_active).length}
+                                </h4>
+                                <p>Active Students</p>
+                            </div>
+                            <div style={{ textAlign: 'center' }}>
+                                <h4 style={{ color: '#48bb78', fontSize: '2rem' }}>
+                                    {classes.length}
+                                </h4>
+                                <p>Total Classes</p>
+                            </div>
+                            <div style={{ textAlign: 'center' }}>
+                                <h4 style={{ color: '#ed8936', fontSize: '2rem' }}>
+                                    {Object.keys(subjectCounts).length}
+                                </h4>
+                                <p>Subjects Taught</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // Render the App using React 18 createRoot API
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
