@@ -7,7 +7,7 @@
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
         * {
             margin: 0;
@@ -16,102 +16,16 @@
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
-            color: #333;
+            color: #1f2937;
         }
 
         .app {
             min-height: 100vh;
             display: flex;
             flex-direction: column;
-        }
-
-        .header {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            padding: 1rem 2rem;
-            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-        }
-
-        .header h1 {
-            color: #4a5568;
-            font-weight: 700;
-            font-size: 1.8rem;
-        }
-
-        .header .user-info {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            color: #718096;
-        }
-
-        .main-content {
-            flex: 1;
-            padding: 2rem;
-            display: flex;
-            gap: 2rem;
-            max-width: 1400px;
-            margin: 0 auto;
-            width: 100%;
-        }
-
-        .sidebar {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border-radius: 16px;
-            padding: 1.5rem;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-            width: 300px;
-            height: fit-content;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-
-        .sidebar h3 {
-            margin-bottom: 1rem;
-            color: #4a5568;
-            font-size: 1.2rem;
-        }
-
-        .nav-item {
-            padding: 0.75rem 1rem;
-            margin-bottom: 0.5rem;
-            border-radius: 12px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            font-weight: 500;
-        }
-
-        .nav-item:hover {
-            background: rgba(102, 126, 234, 0.1);
-            transform: translateX(4px);
-        }
-
-        .nav-item.active {
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            color: white;
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
-        }
-
-        .content-area {
-            flex: 1;
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border-radius: 16px;
-            padding: 2rem;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            overflow-y: auto;
-            max-height: calc(100vh - 8rem);
         }
 
         .login-container {
@@ -122,23 +36,32 @@
             padding: 2rem;
         }
 
-        .login-form {
+        .login-card {
             background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
+            backdrop-filter: blur(20px);
             padding: 3rem;
-            border-radius: 20px;
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            border-radius: 24px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
             width: 100%;
-            max-width: 400px;
+            max-width: 420px;
             border: 1px solid rgba(255, 255, 255, 0.2);
         }
 
-        .login-form h2 {
+        .login-header {
             text-align: center;
-            margin-bottom: 2rem;
-            color: #4a5568;
-            font-size: 2rem;
+            margin-bottom: 2.5rem;
+        }
+
+        .login-header h1 {
+            font-size: 2.5rem;
             font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 0.5rem;
+        }
+
+        .login-header p {
+            color: #6b7280;
+            font-size: 1.1rem;
         }
 
         .form-group {
@@ -148,36 +71,40 @@
         .form-group label {
             display: block;
             margin-bottom: 0.5rem;
-            color: #4a5568;
+            color: #374151;
             font-weight: 600;
+            font-size: 0.95rem;
         }
 
-        .form-group input {
+        .form-input {
             width: 100%;
-            padding: 0.75rem 1rem;
-            border: 2px solid #e2e8f0;
+            padding: 1rem;
+            border: 2px solid #e5e7eb;
             border-radius: 12px;
             font-size: 1rem;
             transition: all 0.3s ease;
             background: rgba(255, 255, 255, 0.8);
         }
 
-        .form-group input:focus {
+        .form-input:focus {
             outline: none;
             border-color: #667eea;
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            background: white;
         }
 
         .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
             padding: 0.75rem 1.5rem;
             border: none;
             border-radius: 12px;
             cursor: pointer;
             font-weight: 600;
+            font-size: 1rem;
             transition: all 0.3s ease;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
             text-decoration: none;
         }
 
@@ -185,262 +112,507 @@
             background: linear-gradient(135deg, #667eea, #764ba2);
             color: white;
             width: 100%;
-            justify-content: center;
+            padding: 1.25rem;
             font-size: 1.1rem;
-            padding: 1rem;
         }
 
         .btn-primary:hover {
             transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
         }
 
         .btn-secondary {
-            background: #e2e8f0;
-            color: #4a5568;
+            background: #f3f4f6;
+            color: #374151;
         }
 
         .btn-secondary:hover {
-            background: #cbd5e0;
+            background: #e5e7eb;
         }
 
-        .btn-success {
-            background: #48bb78;
+        .btn-sm {
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+        }
+
+        .error-message {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #dc2626;
+            padding: 1rem;
+            border-radius: 12px;
+            margin-bottom: 1.5rem;
+            font-size: 0.95rem;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            padding: 1.5rem 2rem;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .header h1 {
+            color: #1f2937;
+            font-weight: 700;
+            font-size: 1.75rem;
+            cursor: pointer;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            color: #6b7280;
+            font-weight: 500;
+        }
+
+        .main-container {
+            flex: 1;
+            display: flex;
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+            gap: 2rem;
+            padding: 2rem;
+        }
+
+        .sidebar {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            width: 280px;
+            height: fit-content;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .sidebar h3 {
+            margin-bottom: 1.5rem;
+            color: #1f2937;
+            font-size: 1.25rem;
+            font-weight: 700;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem 1.25rem;
+            margin-bottom: 0.5rem;
+            border-radius: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+            color: #6b7280;
+        }
+
+        .nav-item:hover {
+            background: rgba(102, 126, 234, 0.1);
+            color: #4338ca;
+            transform: translateX(4px);
+        }
+
+        .nav-item.active {
+            background: linear-gradient(135deg, #667eea, #764ba2);
             color: white;
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
         }
 
-        .btn-success:hover {
-            background: #38a169;
+        .nav-item i {
+            width: 20px;
+            text-align: center;
         }
 
-        .btn-danger {
-            background: #f56565;
-            color: white;
+        .content-area {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 2.5rem;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            overflow-y: auto;
+            max-height: calc(100vh - 8rem);
         }
 
-        .btn-danger:hover {
-            background: #e53e3e;
+        .page-header {
+            margin-bottom: 2rem;
+        }
+
+        .page-title {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 0.5rem;
+        }
+
+        .page-subtitle {
+            color: #6b7280;
+            font-size: 1.1rem;
         }
 
         .card {
             background: rgba(255, 255, 255, 0.8);
-            border-radius: 12px;
-            padding: 1.5rem;
-            margin-bottom: 1.5rem;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
             border: 1px solid rgba(255, 255, 255, 0.3);
             transition: all 0.3s ease;
         }
 
         .card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+            transform: translateY(-4px);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
         }
 
-        .card h3 {
-            margin-bottom: 1rem;
-            color: #4a5568;
-        }
-
-        .grid {
-            display: grid;
-            gap: 1.5rem;
-            margin-bottom: 2rem;
-        }
-
-        .grid-2 {
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-        }
-
-        .grid-3 {
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-        }
-
-        .table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 1rem;
-            background: white;
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-        }
-
-        .table th,
-        .table td {
-            padding: 0.75rem 1rem;
-            text-align: left;
-            border-bottom: 1px solid #e2e8f0;
-        }
-
-        .table th {
-            background: #f7fafc;
-            font-weight: 600;
-            color: #4a5568;
-        }
-
-        .table tr:hover {
-            background: #f7fafc;
-        }
-
-        .group-badge {
-            display: inline-block;
-            padding: 0.25rem 0.75rem;
-            border-radius: 20px;
-            font-size: 0.875rem;
-            font-weight: 600;
-            margin: 0.25rem;
-        }
-
-        .group-1 { background: #fed7d7; color: #c53030; }
-        .group-2 { background: #feebc8; color: #dd6b20; }
-        .group-3 { background: #fefcbf; color: #d69e2e; }
-        .group-4 { background: #c6f6d5; color: #38a169; }
-        .group-5 { background: #bee3f8; color: #3182ce; }
-        .group-6 { background: #e9d8fd; color: #805ad5; }
-
-        .seating-chart {
-            display: grid;
-            grid-template-columns: repeat(6, 1fr);
-            gap: 1rem;
-            margin-top: 1rem;
-        }
-
-        .seat {
-            aspect-ratio: 1;
-            border: 2px dashed #cbd5e0;
-            border-radius: 8px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            font-size: 0.75rem;
-            color: #718096;
-            transition: all 0.3s ease;
-        }
-
-        .seat.occupied {
-            border: 2px solid #667eea;
-            background: rgba(102, 126, 234, 0.1);
-            color: #4a5568;
-        }
-
-        .modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.5);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-        }
-
-        .modal-content {
-            background: white;
-            padding: 2rem;
-            border-radius: 16px;
-            max-width: 500px;
-            width: 90%;
-            max-height: 80vh;
-            overflow-y: auto;
-        }
-
-        .modal-header {
+        .card-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 1.5rem;
         }
 
-        .modal-header h3 {
-            margin: 0;
-            color: #4a5568;
-        }
-
-        .close-btn {
-            background: none;
-            border: none;
+        .card-title {
             font-size: 1.5rem;
-            cursor: pointer;
-            color: #718096;
-        }
-
-        .loading {
-            text-align: center;
-            padding: 2rem;
-            color: #718096;
-        }
-
-        .error {
-            background: #fed7d7;
-            color: #c53030;
-            padding: 1rem;
-            border-radius: 8px;
-            margin-bottom: 1rem;
-        }
-
-        .success {
-            background: #c6f6d5;
-            color: #38a169;
-            padding: 1rem;
-            border-radius: 8px;
-            margin-bottom: 1rem;
-        }
-
-        .action-buttons {
-            display: flex;
-            gap: 0.5rem;
-            margin-top: 1rem;
+            font-weight: 700;
+            color: #1f2937;
         }
 
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-            margin-bottom: 2rem;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 3rem;
         }
 
         .stat-card {
             background: linear-gradient(135deg, #667eea, #764ba2);
             color: white;
-            padding: 1.5rem;
-            border-radius: 12px;
+            padding: 2rem;
+            border-radius: 20px;
             text-align: center;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+            cursor: pointer;
+            transition: all 0.3s ease;
         }
 
-        .stat-card h4 {
-            font-size: 2rem;
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 15px 40px rgba(102, 126, 234, 0.4);
+        }
+
+        .stat-value {
+            font-size: 3rem;
+            font-weight: 700;
             margin-bottom: 0.5rem;
         }
 
-        .stat-card p {
+        .stat-label {
+            font-size: 1.1rem;
             opacity: 0.9;
+            font-weight: 500;
         }
 
-        @media (max-width: 768px) {
-            .main-content {
+        .table-container {
+            background: white;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .table th {
+            background: #f8fafc;
+            padding: 1.25rem 1.5rem;
+            text-align: left;
+            font-weight: 600;
+            color: #374151;
+            border-bottom: 2px solid #e5e7eb;
+        }
+
+        .table td {
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid #f3f4f6;
+        }
+
+        .table tr:hover {
+            background: #f8fafc;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            border-radius: 50px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        .badge-success {
+            background: #dcfce7;
+            color: #16a34a;
+        }
+
+        .badge-warning {
+            background: #fef3c7;
+            color: #d97706;
+        }
+
+        .badge-info {
+            background: #dbeafe;
+            color: #2563eb;
+        }
+
+        .badge-purple {
+            background: #f3e8ff;
+            color: #7c3aed;
+        }
+
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 4rem;
+            color: #6b7280;
+        }
+
+        .spinner {
+            border: 3px solid #f3f4f6;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin-right: 1rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Seating Chart Styles */
+        .seating-chart-container {
+            background: #f8fafc;
+            border-radius: 16px;
+            padding: 2rem;
+            margin: 2rem 0;
+            border: 2px solid #e2e8f0;
+            position: relative;
+            overflow: auto;
+        }
+
+        .classroom-grid {
+            position: relative;
+            background: linear-gradient(
+                to right,
+                #e2e8f0 1px,
+                transparent 1px
+            ),
+            linear-gradient(
+                to bottom,
+                #e2e8f0 1px,
+                transparent 1px
+            );
+            background-size: 60px 60px;
+            border-radius: 12px;
+            margin: 1rem 0;
+            min-height: 400px;
+            min-width: 900px;
+        }
+
+        .classroom-table {
+            position: absolute;
+            background: #ffffff;
+            border: 2px solid #3b82f6;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            padding: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .classroom-table:hover {
+            box-shadow: 0 8px 25px rgba(59, 130, 246, 0.25);
+            transform: translateY(-2px);
+        }
+
+        .table-label {
+            position: absolute;
+            top: -8px;
+            left: 8px;
+            background: #3b82f6;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .seat {
+            width: 50px;
+            height: 50px;
+            margin: 3px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            text-align: center;
+            line-height: 1.1;
+            overflow: hidden;
+        }
+
+        .seat.empty {
+            background: #f1f5f9;
+            border: 2px dashed #cbd5e1;
+            color: #64748b;
+        }
+
+        .seat.occupied {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            border: 2px solid #065f46;
+            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+        }
+
+        .seat.group-1 { background: linear-gradient(135deg, #ef4444, #dc2626); border-color: #991b1b; }
+        .seat.group-2 { background: linear-gradient(135deg, #f97316, #ea580c); border-color: #9a3412; }
+        .seat.group-3 { background: linear-gradient(135deg, #eab308, #ca8a04); border-color: #713f12; }
+        .seat.group-4 { background: linear-gradient(135deg, #22c55e, #16a34a); border-color: #14532d; }
+        .seat.group-5 { background: linear-gradient(135deg, #3b82f6, #2563eb); border-color: #1e3a8a; }
+        .seat.group-6 { background: linear-gradient(135deg, #8b5cf6, #7c3aed); border-color: #4c1d95; }
+
+        .seat:hover {
+            transform: scale(1.1);
+            z-index: 10;
+        }
+
+        .seat-tooltip {
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1f2937;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+            z-index: 20;
+            margin-bottom: 5px;
+        }
+
+        .seat-tooltip::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 5px solid transparent;
+            border-top-color: #1f2937;
+        }
+
+        .seat:hover .seat-tooltip {
+            opacity: 1;
+        }
+
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin: 1rem 0;
+            padding: 1rem;
+            background: white;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .legend-color {
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+            border: 2px solid #374151;
+        }
+
+        .no-layout-message {
+            text-align: center;
+            padding: 3rem;
+            background: #f8fafc;
+            border-radius: 16px;
+            border: 2px dashed #cbd5e1;
+            color: #64748b;
+        }
+
+        .no-layout-message i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            display: block;
+        }
+            .main-container {
                 flex-direction: column;
                 padding: 1rem;
+                gap: 1rem;
             }
 
             .sidebar {
                 width: 100%;
-                margin-bottom: 1rem;
             }
 
             .header {
                 padding: 1rem;
                 flex-direction: column;
                 gap: 1rem;
-                text-align: center;
             }
 
-            .seating-chart {
-                grid-template-columns: repeat(3, 1fr);
+            .stats-grid {
+                grid-template-columns: 1fr;
             }
         }
     </style>
@@ -449,24 +621,43 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useCallback } = React;
+        const { useState, useEffect } = React;
 
-        // API Configuration
+        // URL Routing Helper Functions
+        const updateURL = (path) => {
+            const newURL = `${window.location.origin}${window.location.pathname}#${path}`;
+            window.history.pushState({ path }, '', newURL);
+        };
+
+        const getURLPath = () => {
+            const hash = window.location.hash;
+            return hash ? hash.substring(1) : 'dashboard';
+        };
+
+        const parseURLPath = () => {
+            const path = getURLPath();
+            const parts = path.split('/');
+            return {
+                view: parts[0] || 'dashboard',
+                id: parts[1] || null,
+                action: parts[2] || null
+            };
+        };
+
         const API_BASE_URL = 'http://127.0.0.1:8000/api';
 
-        // API Helper Functions
         const api = {
             setToken: (token) => {
-                localStorage.setItem('access_token', token);
+                sessionStorage.setItem('access_token', token);
             },
             
             getToken: () => {
-                return localStorage.getItem('access_token');
+                return sessionStorage.getItem('access_token');
             },
             
             clearToken: () => {
-                localStorage.removeItem('access_token');
-                localStorage.removeItem('refresh_token');
+                sessionStorage.removeItem('access_token');
+                sessionStorage.removeItem('refresh_token');
             },
             
             request: async (endpoint, options = {}) => {
@@ -477,82 +668,52 @@
                     ...options.headers,
                 };
 
-                try {
-                    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-                        ...options,
-                        headers,
-                    });
+                const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+                    ...options,
+                    headers,
+                });
 
-                    if (!response.ok) {
-                        if (response.status === 401) {
-                            api.clearToken();
-                            window.location.reload();
-                        }
-                        throw new Error(`HTTP error! status: ${response.status}`);
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        api.clearToken();
+                        window.location.reload();
                     }
-
-                    return await response.json();
-                } catch (error) {
-                    console.error('API request failed:', error);
-                    throw error;
+                    throw new Error(`HTTP error! status: ${response.status}`);
                 }
+
+                return await response.json();
             },
 
             login: async (email, password) => {
-                try {
-                    console.log('Attempting login to:', `${API_BASE_URL}/token/`);
-                    const response = await fetch(`${API_BASE_URL}/token/`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ 
-                            username: email, 
-                            password: password,
-                            email: email 
-                        }),
-                    });
-                    
-                    console.log('Response status:', response.status);
-                    console.log('Response URL:', response.url);
-                    
-                    if (!response.ok) {
-                        const errorData = await response.json().catch(() => ({}));
-                        console.error('Login error:', response.status, errorData);
-                        throw new Error(errorData.detail || `Login failed: ${response.status}`);
-                    }
-                    
-                    const data = await response.json();
-                    api.setToken(data.access);
-                    localStorage.setItem('refresh_token', data.refresh);
-                    return data;
-                } catch (error) {
-                    console.error('Login request failed:', error);
-                    throw error;
+                const response = await fetch(`${API_BASE_URL}/token/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        email: email, 
+                        password: password
+                    }),
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.detail || `Login failed`);
                 }
+                
+                const data = await response.json();
+                api.setToken(data.access);
+                sessionStorage.setItem('refresh_token', data.refresh);
+                return data;
             },
 
             getClasses: () => api.request('/classes/'),
             getStudents: () => api.request('/students/'),
             getRoster: () => api.request('/roster/'),
-            getClassDetail: (id) => api.request(`/classes/${id}/`),
-            enrollStudent: (classId, studentId) => api.request(`/classes/${classId}/enroll/`, {
-                method: 'POST',
-                body: JSON.stringify({ student_id: studentId }),
-            }),
-            updateRoster: (rosterId, data) => api.request(`/roster/${rosterId}/`, {
-                method: 'PATCH',
-                body: JSON.stringify(data),
-            }),
-            createStudent: (data) => api.request('/students/', {
-                method: 'POST',
-                body: JSON.stringify(data),
-            }),
-            createClass: (data) => api.request('/classes/', {
-                method: 'POST',
-                body: JSON.stringify(data),
-            }),
+            getLayouts: () => api.request('/layouts/'),
+            getSeatingPeriods: () => api.request('/seating-periods/'),
+            getSeatingAssignments: () => api.request('/seating-assignments/'),
+            getSeatingChart: (classId) => api.request(`/classes/${classId}/seating_chart/`),
         };
 
-        // Login Component
         const Login = ({ onLogin }) => {
             const [email, setEmail] = useState('');
             const [password, setPassword] = useState('');
@@ -568,7 +729,6 @@
                     await api.login(email, password);
                     onLogin();
                 } catch (err) {
-                    console.error('Login error:', err);
                     setError(err.message || 'Login failed. Please check your credentials.');
                 } finally {
                     setLoading(false);
@@ -577,213 +737,467 @@
 
             return (
                 <div className="login-container">
-                    <form className="login-form" onSubmit={handleSubmit}>
-                        <h2><i className="fas fa-graduation-cap"></i> Student Management</h2>
-                        {error && <div className="error">{error}</div>}
-                        
-                        <div className="form-group">
-                            <label>Email</label>
-                            <input
-                                type="email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                required
-                                placeholder="bcranston@carlisle.k12.ma.us"
-                            />
+                    <div className="login-card">
+                        <div className="login-header">
+                            <h1><i className="fas fa-graduation-cap"></i></h1>
+                            <h1>Welcome Back</h1>
+                            <p>Sign in to your classroom management system</p>
                         </div>
                         
-                        <div className="form-group">
-                            <label>Password</label>
-                            <input
-                                type="password"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                required
-                                placeholder="Enter your password"
-                            />
-                        </div>
+                        {error && <div className="error-message">{error}</div>}
                         
-                        <button type="submit" className="btn btn-primary" disabled={loading}>
-                            {loading ? 'Signing in...' : 'Sign In'}
-                        </button>
-                    </form>
-                </div>
-            );
-        };
-
-        // Dashboard Component
-        const Dashboard = ({ classes, students }) => {
-            const totalEnrollment = classes.reduce((sum, cls) => sum + cls.current_enrollment, 0);
-            const averageClassSize = classes.length ? (totalEnrollment / classes.length).toFixed(1) : 0;
-
-            return (
-                <div>
-                    <h2>Dashboard</h2>
-                    
-                    <div className="stats-grid">
-                        <div className="stat-card">
-                            <h4>{classes.length}</h4>
-                            <p>Total Classes</p>
-                        </div>
-                        <div className="stat-card">
-                            <h4>{students.length}</h4>
-                            <p>Total Students</p>
-                        </div>
-                        <div className="stat-card">
-                            <h4>{totalEnrollment}</h4>
-                            <p>Total Enrollments</p>
-                        </div>
-                        <div className="stat-card">
-                            <h4>{averageClassSize}</h4>
-                            <p>Avg Class Size</p>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-2">
-                        <div className="card">
-                            <h3>Recent Classes</h3>
-                            {classes.slice(0, 5).map(cls => (
-                                <div key={cls.id} style={{ padding: '0.5rem 0', borderBottom: '1px solid #e2e8f0' }}>
-                                    <strong>{cls.name}</strong> - {cls.subject}
-                                    <span style={{ float: 'right', color: '#718096' }}>
-                                        {cls.current_enrollment} students
-                                    </span>
-                                </div>
-                            ))}
-                        </div>
-
-                        <div className="card">
-                            <h3>Quick Actions</h3>
-                            <div className="grid">
-                                <button className="btn btn-primary">
-                                    <i className="fas fa-plus"></i> Add Student
-                                </button>
-                                <button className="btn btn-secondary">
-                                    <i className="fas fa-users"></i> Create Class
-                                </button>
-                                <button className="btn btn-success">
-                                    <i className="fas fa-chart-bar"></i> View Reports
-                                </button>
+                        <form onSubmit={handleSubmit}>
+                            <div className="form-group">
+                                <label>Email Address</label>
+                                <input
+                                    type="email"
+                                    className="form-input"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    required
+                                    placeholder="teacher@school.edu"
+                                />
                             </div>
-                        </div>
-                    </div>
-                </div>
-            );
-        };
-
-        // Classes Component
-        const Classes = ({ classes, onClassSelect }) => {
-            return (
-                <div>
-                    <h2>Classes</h2>
-                    <div className="grid grid-2">
-                        {classes.map(cls => (
-                            <div key={cls.id} className="card" onClick={() => onClassSelect(cls)}>
-                                <h3>{cls.name}</h3>
-                                <p><strong>Subject:</strong> {cls.subject}</p>
-                                {cls.grade_level && <p><strong>Grade:</strong> {cls.grade_level}</p>}
-                                <p><strong>Enrollment:</strong> {cls.current_enrollment} students</p>
-                                <div className="action-buttons">
-                                    <button className="btn btn-primary">
-                                        <i className="fas fa-eye"></i> View Details
-                                    </button>
-                                </div>
+                            
+                            <div className="form-group">
+                                <label>Password</label>
+                                <input
+                                    type="password"
+                                    className="form-input"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    required
+                                    placeholder="Enter your password"
+                                />
                             </div>
-                        ))}
+                            
+                            <button type="submit" className="btn btn-primary" disabled={loading}>
+                                {loading ? (
+                                    <>
+                                        <div className="spinner"></div>
+                                        Signing in...
+                                    </>
+                                ) : (
+                                    <>
+                                        <i className="fas fa-sign-in-alt"></i>
+                                        Sign In
+                                    </>
+                                )}
+                            </button>
+                        </form>
                     </div>
                 </div>
             );
         };
 
-        // Class Detail Component
-        const ClassDetail = ({ classData, onBack }) => {
-            const [roster, setRoster] = useState([]);
+        // Seating Chart Visualization Component
+        const SeatingChart = ({ classId, className }) => {
+            const [chartData, setChartData] = useState(null);
             const [loading, setLoading] = useState(true);
+            const [error, setError] = useState('');
 
             useEffect(() => {
-                const fetchClassDetail = async () => {
-                    try {
-                        const detail = await api.getClassDetail(classData.id);
-                        setRoster(detail.roster || []);
-                    } catch (error) {
-                        console.error('Error fetching class detail:', error);
-                    } finally {
-                        setLoading(false);
-                    }
-                };
+                if (classId) {
+                    fetchSeatingChart();
+                }
+            }, [classId]);
 
-                fetchClassDetail();
-            }, [classData.id]);
-
-            const getGroupBadge = (groupNumber) => {
-                if (!groupNumber) return null;
-                return (
-                    <span className={`group-badge group-${groupNumber}`}>
-                        Group {groupNumber}
-                    </span>
-                );
+            const fetchSeatingChart = async () => {
+                try {
+                    setLoading(true);
+                    const data = await api.getSeatingChart(classId);
+                    setChartData(data);
+                    setError('');
+                } catch (err) {
+                    setError('Unable to load seating chart. Class may not have a layout or active seating period.');
+                    console.error('Error fetching seating chart:', err);
+                } finally {
+                    setLoading(false);
+                }
             };
 
             if (loading) {
-                return <div className="loading">Loading class details...</div>;
+                return <div className="loading"><div className="spinner"></div>Loading seating chart...</div>;
             }
+
+            if (error) {
+                return (
+                    <div className="no-layout-message">
+                        <i className="fas fa-exclamation-triangle"></i>
+                        <h3>No Seating Chart Available</h3>
+                        <p>{error}</p>
+                        <p>Please ensure the class has a classroom layout and an active seating period.</p>
+                    </div>
+                );
+            }
+
+            if (!chartData) {
+                return (
+                    <div className="no-layout-message">
+                        <i className="fas fa-chair"></i>
+                        <h3>No Seating Data</h3>
+                        <p>This class doesn't have seating chart data available.</p>
+                    </div>
+                );
+            }
+
+            const { room_width, room_height, tables, obstacles } = chartData;
+
+            // Calculate grid size and scaling
+            const gridSize = 60; // pixels per grid unit (increased from 40)
+            const containerWidth = room_width * gridSize;
+            const containerHeight = room_height * gridSize;
+
+            // Helper function to get display name for seat
+            const getDisplayName = (student) => {
+                if (!student || !student.name) return '';
+                
+                const firstName = student.name.split(' ')[0];
+                // If name is longer than 8 characters, truncate and add "..."
+                if (firstName.length > 8) {
+                    return firstName.substring(0, 6) + '..';
+                }
+                return firstName;
+            };
+
+            // Get unique groups for legend
+            const getUniqueGroups = () => {
+                const groups = new Set();
+                tables.forEach(table => {
+                    table.seats.forEach(seat => {
+                        if (seat.student && seat.student.group_number) {
+                            groups.add(seat.student.group_number);
+                        }
+                    });
+                });
+                return Array.from(groups).sort();
+            };
+
+            const uniqueGroups = getUniqueGroups();
 
             return (
                 <div>
-                    <div style={{ display: 'flex', alignItems: 'center', marginBottom: '2rem' }}>
-                        <button className="btn btn-secondary" onClick={onBack}>
-                            <i className="fas fa-arrow-left"></i> Back
-                        </button>
-                        <h2 style={{ marginLeft: '1rem' }}>{classData.name}</h2>
+                    <div className="card-header">
+                        <h3 className="card-title">Seating Chart - {className}</h3>
                     </div>
 
-                    <div className="grid grid-2">
-                        <div className="card">
-                            <h3>Class Information</h3>
-                            <p><strong>Subject:</strong> {classData.subject}</p>
-                            {classData.grade_level && <p><strong>Grade:</strong> {classData.grade_level}</p>}
-                            <p><strong>Teacher:</strong> {classData.teacher_name}</p>
-                            <p><strong>Enrollment:</strong> {classData.current_enrollment} students</p>
+                    {/* Legend */}
+                    <div className="legend">
+                        <div className="legend-item">
+                            <div className="legend-color" style={{ background: '#f1f5f9', border: '2px dashed #cbd5e1' }}></div>
+                            <span>Empty Seat</span>
                         </div>
+                        <div className="legend-item">
+                            <div className="legend-color" style={{ background: 'linear-gradient(135deg, #10b981, #059669)' }}></div>
+                            <span>No Group</span>
+                        </div>
+                        {uniqueGroups.map(groupNum => {
+                            const colors = {
+                                1: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                                2: 'linear-gradient(135deg, #f97316, #ea580c)',
+                                3: 'linear-gradient(135deg, #eab308, #ca8a04)',
+                                4: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                                5: 'linear-gradient(135deg, #3b82f6, #2563eb)',
+                                6: 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
+                            };
+                            return (
+                                <div key={groupNum} className="legend-item">
+                                    <div className="legend-color" style={{ background: colors[groupNum] || '#6b7280' }}></div>
+                                    <span>Group {groupNum}</span>
+                                </div>
+                            );
+                        })}
+                    </div>
 
-                        <div className="card">
-                            <h3>Actions</h3>
-                            <div className="grid">
-                                <button className="btn btn-primary">
-                                    <i className="fas fa-user-plus"></i> Enroll Student
-                                </button>
-                                <button className="btn btn-secondary">
-                                    <i className="fas fa-users"></i> Manage Groups
-                                </button>
-                                <button className="btn btn-success">
-                                    <i className="fas fa-chair"></i> Seating Chart
-                                </button>
+                    {/* Classroom Grid */}
+                    <div className="seating-chart-container">
+                        <div 
+                            className="classroom-grid"
+                            style={{ 
+                                width: containerWidth,
+                                height: containerHeight,
+                                position: 'relative'
+                            }}
+                        >
+                            {/* Render Obstacles */}
+                            {obstacles && obstacles.map(obstacle => (
+                                <div
+                                    key={obstacle.id}
+                                    className="classroom-obstacle"
+                                    style={{
+                                        left: obstacle.x_position * gridSize,
+                                        top: obstacle.y_position * gridSize,
+                                        width: obstacle.width * gridSize,
+                                        height: obstacle.height * gridSize,
+                                        backgroundColor: obstacle.color,
+                                        position: 'absolute',
+                                        borderRadius: '8px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        fontSize: '0.8rem',
+                                        fontWeight: '600',
+                                        color: 'white',
+                                        textShadow: '0 1px 2px rgba(0, 0, 0, 0.5)',
+                                    }}
+                                >
+                                    {obstacle.name}
+                                </div>
+                            ))}
+
+                            {/* Render Tables */}
+                            {tables.map(table => (
+                                <div
+                                    key={table.id}
+                                    className={`classroom-table ${table.table_shape}`}
+                                    style={{
+                                        left: table.x_position * gridSize,
+                                        top: table.y_position * gridSize,
+                                        width: table.width * gridSize,
+                                        height: table.height * gridSize,
+                                        transform: `rotate(${table.rotation}deg)`,
+                                    }}
+                                >
+                                    <div className="table-label">
+                                        {table.table_name || `Table ${table.table_number}`}
+                                    </div>
+
+                                    {/* Render Seats */}
+                                    {table.seats.map(seat => {
+                                        const student = seat.student;
+                                        const isEmpty = !student;
+                                        const groupClass = student?.group_number ? `group-${student.group_number}` : '';
+                                        
+                                        return (
+                                            <div
+                                                key={seat.id}
+                                                className={`seat ${isEmpty ? 'empty' : 'occupied'} ${groupClass}`}
+                                                style={{
+                                                    position: 'absolute',
+                                                    left: `${seat.relative_x * 100}%`,
+                                                    top: `${seat.relative_y * 100}%`,
+                                                    transform: 'translate(-50%, -50%)',
+                                                }}
+                                            >
+                                                {isEmpty ? (
+                                                    seat.seat_number
+                                                ) : (
+                                                    getDisplayName(student)
+                                                )}
+                                                
+                                                {!isEmpty && (
+                                                    <div className="seat-tooltip">
+                                                        <strong>{student.name}</strong><br/>
+                                                        Seat: {seat.absolute_seat_id}<br/>
+                                                        {student.group_number && (
+                                                            <>Group {student.group_number}<br/></>
+                                                        )}
+                                                        {student.group_role && (
+                                                            <>Role: {student.group_role}</>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Statistics */}
+                    <div className="stats-grid" style={{ marginTop: '2rem' }}>
+                        <div className="stat-card">
+                            <div className="stat-value">{tables.length}</div>
+                            <div className="stat-label">Tables</div>
+                        </div>
+                        <div className="stat-card">
+                            <div className="stat-value">
+                                {tables.reduce((total, table) => total + table.seats.length, 0)}
                             </div>
+                            <div className="stat-label">Total Seats</div>
+                        </div>
+                        <div className="stat-card">
+                            <div className="stat-value">
+                                {tables.reduce((total, table) => 
+                                    total + table.seats.filter(seat => seat.student).length, 0
+                                )}
+                            </div>
+                            <div className="stat-label">Occupied</div>
+                        </div>
+                        <div className="stat-card">
+                            <div className="stat-value">{uniqueGroups.length}</div>
+                            <div className="stat-label">Groups</div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const Dashboard = ({ data, navigateTo }) => {
+            const { classes, students, layouts, periods, assignments } = data;
+            
+            const totalEnrollment = classes?.reduce((sum, cls) => sum + (cls.current_enrollment || 0), 0) || 0;
+            const activeStudents = students?.filter(s => s.is_active).length || 0;
+
+            return (
+                <div>
+                    <div className="page-header">
+                        <h1 className="page-title">Dashboard</h1>
+                        <p className="page-subtitle">Overview of your classroom management system</p>
+                    </div>
+
+                    <div className="stats-grid">
+                        <div 
+                            className="stat-card"
+                            onClick={() => navigateTo('classes')}
+                        >
+                            <div className="stat-value">{classes?.length || 0}</div>
+                            <div className="stat-label">Total Classes</div>
+                        </div>
+                        <div 
+                            className="stat-card"
+                            onClick={() => navigateTo('students')}
+                        >
+                            <div className="stat-value">{activeStudents}</div>
+                            <div className="stat-label">Active Students</div>
+                        </div>
+                        <div className="stat-card">
+                            <div className="stat-value">{totalEnrollment}</div>
+                            <div className="stat-label">Total Enrollments</div>
+                        </div>
+                        <div 
+                            className="stat-card"
+                            onClick={() => navigateTo('layouts')}
+                        >
+                            <div className="stat-value">{layouts?.length || 0}</div>
+                            <div className="stat-label">Classroom Layouts</div>
                         </div>
                     </div>
 
                     <div className="card">
-                        <h3>Class Roster</h3>
+                        <div className="card-header">
+                            <h3 className="card-title">Recent Classes</h3>
+                            <button 
+                                className="btn btn-secondary"
+                                onClick={() => navigateTo('classes')}
+                            >
+                                View All Classes
+                            </button>
+                        </div>
+                        <div className="table-container">
+                            <table className="table">
+                                <thead>
+                                    <tr>
+                                        <th>Class Name</th>
+                                        <th>Subject</th>
+                                        <th>Grade</th>
+                                        <th>Enrollment</th>
+                                        <th>Current Period</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {classes?.slice(0, 5).map(cls => (
+                                        <tr key={cls.id}>
+                                            <td><strong>{cls.name}</strong></td>
+                                            <td>{cls.subject}</td>
+                                            <td>{cls.grade_level || 'N/A'}</td>
+                                            <td>
+                                                <span className="badge badge-info">
+                                                    {cls.current_enrollment} students
+                                                </span>
+                                            </td>
+                                            <td>
+                                                {cls.current_seating_period ? (
+                                                    <span className="badge badge-success">
+                                                        {cls.current_seating_period.name}
+                                                    </span>
+                                                ) : (
+                                                    <span className="badge badge-warning">No active period</span>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const Classes = ({ data, navigateTo }) => {
+            const { classes } = data;
+
+            if (!classes) {
+                return <div className="loading"><div className="spinner"></div>Loading classes...</div>;
+            }
+
+            return (
+                <div>
+                    <div className="page-header">
+                        <h1 className="page-title">Classes</h1>
+                        <p className="page-subtitle">Manage your classroom assignments and layouts</p>
+                    </div>
+
+                    <div className="table-container">
                         <table className="table">
                             <thead>
                                 <tr>
-                                    <th>Student</th>
-                                    <th>Student ID</th>
-                                    <th>Group</th>
-                                    <th>Role</th>
-                                    <th>Seat</th>
-                                    <th>Enrolled</th>
+                                    <th>Class Name</th>
+                                    <th>Subject</th>
+                                    <th>Grade Level</th>
+                                    <th>Enrollment</th>
+                                    <th>Layout</th>
+                                    <th>Current Period</th>
+                                    <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {roster.map(entry => (
-                                    <tr key={entry.id}>
-                                        <td>{entry.student_name}</td>
-                                        <td>{entry.student_id}</td>
-                                        <td>{getGroupBadge(entry.group_number)}</td>
-                                        <td>{entry.group_role || '-'}</td>
-                                        <td>{entry.seat_number || '-'}</td>
-                                        <td>{new Date(entry.enrollment_date).toLocaleDateString()}</td>
+                                {classes.map(cls => (
+                                    <tr key={cls.id}>
+                                        <td><strong>{cls.name}</strong></td>
+                                        <td>{cls.subject}</td>
+                                        <td>{cls.grade_level || 'N/A'}</td>
+                                        <td>
+                                            <span className="badge badge-info">
+                                                {cls.current_enrollment} students
+                                            </span>
+                                        </td>
+                                        <td>
+                                            {cls.classroom_layout ? (
+                                                <span className="badge badge-success">
+                                                    {cls.classroom_layout.name}
+                                                </span>
+                                            ) : (
+                                                <span className="badge badge-warning">No layout</span>
+                                            )}
+                                        </td>
+                                        <td>
+                                            {cls.current_seating_period ? (
+                                                <span className="badge badge-purple">
+                                                    {cls.current_seating_period.name}
+                                                </span>
+                                            ) : (
+                                                <span className="badge badge-warning">No period</span>
+                                            )}
+                                        </td>
+                                        <td>
+                                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                                <button 
+                                                    className="btn btn-secondary btn-sm"
+                                                    onClick={() => navigateTo('classes', { id: cls.id, action: 'chart' })}
+                                                    disabled={!cls.classroom_layout || !cls.current_seating_period}
+                                                    title={!cls.classroom_layout || !cls.current_seating_period ? 
+                                                        'Requires layout and active seating period' : 'View seating chart'}
+                                                >
+                                                    <i className="fas fa-chair"></i> Chart
+                                                </button>
+                                                <button className="btn btn-secondary btn-sm">
+                                                    <i className="fas fa-edit"></i> Manage
+                                                </button>
+                                            </div>
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -793,36 +1207,49 @@
             );
         };
 
-        // Students Component
-        const Students = ({ students }) => {
+        const Students = ({ data, navigateTo }) => {
+            const { students } = data;
+
+            if (!students) {
+                return <div className="loading"><div className="spinner"></div>Loading students...</div>;
+            }
+
             return (
                 <div>
-                    <h2>Students</h2>
-                    <div className="card">
+                    <div className="page-header">
+                        <h1 className="page-title">Students</h1>
+                        <p className="page-subtitle">View and manage student information</p>
+                    </div>
+
+                    <div className="table-container">
                         <table className="table">
                             <thead>
                                 <tr>
                                     <th>Student ID</th>
                                     <th>Name</th>
                                     <th>Email</th>
-                                    <th>Enrolled</th>
                                     <th>Status</th>
+                                    <th>Enrolled</th>
                                     <th>Classes</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {students.map(student => (
                                     <tr key={student.id}>
-                                        <td>{student.student_id}</td>
+                                        <td><strong>{student.student_id}</strong></td>
                                         <td>{student.first_name} {student.last_name}</td>
-                                        <td>{student.email || '-'}</td>
-                                        <td>{new Date(student.enrollment_date).toLocaleDateString()}</td>
+                                        <td>{student.email || 'N/A'}</td>
                                         <td>
-                                            <span className={`group-badge ${student.is_active ? 'group-4' : 'group-1'}`}>
+                                            <span className={`badge ${student.is_active ? 'badge-success' : 'badge-warning'}`}>
                                                 {student.is_active ? 'Active' : 'Inactive'}
                                             </span>
                                         </td>
-                                        <td>{student.active_classes?.length || 0}</td>
+                                        <td>{new Date(student.enrollment_date).toLocaleDateString()}</td>
+                                        <td>
+                                            <span className="badge badge-info">
+                                                {student.active_classes?.length || 0} classes
+                                            </span>
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -832,19 +1259,195 @@
             );
         };
 
-        // Main App Component
+        const Seating = ({ data, navigateTo }) => {
+            const { periods, assignments } = data;
+
+            if (!periods || !assignments) {
+                return <div className="loading"><div className="spinner"></div>Loading seating data...</div>;
+            }
+
+            const activePeriods = periods.filter(p => p.is_active);
+
+            return (
+                <div>
+                    <div className="page-header">
+                        <h1 className="page-title">Seating Management</h1>
+                        <p className="page-subtitle">Manage seating periods and assignments</p>
+                    </div>
+
+                    <div className="card">
+                        <div className="card-header">
+                            <h3 className="card-title">Active Seating Periods</h3>
+                        </div>
+                        <div className="table-container">
+                            <table className="table">
+                                <thead>
+                                    <tr>
+                                        <th>Period Name</th>
+                                        <th>Class</th>
+                                        <th>Start Date</th>
+                                        <th>Assignments</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {activePeriods.map(period => {
+                                        const periodAssignments = assignments.filter(a => a.seating_period === period.id);
+                                        return (
+                                            <tr key={period.id}>
+                                                <td><strong>{period.name}</strong></td>
+                                                <td>{period.class_assigned?.name || 'Unknown'}</td>
+                                                <td>{new Date(period.start_date).toLocaleDateString()}</td>
+                                                <td>
+                                                    <span className="badge badge-info">
+                                                        {periodAssignments.length} assignments
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    <span className="badge badge-success">Active</span>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div className="card">
+                        <div className="card-header">
+                            <h3 className="card-title">Recent Seating Assignments</h3>
+                        </div>
+                        <div className="table-container">
+                            <table className="table">
+                                <thead>
+                                    <tr>
+                                        <th>Student</th>
+                                        <th>Seat ID</th>
+                                        <th>Group</th>
+                                        <th>Role</th>
+                                        <th>Period</th>
+                                        <th>Assigned</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {assignments.slice(0, 10).map(assignment => (
+                                        <tr key={assignment.id}>
+                                            <td><strong>{assignment.student_name}</strong></td>
+                                            <td>
+                                                <span className="badge badge-info">{assignment.seat_id}</span>
+                                            </td>
+                                            <td>
+                                                {assignment.group_number ? (
+                                                    <span className="badge badge-purple">
+                                                        Group {assignment.group_number}
+                                                    </span>
+                                                ) : 'N/A'}
+                                            </td>
+                                            <td>{assignment.group_role || 'N/A'}</td>
+                                            <td>{assignment.seating_period?.name || 'Unknown'}</td>
+                                            <td>{new Date(assignment.created_at).toLocaleDateString()}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const Layouts = ({ data, navigateTo }) => {
+            const { layouts } = data;
+
+            if (!layouts) {
+                return <div className="loading"><div className="spinner"></div>Loading layouts...</div>;
+            }
+
+            return (
+                <div>
+                    <div className="page-header">
+                        <h1 className="page-title">Classroom Layouts</h1>
+                        <p className="page-subtitle">Manage physical classroom arrangements</p>
+                    </div>
+
+                    <div className="table-container">
+                        <table className="table">
+                            <thead>
+                                <tr>
+                                    <th>Layout Name</th>
+                                    <th>Dimensions</th>
+                                    <th>Tables</th>
+                                    <th>Total Seats</th>
+                                    <th>Template</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {layouts.map(layout => (
+                                    <tr key={layout.id}>
+                                        <td><strong>{layout.name}</strong></td>
+                                        <td>{layout.room_width} × {layout.room_height}</td>
+                                        <td>
+                                            <span className="badge badge-info">
+                                                {layout.total_tables} tables
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span className="badge badge-success">
+                                                {layout.total_seats} seats
+                                            </span>
+                                        </td>
+                                        <td>{layout.created_by_name}</td>
+                                        <td>
+                                            {layout.is_template ? (
+                                                <span className="badge badge-purple">Template</span>
+                                            ) : (
+                                                <span className="badge badge-warning">Private</span>
+                                            )}
+                                        </td>
+                                        <td>
+                                            <button className="btn btn-secondary btn-sm">
+                                                <i className="fas fa-eye"></i> View
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            );
+        };
+
         const App = () => {
             const [isAuthenticated, setIsAuthenticated] = useState(false);
             const [loading, setLoading] = useState(true);
             const [currentView, setCurrentView] = useState('dashboard');
-            const [selectedClass, setSelectedClass] = useState(null);
-            const [classes, setClasses] = useState([]);
-            const [students, setStudents] = useState([]);
+            const [currentParams, setCurrentParams] = useState({});
+            const [data, setData] = useState({});
 
+            // Handle URL changes (back/forward buttons)
+            useEffect(() => {
+                const handlePopState = (event) => {
+                    const urlInfo = parseURLPath();
+                    setCurrentView(urlInfo.view);
+                    setCurrentParams({ id: urlInfo.id, action: urlInfo.action });
+                };
+
+                window.addEventListener('popstate', handlePopState);
+                return () => window.removeEventListener('popstate', handlePopState);
+            }, []);
+
+            // Initialize app based on URL
             useEffect(() => {
                 const token = api.getToken();
                 if (token) {
                     setIsAuthenticated(true);
+                    // Set initial view from URL
+                    const urlInfo = parseURLPath();
+                    setCurrentView(urlInfo.view);
+                    setCurrentParams({ id: urlInfo.id, action: urlInfo.action });
                     fetchData();
                 } else {
                     setLoading(false);
@@ -853,12 +1456,23 @@
 
             const fetchData = async () => {
                 try {
-                    const [classesData, studentsData] = await Promise.all([
+                    const [classes, students, layouts, periods, assignments, roster] = await Promise.all([
                         api.getClasses(),
                         api.getStudents(),
+                        api.getLayouts(),
+                        api.getSeatingPeriods(),
+                        api.getSeatingAssignments(),
+                        api.getRoster(),
                     ]);
-                    setClasses(classesData.results || classesData);
-                    setStudents(studentsData.results || studentsData);
+                    
+                    setData({
+                        classes: classes.results || classes,
+                        students: students.results || students,
+                        layouts: layouts.results || layouts,
+                        periods: periods.results || periods,
+                        assignments: assignments.results || assignments,
+                        roster: roster.results || roster,
+                    });
                 } catch (error) {
                     console.error('Error fetching data:', error);
                 } finally {
@@ -868,6 +1482,10 @@
 
             const handleLogin = () => {
                 setIsAuthenticated(true);
+                // Redirect to dashboard after login
+                updateURL('dashboard');
+                setCurrentView('dashboard');
+                setCurrentParams({});
                 fetchData();
             };
 
@@ -875,173 +1493,161 @@
                 api.clearToken();
                 setIsAuthenticated(false);
                 setCurrentView('dashboard');
-                setSelectedClass(null);
+                setCurrentParams({});
+                setData({});
+                updateURL('dashboard');
             };
 
-            const handleClassSelect = (classObj) => {
-                setSelectedClass(classObj);
-                setCurrentView('class-detail');
-            };
-
-            const navigateTo = (view) => {
+            const navigateTo = (view, params = {}) => {
                 setCurrentView(view);
-                setSelectedClass(null);
+                setCurrentParams(params);
+                
+                // Build URL path
+                let path = view;
+                if (params.id) {
+                    path += `/${params.id}`;
+                    if (params.action) {
+                        path += `/${params.action}`;
+                    }
+                }
+                updateURL(path);
             };
 
             if (loading) {
-                return <div className="loading">Loading...</div>;
+                return (
+                    <div className="loading">
+                        <div className="spinner"></div>
+                        Loading your classroom...
+                    </div>
+                );
             }
 
             if (!isAuthenticated) {
                 return <Login onLogin={handleLogin} />;
             }
 
+            const renderCurrentView = () => {
+                switch (currentView) {
+                    case 'dashboard':
+                        return <Dashboard data={data} navigateTo={navigateTo} />;
+                    case 'classes':
+                        if (currentParams.action === 'chart' && currentParams.id) {
+                            const selectedClass = data.classes?.find(c => c.id.toString() === currentParams.id);
+                            return (
+                                <div>
+                                    <div className="page-header">
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                            <button 
+                                                className="btn btn-secondary" 
+                                                onClick={() => navigateTo('classes')}
+                                            >
+                                                <i className="fas fa-arrow-left"></i> Back to Classes
+                                            </button>
+                                            <div>
+                                                <h1 className="page-title">Seating Chart</h1>
+                                                <p className="page-subtitle">
+                                                    {selectedClass ? `${selectedClass.name} - ${selectedClass.subject}` : `Class ID: ${currentParams.id}`}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="card">
+                                        <SeatingChart 
+                                            classId={currentParams.id} 
+                                            className={selectedClass?.name || 'Unknown Class'}
+                                        />
+                                    </div>
+                                </div>
+                            );
+                        }
+                        return <Classes data={data} navigateTo={navigateTo} />;
+                    case 'students':
+                        return <Students data={data} navigateTo={navigateTo} />;
+                    case 'seating':
+                        return <Seating data={data} navigateTo={navigateTo} />;
+                    case 'layouts':
+                        return <Layouts data={data} navigateTo={navigateTo} />;
+                    default:
+                        return <Dashboard data={data} navigateTo={navigateTo} />;
+                }
+            };
+
+            const getNavItemClass = (view) => {
+                return `nav-item ${currentView === view ? 'active' : ''}`;
+            };
+
             return (
                 <div className="app">
                     <header className="header">
-                        <h1><i className="fas fa-graduation-cap"></i> Student Management System</h1>
-                        <div className="user-info">
-                            <span>Welcome, Teacher</span>
+                        <div className="header-left">
+                            <h1 onClick={() => navigateTo('dashboard')}>
+                                <i className="fas fa-graduation-cap"></i> Classroom Manager
+                            </h1>
+                        </div>
+                        <div className="header-right">
+                            <div className="user-info">
+                                <i className="fas fa-user-circle"></i>
+                                <span>Welcome, Teacher</span>
+                            </div>
                             <button className="btn btn-secondary" onClick={handleLogout}>
                                 <i className="fas fa-sign-out-alt"></i> Logout
                             </button>
                         </div>
                     </header>
 
-                    <div className="main-content">
+                    <div className="main-container">
                         <nav className="sidebar">
                             <h3>Navigation</h3>
+                            
                             <div 
-                                className={`nav-item ${currentView === 'dashboard' ? 'active' : ''}`}
+                                className={getNavItemClass('dashboard')}
                                 onClick={() => navigateTo('dashboard')}
                             >
                                 <i className="fas fa-tachometer-alt"></i>
                                 Dashboard
                             </div>
+                            
                             <div 
-                                className={`nav-item ${currentView === 'classes' ? 'active' : ''}`}
+                                className={getNavItemClass('classes')}
                                 onClick={() => navigateTo('classes')}
                             >
                                 <i className="fas fa-chalkboard-teacher"></i>
                                 Classes
                             </div>
+                            
                             <div 
-                                className={`nav-item ${currentView === 'students' ? 'active' : ''}`}
+                                className={getNavItemClass('students')}
                                 onClick={() => navigateTo('students')}
                             >
                                 <i className="fas fa-users"></i>
                                 Students
                             </div>
+                            
                             <div 
-                                className={`nav-item ${currentView === 'reports' ? 'active' : ''}`}
-                                onClick={() => navigateTo('reports')}
+                                className={getNavItemClass('seating')}
+                                onClick={() => navigateTo('seating')}
                             >
-                                <i className="fas fa-chart-bar"></i>
-                                Reports
+                                <i className="fas fa-chair"></i>
+                                Seating Charts
+                            </div>
+                            
+                            <div 
+                                className={getNavItemClass('layouts')}
+                                onClick={() => navigateTo('layouts')}
+                            >
+                                <i className="fas fa-th-large"></i>
+                                Classroom Layouts
                             </div>
                         </nav>
 
                         <main className="content-area">
-                            {currentView === 'dashboard' && (
-                                <Dashboard classes={classes} students={students} />
-                            )}
-                            {currentView === 'classes' && (
-                                <Classes classes={classes} onClassSelect={handleClassSelect} />
-                            )}
-                            {currentView === 'class-detail' && selectedClass && (
-                                <ClassDetail 
-                                    classData={selectedClass} 
-                                    onBack={() => navigateTo('classes')} 
-                                />
-                            )}
-                            {currentView === 'students' && (
-                                <Students students={students} />
-                            )}
-                            {currentView === 'reports' && (
-                                <Reports classes={classes} students={students} />
-                            )}
+                            {renderCurrentView()}
                         </main>
                     </div>
                 </div>
             );
         };
 
-        // Reports Component
-        const Reports = ({ classes, students }) => {
-            const subjectCounts = classes.reduce((acc, cls) => {
-                acc[cls.subject] = (acc[cls.subject] || 0) + 1;
-                return acc;
-            }, {});
-
-            const enrollmentByClass = classes.map(cls => ({
-                name: cls.name,
-                enrollment: cls.current_enrollment
-            })).sort((a, b) => b.enrollment - a.enrollment);
-
-            return (
-                <div>
-                    <h2>Reports</h2>
-                    
-                    <div className="grid grid-2">
-                        <div className="card">
-                            <h3>Classes by Subject</h3>
-                            {Object.entries(subjectCounts).map(([subject, count]) => (
-                                <div key={subject} style={{ 
-                                    display: 'flex', 
-                                    justifyContent: 'space-between', 
-                                    padding: '0.5rem 0',
-                                    borderBottom: '1px solid #e2e8f0'
-                                }}>
-                                    <span>{subject}</span>
-                                    <strong>{count} classes</strong>
-                                </div>
-                            ))}
-                        </div>
-
-                        <div className="card">
-                            <h3>Enrollment by Class</h3>
-                            {enrollmentByClass.slice(0, 10).map((cls, index) => (
-                                <div key={index} style={{ 
-                                    display: 'flex', 
-                                    justifyContent: 'space-between', 
-                                    padding: '0.5rem 0',
-                                    borderBottom: '1px solid #e2e8f0'
-                                }}>
-                                    <span>{cls.name}</span>
-                                    <strong>{cls.enrollment} students</strong>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    <div className="card">
-                        <h3>System Overview</h3>
-                        <div className="grid grid-3">
-                            <div style={{ textAlign: 'center' }}>
-                                <h4 style={{ color: '#667eea', fontSize: '2rem' }}>
-                                    {students.filter(s => s.is_active).length}
-                                </h4>
-                                <p>Active Students</p>
-                            </div>
-                            <div style={{ textAlign: 'center' }}>
-                                <h4 style={{ color: '#48bb78', fontSize: '2rem' }}>
-                                    {classes.length}
-                                </h4>
-                                <p>Total Classes</p>
-                            </div>
-                            <div style={{ textAlign: 'center' }}>
-                                <h4 style={{ color: '#ed8936', fontSize: '2rem' }}>
-                                    {Object.keys(subjectCounts).length}
-                                </h4>
-                                <p>Subjects Taught</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            );
-        };
-
-        // Render the App using React 18 createRoot API
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
     </script>
