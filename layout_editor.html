@@ -1,0 +1,1871 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Classroom Layout Editor</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .shadow-text {
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        // Import React hooks
+        const { useState, useRef, useEffect } = React;
+        
+        // Lucide React icons (inline definitions)
+        const Save = (props) => React.createElement('svg', {width: 24, height: 24, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', ...props}, React.createElement('path', {d: 'm19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z'}));
+        const Plus = (props) => React.createElement('svg', {width: 24, height: 24, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', ...props}, React.createElement('path', {d: 'M5 12h14'}), React.createElement('path', {d: 'm12 5 0 14'}));
+        const Trash2 = (props) => React.createElement('svg', {width: 24, height: 24, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', ...props}, React.createElement('path', {d: 'M3 6h18'}), React.createElement('path', {d: 'M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6'}), React.createElement('path', {d: 'M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2'}), React.createElement('line', {x1: 10, x2: 10, y1: 11, y2: 17}), React.createElement('line', {x1: 14, x2: 14, y1: 11, y2: 17}));
+        const RotateCw = (props) => React.createElement('svg', {width: 24, height: 24, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', ...props}, React.createElement('path', {d: 'M21 2v6h-6'}), React.createElement('path', {d: 'M3 12a9 9 0 0 1 15-6.7L21 8'}), React.createElement('path', {d: 'M3 12a9 9 0 0 0 15 6.7l3-3'}));
+        const Copy = (props) => React.createElement('svg', {width: 24, height: 24, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', ...props}, React.createElement('rect', {width: 14, height: 14, x: 8, y: 8, rx: 2, ry: 2}), React.createElement('path', {d: 'M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2'}));
+        const Grid = (props) => React.createElement('svg', {width: 24, height: 24, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', ...props}, React.createElement('rect', {width: 18, height: 18, x: 3, y: 3, rx: 2}), React.createElement('path', {d: 'M9 3v18'}), React.createElement('path', {d: 'M15 3v18'}), React.createElement('path', {d: 'M3 9h18'}), React.createElement('path', {d: 'M3 15h18'}));
+        const Settings = (props) => React.createElement('svg', {width: 24, height: 24, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', ...props}, React.createElement('path', {d: 'M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.39a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z'}), React.createElement('circle', {cx: 12, cy: 12, r: 3}));
+        const Eye = (props) => React.createElement('svg', {width: 24, height: 24, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', ...props}, React.createElement('path', {d: 'M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z'}), React.createElement('circle', {cx: 12, cy: 12, r: 3}));
+        const EyeOff = (props) => React.createElement('svg', {width: 24, height: 24, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', ...props}, React.createElement('path', {d: 'M9.88 9.88a3 3 0 1 0 4.24 4.24'}), React.createElement('path', {d: 'M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68'}), React.createElement('path', {d: 'M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61'}), React.createElement('line', {x1: 2, x2: 22, y1: 2, y2: 22}));
+        const Undo = (props) => React.createElement('svg', {width: 24, height: 24, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', ...props}, React.createElement('path', {d: 'M3 7v6h6'}), React.createElement('path', {d: 'M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13'}));
+        const Redo = (props) => React.createElement('svg', {width: 24, height: 24, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', ...props}, React.createElement('path', {d: 'M21 7v6h-6'}), React.createElement('path', {d: 'M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7'}));
+        const Download = (props) => React.createElement('svg', {width: 24, height: 24, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', ...props}, React.createElement('path', {d: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'}), React.createElement('polyline', {points: '7,10 12,15 17,10'}), React.createElement('line', {x1: 12, x2: 12, y1: 15, y2: 3}));
+        const Upload = (props) => React.createElement('svg', {width: 24, height: 24, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', ...props}, React.createElement('path', {d: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'}), React.createElement('polyline', {points: '17,8 12,3 7,8'}), React.createElement('line', {x1: 12, x2: 12, y1: 3, y2: 15}));
+
+        const LayoutEditor = () => {
+          // State for API integration
+          const [apiToken, setApiToken] = useState(
+            localStorage.getItem('access_token') || 
+            sessionStorage.getItem('access_token') || 
+            null
+          );
+          const [selectedClass, setSelectedClass] = useState(null);
+          const [currentAssignments, setCurrentAssignments] = useState([]);
+          const [validationErrors, setValidationErrors] = useState([]);
+
+          // API functions for seat validation and assignment checking
+          const validateSeatAssignment = async (seatId, classId) => {
+            if (!apiToken || !classId) return { valid: true, message: '' };
+            
+            try {
+              const response = await fetch(`/api/classes/${classId}/validate-seat/${seatId}/`, {
+                headers: {
+                  'Authorization': `Bearer ${apiToken}`
+                }
+              });
+              
+              if (response.ok) {
+                return await response.json();
+              }
+              return { valid: true, message: 'Cannot validate - API unavailable' };
+            } catch (error) {
+              console.warn('Seat validation failed:', error);
+              return { valid: true, message: 'Validation unavailable' };
+            }
+          };
+
+          const fetchCurrentAssignments = async (classId) => {
+            if (!apiToken || !classId) return [];
+            
+            try {
+              const response = await fetch(`/api/classes/${classId}/seating_chart/`, {
+                headers: {
+                  'Authorization': `Bearer ${apiToken}`
+                }
+              });
+              
+              if (response.ok) {
+                const chartData = await response.json();
+                const assignments = [];
+                
+                // Extract assignments from chart data
+                chartData.tables?.forEach(table => {
+                  table.seats?.forEach(seat => {
+                    if (seat.student) {
+                      assignments.push({
+                        seat_id: seat.absolute_seat_id,
+                        student_name: seat.student.name,
+                        group_number: seat.student.group_number,
+                        group_role: seat.student.group_role
+                      });
+                    }
+                  });
+                });
+                
+                return assignments;
+              }
+            } catch (error) {
+              console.warn('Failed to fetch current assignments:', error);
+            }
+            
+            return [];
+          };
+
+          // Check if a seat is currently occupied
+          const isSeatOccupied = (seatId) => {
+            return currentAssignments.some(assignment => assignment.seat_id === seatId);
+          };
+
+          // Get student info for a seat
+          const getStudentForSeat = (seatId) => {
+            return currentAssignments.find(assignment => assignment.seat_id === seatId);
+          };
+
+          // Validate entire layout against current assignments
+          const validateLayoutIntegrity = async () => {
+            if (!selectedClass) {
+              setValidationErrors(['No class selected for validation']);
+              return;
+            }
+
+            const errors = [];
+            const availableSeatIds = getAllSeatIds();
+            
+            // Check for assignments to non-existent seats
+            for (const assignment of currentAssignments) {
+              if (!availableSeatIds.includes(assignment.seat_id)) {
+                errors.push(`Student ${assignment.student_name} assigned to non-existent seat ${assignment.seat_id}`);
+              }
+            }
+            
+            // Check for accessibility requirements
+            const accessibleSeats = availableSeatIds.filter(seatId => {
+              const seatInfo = getSeatInfo(seatId);
+              return seatInfo?.isAccessible;
+            });
+            
+            if (accessibleSeats.length === 0 && currentAssignments.length > 0) {
+              errors.push('No accessible seats available - consider marking some seats as wheelchair accessible');
+            }
+            
+            setValidationErrors(errors);
+            
+            if (errors.length === 0) {
+              alert('✅ Layout validation passed! All seat assignments are compatible.');
+            } else {
+              alert(`⚠️ Found ${errors.length} validation issue(s). Check the validation panel.`);
+            }
+          };
+
+          // Load assignments when class is selected
+          useEffect(() => {
+            if (selectedClass) {
+              fetchCurrentAssignments(selectedClass.id).then(setCurrentAssignments);
+            }
+          }, [selectedClass, apiToken]);
+
+          // Layout state
+          const [layout, setLayout] = useState({
+            id: null,
+            name: 'New Classroom Layout',
+            description: '',
+            room_width: 15,
+            room_height: 10,
+            tables: [],
+            obstacles: []
+          });
+
+          // Editor state
+          const [selectedTool, setSelectedTool] = useState('select'); // select, table, obstacle
+          const [selectedItem, setSelectedItem] = useState(null);
+          const [draggedItem, setDraggedItem] = useState(null);
+          const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+          const [showGrid, setShowGrid] = useState(true);
+          const [snapToGrid, setSnapToGrid] = useState(true);
+          const [isPreviewMode, setIsPreviewMode] = useState(false);
+          const [history, setHistory] = useState([]);
+          const [historyIndex, setHistoryIndex] = useState(-1);
+          
+          // Refs
+          const canvasRef = useRef(null);
+          const fileInputRef = useRef(null);
+
+          // Constants
+          const GRID_SIZE = 40;
+          const TABLE_SHAPES = [
+            { id: 'rectangular', name: 'Rectangular', icon: '⬜' },
+            { id: 'round', name: 'Round', icon: '⭕' },
+            { id: 'u_shaped', name: 'U-Shaped', icon: '🔄' },
+            { id: 'individual', name: 'Individual', icon: '📦' }
+          ];
+
+          const OBSTACLE_TYPES = [
+            { id: 'teacher_desk', name: 'Teacher Desk', color: '#8B4513', icon: '🪑' },
+            { id: 'cabinet', name: 'Cabinet', color: '#654321', icon: '🗄️' },
+            { id: 'bookshelf', name: 'Bookshelf', color: '#A0522D', icon: '📚' },
+            { id: 'door', name: 'Door', color: '#228B22', icon: '🚪' },
+            { id: 'window', name: 'Window', color: '#87CEEB', icon: '🪟' },
+            { id: 'whiteboard', name: 'Whiteboard', color: '#F5F5F5', icon: '📋' },
+            { id: 'projector', name: 'Projector', color: '#696969', icon: '📽️' },
+            { id: 'other', name: 'Other', color: '#808080', icon: '⬛' }
+          ];
+
+          // Helper functions
+          const getMousePosition = (e) => {
+            const canvas = canvasRef.current;
+            const rect = canvas.getBoundingClientRect();
+            return {
+              x: e.clientX - rect.left,
+              y: e.clientY - rect.top
+            };
+          };
+
+          const screenToGrid = (x, y) => {
+            return {
+              x: Math.floor(x / GRID_SIZE),
+              y: Math.floor(y / GRID_SIZE)
+            };
+          };
+
+          const gridToScreen = (x, y) => {
+            return {
+              x: x * GRID_SIZE,
+              y: y * GRID_SIZE
+            };
+          };
+
+          const snapToGridIfEnabled = (x, y) => {
+            if (snapToGrid) {
+              return {
+                x: Math.round(x / GRID_SIZE) * GRID_SIZE,
+                y: Math.round(y / GRID_SIZE) * GRID_SIZE
+              };
+            }
+            return { x, y };
+          };
+
+          // History management
+          const saveToHistory = () => {
+            const newHistory = history.slice(0, historyIndex + 1);
+            newHistory.push(JSON.parse(JSON.stringify(layout)));
+            setHistory(newHistory);
+            setHistoryIndex(newHistory.length - 1);
+          };
+
+          const undo = () => {
+            if (historyIndex > 0) {
+              setHistoryIndex(historyIndex - 1);
+              setLayout(JSON.parse(JSON.stringify(history[historyIndex - 1])));
+            }
+          };
+
+          const redo = () => {
+            if (historyIndex < history.length - 1) {
+              setHistoryIndex(historyIndex + 1);
+              setLayout(JSON.parse(JSON.stringify(history[historyIndex + 1])));
+            }
+          };
+
+          // Generate seat positions based on table shape and max_seats
+          const generateSeats = (tableShape, maxSeats, width = 2, height = 2) => {
+            const seats = [];
+            
+            if (tableShape === 'rectangular') {
+              // For rectangular tables, arrange seats around perimeter
+              if (maxSeats <= 2) {
+                seats.push(
+                  { seat_number: 1, relative_x: 0.25, relative_y: 0.5, is_accessible: true },
+                  { seat_number: 2, relative_x: 0.75, relative_y: 0.5, is_accessible: true }
+                );
+              } else if (maxSeats <= 4) {
+                seats.push(
+                  { seat_number: 1, relative_x: 0.25, relative_y: 0.25, is_accessible: true },
+                  { seat_number: 2, relative_x: 0.75, relative_y: 0.25, is_accessible: true },
+                  { seat_number: 3, relative_x: 0.25, relative_y: 0.75, is_accessible: true },
+                  { seat_number: 4, relative_x: 0.75, relative_y: 0.75, is_accessible: true }
+                );
+              } else if (maxSeats <= 6) {
+                seats.push(
+                  { seat_number: 1, relative_x: 0.2, relative_y: 0.2, is_accessible: true },
+                  { seat_number: 2, relative_x: 0.5, relative_y: 0.1, is_accessible: true },
+                  { seat_number: 3, relative_x: 0.8, relative_y: 0.2, is_accessible: true },
+                  { seat_number: 4, relative_x: 0.2, relative_y: 0.8, is_accessible: true },
+                  { seat_number: 5, relative_x: 0.5, relative_y: 0.9, is_accessible: true },
+                  { seat_number: 6, relative_x: 0.8, relative_y: 0.8, is_accessible: true }
+                );
+              } else {
+                // 8 seats - around perimeter
+                seats.push(
+                  { seat_number: 1, relative_x: 0.15, relative_y: 0.15, is_accessible: true },
+                  { seat_number: 2, relative_x: 0.5, relative_y: 0.1, is_accessible: true },
+                  { seat_number: 3, relative_x: 0.85, relative_y: 0.15, is_accessible: true },
+                  { seat_number: 4, relative_x: 0.9, relative_y: 0.5, is_accessible: true },
+                  { seat_number: 5, relative_x: 0.85, relative_y: 0.85, is_accessible: true },
+                  { seat_number: 6, relative_x: 0.5, relative_y: 0.9, is_accessible: true },
+                  { seat_number: 7, relative_x: 0.15, relative_y: 0.85, is_accessible: true },
+                  { seat_number: 8, relative_x: 0.1, relative_y: 0.5, is_accessible: true }
+                );
+              }
+            } else if (tableShape === 'round') {
+              // Arrange seats in a circle
+              for (let i = 0; i < maxSeats; i++) {
+                const angle = (i * 2 * Math.PI) / maxSeats - Math.PI / 2; // Start from top
+                const radius = 0.35; // Distance from center
+                const x = 0.5 + radius * Math.cos(angle);
+                const y = 0.5 + radius * Math.sin(angle);
+                seats.push({
+                  seat_number: i + 1,
+                  relative_x: Math.max(0.1, Math.min(0.9, x)),
+                  relative_y: Math.max(0.1, Math.min(0.9, y)),
+                  is_accessible: true
+                });
+              }
+            } else if (tableShape === 'u_shaped') {
+              // U-shaped arrangement
+              if (maxSeats <= 4) {
+                seats.push(
+                  { seat_number: 1, relative_x: 0.2, relative_y: 0.8, is_accessible: true },
+                  { seat_number: 2, relative_x: 0.2, relative_y: 0.2, is_accessible: true },
+                  { seat_number: 3, relative_x: 0.8, relative_y: 0.2, is_accessible: true },
+                  { seat_number: 4, relative_x: 0.8, relative_y: 0.8, is_accessible: true }
+                );
+              } else {
+                // More seats for larger U-shape
+                for (let i = 0; i < maxSeats; i++) {
+                  let x, y;
+                  const seatsPerSide = Math.ceil(maxSeats / 3);
+                  
+                  if (i < seatsPerSide) {
+                    // Left side
+                    x = 0.15;
+                    y = 0.2 + (i * 0.6) / (seatsPerSide - 1);
+                  } else if (i < seatsPerSide * 2) {
+                    // Bottom
+                    const bottomIndex = i - seatsPerSide;
+                    x = 0.15 + (bottomIndex * 0.7) / (seatsPerSide - 1);
+                    y = 0.85;
+                  } else {
+                    // Right side
+                    const rightIndex = i - seatsPerSide * 2;
+                    x = 0.85;
+                    y = 0.8 - (rightIndex * 0.6) / (maxSeats - seatsPerSide * 2 - 1);
+                  }
+                  
+                  seats.push({
+                    seat_number: i + 1,
+                    relative_x: Math.max(0.1, Math.min(0.9, x)),
+                    relative_y: Math.max(0.1, Math.min(0.9, y)),
+                    is_accessible: true
+                  });
+                }
+              }
+            } else if (tableShape === 'individual') {
+              // Single seat in center
+              seats.push({
+                seat_number: 1,
+                relative_x: 0.5,
+                relative_y: 0.5,
+                is_accessible: true
+              });
+            }
+            
+            return seats.slice(0, maxSeats); // Ensure we don't exceed max_seats
+          };
+
+          const createTable = (x, y) => {
+            const gridPos = screenToGrid(x, y);
+            const tableNumber = layout.tables.length + 1;
+            const maxSeats = 4;
+            const tableShape = 'rectangular';
+            
+            const newTable = {
+              id: Date.now(),
+              table_number: tableNumber,
+              table_name: `Table ${tableNumber}`,
+              x_position: Math.max(0, Math.min(gridPos.x, layout.room_width - 2)),
+              y_position: Math.max(0, Math.min(gridPos.y, layout.room_height - 2)),
+              width: 2,
+              height: 2,
+              max_seats: maxSeats,
+              table_shape: tableShape,
+              rotation: 0,
+              seats: generateSeats(tableShape, maxSeats, 2, 2)
+            };
+            
+            saveToHistory();
+            setLayout(prev => ({
+              ...prev,
+              tables: [...prev.tables, newTable]
+            }));
+            setSelectedItem({ type: 'table', item: newTable });
+          };
+
+          const createObstacle = (x, y) => {
+            const gridPos = screenToGrid(x, y);
+            const obstacleType = OBSTACLE_TYPES[0];
+            const newObstacle = {
+              id: Date.now(),
+              name: obstacleType.name,
+              obstacle_type: obstacleType.id,
+              x_position: Math.max(0, Math.min(gridPos.x, layout.room_width - 1)),
+              y_position: Math.max(0, Math.min(gridPos.y, layout.room_height - 1)),
+              width: 1,
+              height: 1,
+              color: obstacleType.color
+            };
+            
+            saveToHistory();
+            setLayout(prev => ({
+              ...prev,
+              obstacles: [...prev.obstacles, newObstacle]
+            }));
+            setSelectedItem({ type: 'obstacle', item: newObstacle });
+          };
+
+          // Item manipulation
+          const deleteSelectedItem = () => {
+            if (!selectedItem) return;
+            
+            saveToHistory();
+            if (selectedItem.type === 'table') {
+              setLayout(prev => ({
+                ...prev,
+                tables: prev.tables.filter(t => t.id !== selectedItem.item.id)
+              }));
+            } else if (selectedItem.type === 'obstacle') {
+              setLayout(prev => ({
+                ...prev,
+                obstacles: prev.obstacles.filter(o => o.id !== selectedItem.item.id)
+              }));
+            }
+            setSelectedItem(null);
+          };
+
+          const duplicateSelectedItem = () => {
+            if (!selectedItem) return;
+            
+            saveToHistory();
+            if (selectedItem.type === 'table') {
+              const newTable = {
+                ...selectedItem.item,
+                id: Date.now(),
+                table_number: layout.tables.length + 1,
+                table_name: `${selectedItem.item.table_name} Copy`,
+                x_position: Math.min(selectedItem.item.x_position + 1, layout.room_width - selectedItem.item.width),
+                y_position: Math.min(selectedItem.item.y_position + 1, layout.room_height - selectedItem.item.height)
+              };
+              setLayout(prev => ({
+                ...prev,
+                tables: [...prev.tables, newTable]
+              }));
+              setSelectedItem({ type: 'table', item: newTable });
+            } else if (selectedItem.type === 'obstacle') {
+              const newObstacle = {
+                ...selectedItem.item,
+                id: Date.now(),
+                name: `${selectedItem.item.name} Copy`,
+                x_position: Math.min(selectedItem.item.x_position + 1, layout.room_width - selectedItem.item.width),
+                y_position: Math.min(selectedItem.item.y_position + 1, layout.room_height - selectedItem.item.height)
+              };
+              setLayout(prev => ({
+                ...prev,
+                obstacles: [...prev.obstacles, newObstacle]
+              }));
+              setSelectedItem({ type: 'obstacle', item: newObstacle });
+            }
+          };
+
+          const rotateSelectedTable = () => {
+            if (!selectedItem || selectedItem.type !== 'table') return;
+            
+            saveToHistory();
+            const rotations = [0, 90, 180, 270];
+            const currentIndex = rotations.indexOf(selectedItem.item.rotation);
+            const newRotation = rotations[(currentIndex + 1) % rotations.length];
+            
+            setLayout(prev => ({
+              ...prev,
+              tables: prev.tables.map(t => 
+                t.id === selectedItem.item.id 
+                  ? { ...t, rotation: newRotation }
+                  : t
+              )
+            }));
+            
+            setSelectedItem(prev => ({
+              ...prev,
+              item: { ...prev.item, rotation: newRotation }
+            }));
+          };
+
+          // Event handlers
+          const handleCanvasClick = (e) => {
+            const pos = getMousePosition(e);
+            
+            if (selectedTool === 'table') {
+              createTable(pos.x, pos.y);
+            } else if (selectedTool === 'obstacle') {
+              createObstacle(pos.x, pos.y);
+            } else if (selectedTool === 'select') {
+              // Check if clicking on an item
+              let clickedItem = null;
+              
+              // Check tables
+              for (const table of layout.tables) {
+                const screenPos = gridToScreen(table.x_position, table.y_position);
+                if (pos.x >= screenPos.x && pos.x <= screenPos.x + (table.width * GRID_SIZE) &&
+                    pos.y >= screenPos.y && pos.y <= screenPos.y + (table.height * GRID_SIZE)) {
+                  clickedItem = { type: 'table', item: table };
+                  break;
+                }
+              }
+              
+              // Check obstacles if no table clicked
+              if (!clickedItem) {
+                for (const obstacle of layout.obstacles) {
+                  const screenPos = gridToScreen(obstacle.x_position, obstacle.y_position);
+                  if (pos.x >= screenPos.x && pos.x <= screenPos.x + (obstacle.width * GRID_SIZE) &&
+                      pos.y >= screenPos.y && pos.y <= screenPos.y + (obstacle.height * GRID_SIZE)) {
+                    clickedItem = { type: 'obstacle', item: obstacle };
+                    break;
+                  }
+                }
+              }
+              
+              setSelectedItem(clickedItem);
+            }
+          };
+
+          const handleMouseDown = (e) => {
+            if (selectedTool !== 'select' || !selectedItem) return;
+            
+            const pos = getMousePosition(e);
+            const screenPos = gridToScreen(selectedItem.item.x_position, selectedItem.item.y_position);
+            
+            if (pos.x >= screenPos.x && pos.x <= screenPos.x + (selectedItem.item.width * GRID_SIZE) &&
+                pos.y >= screenPos.y && pos.y <= screenPos.y + (selectedItem.item.height * GRID_SIZE)) {
+              setDraggedItem(selectedItem);
+              setDragOffset({
+                x: pos.x - screenPos.x,
+                y: pos.y - screenPos.y
+              });
+            }
+          };
+
+          const handleMouseMove = (e) => {
+            if (!draggedItem) return;
+            
+            const pos = getMousePosition(e);
+            const newPos = snapToGridIfEnabled(
+              pos.x - dragOffset.x,
+              pos.y - dragOffset.y
+            );
+            const gridPos = screenToGrid(newPos.x, newPos.y);
+            
+            // Constrain to room bounds
+            const constrainedX = Math.max(0, Math.min(gridPos.x, layout.room_width - draggedItem.item.width));
+            const constrainedY = Math.max(0, Math.min(gridPos.y, layout.room_height - draggedItem.item.height));
+            
+            if (draggedItem.type === 'table') {
+              setLayout(prev => ({
+                ...prev,
+                tables: prev.tables.map(t => 
+                  t.id === draggedItem.item.id 
+                    ? { ...t, x_position: constrainedX, y_position: constrainedY }
+                    : t
+                )
+              }));
+            } else if (draggedItem.type === 'obstacle') {
+              setLayout(prev => ({
+                ...prev,
+                obstacles: prev.obstacles.map(o => 
+                  o.id === draggedItem.item.id 
+                    ? { ...o, x_position: constrainedX, y_position: constrainedY }
+                    : o
+                )
+              }));
+            }
+            
+            setSelectedItem(prev => ({
+              ...prev,
+              item: { ...prev.item, x_position: constrainedX, y_position: constrainedY }
+            }));
+          };
+
+          const handleMouseUp = () => {
+            if (draggedItem) {
+              saveToHistory();
+            }
+            setDraggedItem(null);
+            setDragOffset({ x: 0, y: 0 });
+          };
+
+          // Keyboard shortcuts
+          useEffect(() => {
+            const handleKeyDown = (e) => {
+              if (e.ctrlKey || e.metaKey) {
+                switch (e.key) {
+                  case 'z':
+                    e.preventDefault();
+                    if (e.shiftKey) {
+                      redo();
+                    } else {
+                      undo();
+                    }
+                    break;
+                  case 'y':
+                    e.preventDefault();
+                    redo();
+                    break;
+                  case 'd':
+                    e.preventDefault();
+                    duplicateSelectedItem();
+                    break;
+                }
+              } else {
+                switch (e.key) {
+                  case 'Delete':
+                  case 'Backspace':
+                    e.preventDefault();
+                    deleteSelectedItem();
+                    break;
+                  case 'r':
+                    e.preventDefault();
+                    rotateSelectedTable();
+                    break;
+                  case 'Escape':
+                    setSelectedItem(null);
+                    setSelectedTool('select');
+                    break;
+                }
+              }
+            };
+
+            window.addEventListener('keydown', handleKeyDown);
+            return () => window.removeEventListener('keydown', handleKeyDown);
+          }, [selectedItem, historyIndex, history]);
+
+          // Helper function to get all available seat IDs in the layout
+          const getAllSeatIds = () => {
+            const seatIds = [];
+            layout.tables.forEach(table => {
+              table.seats?.forEach(seat => {
+                seatIds.push(`${table.table_number}-${seat.seat_number}`);
+              });
+            });
+            return seatIds;
+          };
+
+          // Helper function to validate if a seat ID exists in the layout
+          const validateSeatId = (seatId) => {
+            const [tableNum, seatNum] = seatId.split('-').map(Number);
+            const table = layout.tables.find(t => t.table_number === tableNum);
+            if (!table) return false;
+            const seat = table.seats?.find(s => s.seat_number === seatNum);
+            return !!seat;
+          };
+
+          // Helper function to get seat information
+          const getSeatInfo = (seatId) => {
+            const [tableNum, seatNum] = seatId.split('-').map(Number);
+            const table = layout.tables.find(t => t.table_number === tableNum);
+            if (!table) return null;
+            const seat = table.seats?.find(s => s.seat_number === seatNum);
+            if (!seat) return null;
+            
+            return {
+              table: table,
+              seat: seat,
+              seatId: seatId,
+              isAccessible: seat.is_accessible,
+              tableShape: table.table_shape,
+              tableName: table.table_name
+            };
+          };
+
+          // Function to export layout in API-compatible format
+          const exportForAPI = () => {
+            return {
+              name: layout.name,
+              description: layout.description,
+              room_width: layout.room_width,
+              room_height: layout.room_height,
+              is_template: false, // Set based on your needs
+              tables: layout.tables.map(table => ({
+                table_number: table.table_number,
+                table_name: table.table_name,
+                x_position: table.x_position,
+                y_position: table.y_position,
+                width: table.width,
+                height: table.height,
+                max_seats: table.max_seats,
+                table_shape: table.table_shape,
+                rotation: table.rotation,
+                seats: table.seats?.map(seat => ({
+                  seat_number: seat.seat_number,
+                  relative_x: seat.relative_x,
+                  relative_y: seat.relative_y,
+                  is_accessible: seat.is_accessible,
+                  notes: seat.notes || ''
+                })) || []
+              })),
+              obstacles: layout.obstacles.map(obstacle => ({
+                name: obstacle.name,
+                obstacle_type: obstacle.obstacle_type,
+                x_position: obstacle.x_position,
+                y_position: obstacle.y_position,
+                width: obstacle.width,
+                height: obstacle.height,
+                color: obstacle.color
+              }))
+            };
+          };
+
+          // File operations
+          const exportLayout = () => {
+            const dataStr = JSON.stringify(layout, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `${layout.name.replace(/\s+/g, '_')}.json`;
+            link.click();
+            URL.revokeObjectURL(url);
+          };
+
+          const importLayout = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = (event) => {
+              try {
+                const importedLayout = JSON.parse(event.target.result);
+                saveToHistory();
+                setLayout(importedLayout);
+                setSelectedItem(null);
+              } catch (error) {
+                alert('Error importing layout: Invalid file format');
+              }
+            };
+            reader.readAsText(file);
+          };
+
+          // Initialize history
+          useEffect(() => {
+            if (history.length === 0) {
+              setHistory([JSON.parse(JSON.stringify(layout))]);
+              setHistoryIndex(0);
+            }
+          }, []);
+
+          return (
+            <div className="flex h-screen bg-gray-100">
+              {/* Toolbar */}
+              <div className="w-80 bg-white shadow-lg flex flex-col">
+                {/* Header */}
+                <div className="p-4 border-b border-gray-200">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-xl font-bold text-gray-800">Layout Editor</h2>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setIsPreviewMode(!isPreviewMode)}
+                        className={`p-2 rounded-lg transition-colors ${
+                          isPreviewMode 
+                            ? 'bg-blue-100 text-blue-600' 
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                        title={isPreviewMode ? 'Exit Preview' : 'Preview Mode'}
+                      >
+                        {isPreviewMode ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {/* Layout Info */}
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Layout Name
+                      </label>
+                      <input
+                        type="text"
+                        value={layout.name}
+                        onChange={(e) => setLayout(prev => ({ ...prev, name: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Enter layout name"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Description
+                      </label>
+                      <textarea
+                        value={layout.description}
+                        onChange={(e) => setLayout(prev => ({ ...prev, description: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        rows={2}
+                        placeholder="Describe this layout"
+                      />
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Width
+                        </label>
+                        <input
+                          type="number"
+                          value={layout.room_width}
+                          onChange={(e) => setLayout(prev => ({ ...prev, room_width: parseInt(e.target.value) || 15 }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          min="5"
+                          max="30"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Height
+                        </label>
+                        <input
+                          type="number"
+                          value={layout.room_height}
+                          onChange={(e) => setLayout(prev => ({ ...prev, room_height: parseInt(e.target.value) || 10 }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          min="5"
+                          max="20"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Class Selection and Validation */}
+                {!isPreviewMode && (
+                  <div className="p-4 border-b border-gray-200">
+                    <h3 className="text-lg font-semibold text-gray-800 mb-3">Class Integration</h3>
+                    
+                    {/* Class Selection */}
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Select Class (Optional)
+                        </label>
+                        <select
+                          value={selectedClass?.id || ''}
+                          onChange={(e) => {
+                            const classId = e.target.value;
+                            if (classId) {
+                              // In a real app, you'd fetch class details from API
+                              setSelectedClass({ id: classId, name: `Class ${classId}` });
+                            } else {
+                              setSelectedClass(null);
+                              setCurrentAssignments([]);
+                            }
+                          }}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        >
+                          <option value="">No class selected</option>
+                          <option value="1">Math Class A</option>
+                          <option value="2">Science Class B</option>
+                          <option value="3">History Class C</option>
+                        </select>
+                      </div>
+                      
+                      {/* Validation Controls */}
+                      {selectedClass && (
+                        <div className="space-y-2">
+                          <button
+                            onClick={validateLayoutIntegrity}
+                            className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 transition-colors font-medium"
+                          >
+                            <Settings size={16} />
+                            Validate Layout
+                          </button>
+                          
+                          {currentAssignments.length > 0 && (
+                            <div className="text-xs text-gray-600 bg-blue-50 p-2 rounded">
+                              📊 {currentAssignments.length} students currently assigned
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
+                      {/* Validation Errors */}
+                      {validationErrors.length > 0 && (
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                          <h4 className="text-sm font-semibold text-red-800 mb-2">
+                            Validation Issues:
+                          </h4>
+                          <ul className="text-xs text-red-700 space-y-1">
+                            {validationErrors.map((error, index) => (
+                              <li key={index}>• {error}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {!isPreviewMode && (
+                  <>
+                    {/* Tools */}
+                    <div className="p-4 border-b border-gray-200">
+                      <h3 className="text-lg font-semibold text-gray-800 mb-3">Tools</h3>
+                      <div className="grid grid-cols-3 gap-2">
+                        <button
+                          onClick={() => setSelectedTool('select')}
+                          className={`p-3 rounded-lg transition-colors ${
+                            selectedTool === 'select' 
+                              ? 'bg-blue-100 text-blue-600 border-2 border-blue-300' 
+                              : 'bg-gray-50 text-gray-600 hover:bg-gray-100 border-2 border-transparent'
+                          }`}
+                          title="Select Tool"
+                        >
+                          <div className="text-center">
+                            <div className="text-xl mb-1">👆</div>
+                            <div className="text-xs">Select</div>
+                          </div>
+                        </button>
+                        
+                        <button
+                          onClick={() => setSelectedTool('table')}
+                          className={`p-3 rounded-lg transition-colors ${
+                            selectedTool === 'table' 
+                              ? 'bg-green-100 text-green-600 border-2 border-green-300' 
+                              : 'bg-gray-50 text-gray-600 hover:bg-gray-100 border-2 border-transparent'
+                          }`}
+                          title="Add Table"
+                        >
+                          <div className="text-center">
+                            <div className="text-xl mb-1">🪑</div>
+                            <div className="text-xs">Table</div>
+                          </div>
+                        </button>
+                        
+                        <button
+                          onClick={() => setSelectedTool('obstacle')}
+                          className={`p-3 rounded-lg transition-colors ${
+                            selectedTool === 'obstacle' 
+                              ? 'bg-orange-100 text-orange-600 border-2 border-orange-300' 
+                              : 'bg-gray-50 text-gray-600 hover:bg-gray-100 border-2 border-transparent'
+                          }`}
+                          title="Add Obstacle"
+                        >
+                          <div className="text-center">
+                            <div className="text-xl mb-1">📦</div>
+                            <div className="text-xs">Object</div>
+                          </div>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="p-4 border-b border-gray-200">
+                      <h3 className="text-lg font-semibold text-gray-800 mb-3">Actions</h3>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          onClick={undo}
+                          disabled={historyIndex <= 0}
+                          className="flex items-center justify-center gap-2 px-3 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          title="Undo (Ctrl+Z)"
+                        >
+                          <Undo size={16} />
+                          <span className="text-sm">Undo</span>
+                        </button>
+                        
+                        <button
+                          onClick={redo}
+                          disabled={historyIndex >= history.length - 1}
+                          className="flex items-center justify-center gap-2 px-3 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          title="Redo (Ctrl+Y)"
+                        >
+                          <Redo size={16} />
+                          <span className="text-sm">Redo</span>
+                        </button>
+                        
+                        <button
+                          onClick={duplicateSelectedItem}
+                          disabled={!selectedItem}
+                          className="flex items-center justify-center gap-2 px-3 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          title="Duplicate (Ctrl+D)"
+                        >
+                          <Copy size={16} />
+                          <span className="text-sm">Copy</span>
+                        </button>
+                        
+                        <button
+                          onClick={deleteSelectedItem}
+                          disabled={!selectedItem}
+                          className="flex items-center justify-center gap-2 px-3 py-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          title="Delete (Del)"
+                        >
+                          <Trash2 size={16} />
+                          <span className="text-sm">Delete</span>
+                        </button>
+                        
+                        <button
+                          onClick={rotateSelectedTable}
+                          disabled={!selectedItem || selectedItem.type !== 'table'}
+                          className="flex items-center justify-center gap-2 px-3 py-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          title="Rotate Table (R)"
+                        >
+                          <RotateCw size={16} />
+                          <span className="text-sm">Rotate</span>
+                        </button>
+                        
+                        <button
+                          onClick={() => setShowGrid(!showGrid)}
+                          className={`flex items-center justify-center gap-2 px-3 py-2 rounded-lg transition-colors ${
+                            showGrid 
+                              ? 'bg-green-100 text-green-600' 
+                              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                          }`}
+                          title="Toggle Grid"
+                        >
+                          <Grid size={16} />
+                          <span className="text-sm">Grid</span>
+                        </button>
+                      </div>
+                      
+                      <div className="mt-3">
+                        <label className="flex items-center gap-2 text-sm text-gray-600">
+                          <input
+                            type="checkbox"
+                            checked={snapToGrid}
+                            onChange={(e) => setSnapToGrid(e.target.checked)}
+                            className="rounded"
+                          />
+                          Snap to Grid
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Properties Panel */}
+                    {selectedItem && (
+                      <div className="p-4 border-b border-gray-200">
+                        <h3 className="text-lg font-semibold text-gray-800 mb-3">Properties</h3>
+                        <div className="space-y-3">
+                          {selectedItem.type === 'table' && (
+                            <>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  Table Name
+                                </label>
+                                <input
+                                  type="text"
+                                  value={selectedItem.item.table_name}
+                                  onChange={(e) => {
+                                    const newName = e.target.value;
+                                    setLayout(prev => ({
+                                      ...prev,
+                                      tables: prev.tables.map(t => 
+                                        t.id === selectedItem.item.id ? { ...t, table_name: newName } : t
+                                      )
+                                    }));
+                                    setSelectedItem(prev => ({
+                                      ...prev,
+                                      item: { ...prev.item, table_name: newName }
+                                    }));
+                                  }}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                />
+                              </div>
+                              
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  Shape
+                                </label>
+                                <select
+                                  value={selectedItem.item.table_shape}
+                                  onChange={(e) => {
+                                    const newShape = e.target.value;
+                                    const newSeats = generateSeats(
+                                      newShape, 
+                                      selectedItem.item.max_seats, 
+                                      selectedItem.item.width, 
+                                      selectedItem.item.height
+                                    );
+                                    
+                                    setLayout(prev => ({
+                                      ...prev,
+                                      tables: prev.tables.map(t => 
+                                        t.id === selectedItem.item.id 
+                                          ? { ...t, table_shape: newShape, seats: newSeats } 
+                                          : t
+                                      )
+                                    }));
+                                    setSelectedItem(prev => ({
+                                      ...prev,
+                                      item: { ...prev.item, table_shape: newShape, seats: newSeats }
+                                    }));
+                                  }}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                >
+                                  {TABLE_SHAPES.map(shape => (
+                                    <option key={shape.id} value={shape.id}>
+                                      {shape.icon} {shape.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                              
+                              <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Width
+                                  </label>
+                                  <input
+                                    type="number"
+                                    value={selectedItem.item.width}
+                                    onChange={(e) => {
+                                      const newWidth = parseInt(e.target.value) || 1;
+                                      setLayout(prev => ({
+                                        ...prev,
+                                        tables: prev.tables.map(t => 
+                                          t.id === selectedItem.item.id ? { ...t, width: newWidth } : t
+                                        )
+                                      }));
+                                      setSelectedItem(prev => ({
+                                        ...prev,
+                                        item: { ...prev.item, width: newWidth }
+                                      }));
+                                    }}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    min="1"
+                                    max="5"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Height
+                                  </label>
+                                  <input
+                                    type="number"
+                                    value={selectedItem.item.height}
+                                    onChange={(e) => {
+                                      const newHeight = parseInt(e.target.value) || 1;
+                                      setLayout(prev => ({
+                                        ...prev,
+                                        tables: prev.tables.map(t => 
+                                          t.id === selectedItem.item.id ? { ...t, height: newHeight } : t
+                                        )
+                                      }));
+                                      setSelectedItem(prev => ({
+                                        ...prev,
+                                        item: { ...prev.item, height: newHeight }
+                                      }));
+                                    }}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    min="1"
+                                    max="5"
+                                  />
+                                </div>
+                              </div>
+                              
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  Max Seats
+                                </label>
+                                <input
+                                  type="number"
+                                  value={selectedItem.item.max_seats}
+                                  onChange={(e) => {
+                                    const newMaxSeats = parseInt(e.target.value) || 1;
+                                    const newSeats = generateSeats(
+                                      selectedItem.item.table_shape, 
+                                      newMaxSeats, 
+                                      selectedItem.item.width, 
+                                      selectedItem.item.height
+                                    );
+                                    
+                                    setLayout(prev => ({
+                                      ...prev,
+                                      tables: prev.tables.map(t => 
+                                        t.id === selectedItem.item.id 
+                                          ? { ...t, max_seats: newMaxSeats, seats: newSeats } 
+                                          : t
+                                      )
+                                    }));
+                                    setSelectedItem(prev => ({
+                                      ...prev,
+                                      item: { ...prev.item, max_seats: newMaxSeats, seats: newSeats }
+                                    }));
+                                  }}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                  min="1"
+                                  max="8"
+                                />
+                              </div>
+                              
+                              {/* Seat Management */}
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                  Seats ({selectedItem.item.seats?.length || 0})
+                                </label>
+                                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 max-h-32 overflow-y-auto">
+                                  {selectedItem.item.seats?.map(seat => (
+                                    <div key={seat.seat_number} className="flex items-center justify-between py-1 text-xs">
+                                      <span className="font-medium">
+                                        Seat {seat.seat_number}
+                                      </span>
+                                      <span className="text-gray-500">
+                                        ID: {selectedItem.item.table_number}-{seat.seat_number}
+                                      </span>
+                                      <label className="flex items-center gap-1">
+                                        <input
+                                          type="checkbox"
+                                          checked={seat.is_accessible}
+                                          onChange={(e) => {
+                                            const newSeats = selectedItem.item.seats.map(s => 
+                                              s.seat_number === seat.seat_number 
+                                                ? { ...s, is_accessible: e.target.checked }
+                                                : s
+                                            );
+                                            
+                                            setLayout(prev => ({
+                                              ...prev,
+                                              tables: prev.tables.map(t => 
+                                                t.id === selectedItem.item.id 
+                                                  ? { ...t, seats: newSeats }
+                                                  : t
+                                              )
+                                            }));
+                                            setSelectedItem(prev => ({
+                                              ...prev,
+                                              item: { ...prev.item, seats: newSeats }
+                                            }));
+                                          }}
+                                          className="rounded"
+                                        />
+                                        <span className="text-gray-600">♿</span>
+                                      </label>
+                                    </div>
+                                  )) || (
+                                    <div className="text-gray-500 text-center py-2">
+                                      No seats configured
+                                    </div>
+                                  )}
+                                </div>
+                                
+                                {/* Auto-generate seats button */}
+                                <button
+                                  onClick={() => {
+                                    const newSeats = generateSeats(
+                                      selectedItem.item.table_shape,
+                                      selectedItem.item.max_seats,
+                                      selectedItem.item.width,
+                                      selectedItem.item.height
+                                    );
+                                    
+                                    setLayout(prev => ({
+                                      ...prev,
+                                      tables: prev.tables.map(t => 
+                                        t.id === selectedItem.item.id 
+                                          ? { ...t, seats: newSeats }
+                                          : t
+                                      )
+                                    }));
+                                    setSelectedItem(prev => ({
+                                      ...prev,
+                                      item: { ...prev.item, seats: newSeats }
+                                    }));
+                                  }}
+                                  className="w-full mt-2 px-3 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors text-sm font-medium"
+                                >
+                                  🔄 Regenerate Seats
+                                </button>
+                              </div>
+                            </>
+                          )}
+                          
+                          {selectedItem.type === 'obstacle' && (
+                            <>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  Name
+                                </label>
+                                <input
+                                  type="text"
+                                  value={selectedItem.item.name}
+                                  onChange={(e) => {
+                                    const newName = e.target.value;
+                                    setLayout(prev => ({
+                                      ...prev,
+                                      obstacles: prev.obstacles.map(o => 
+                                        o.id === selectedItem.item.id ? { ...o, name: newName } : o
+                                      )
+                                    }));
+                                    setSelectedItem(prev => ({
+                                      ...prev,
+                                      item: { ...prev.item, name: newName }
+                                    }));
+                                  }}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                />
+                              </div>
+                              
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  Type
+                                </label>
+                                <select
+                                  value={selectedItem.item.obstacle_type}
+                                  onChange={(e) => {
+                                    const newType = e.target.value;
+                                    const obstacleType = OBSTACLE_TYPES.find(t => t.id === newType);
+                                    setLayout(prev => ({
+                                      ...prev,
+                                      obstacles: prev.obstacles.map(o => 
+                                        o.id === selectedItem.item.id 
+                                          ? { ...o, obstacle_type: newType, color: obstacleType.color } 
+                                          : o
+                                      )
+                                    }));
+                                    setSelectedItem(prev => ({
+                                      ...prev,
+                                      item: { ...prev.item, obstacle_type: newType, color: obstacleType.color }
+                                    }));
+                                  }}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                >
+                                  {OBSTACLE_TYPES.map(type => (
+                                    <option key={type.id} value={type.id}>
+                                      {type.icon} {type.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                              
+                              <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Width
+                                  </label>
+                                  <input
+                                    type="number"
+                                    value={selectedItem.item.width}
+                                    onChange={(e) => {
+                                      const newWidth = parseInt(e.target.value) || 1;
+                                      setLayout(prev => ({
+                                        ...prev,
+                                        obstacles: prev.obstacles.map(o => 
+                                          o.id === selectedItem.item.id ? { ...o, width: newWidth } : o
+                                        )
+                                      }));
+                                      setSelectedItem(prev => ({
+                                        ...prev,
+                                        item: { ...prev.item, width: newWidth }
+                                      }));
+                                    }}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    min="1"
+                                    max="5"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Height
+                                  </label>
+                                  <input
+                                    type="number"
+                                    value={selectedItem.item.height}
+                                    onChange={(e) => {
+                                      const newHeight = parseInt(e.target.value) || 1;
+                                      setLayout(prev => ({
+                                        ...prev,
+                                        obstacles: prev.obstacles.map(o => 
+                                          o.id === selectedItem.item.id ? { ...o, height: newHeight } : o
+                                        )
+                                      }));
+                                      setSelectedItem(prev => ({
+                                        ...prev,
+                                        item: { ...prev.item, height: newHeight }
+                                      }));
+                                    }}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    min="1"
+                                    max="5"
+                                  />
+                                </div>
+                              </div>
+                              
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  Color
+                                </label>
+                                <input
+                                  type="color"
+                                  value={selectedItem.item.color}
+                                  onChange={(e) => {
+                                    const newColor = e.target.value;
+                                    setLayout(prev => ({
+                                      ...prev,
+                                      obstacles: prev.obstacles.map(o => 
+                                        o.id === selectedItem.item.id ? { ...o, color: newColor } : o
+                                      )
+                                    }));
+                                    setSelectedItem(prev => ({
+                                      ...prev,
+                                      item: { ...prev.item, color: newColor }
+                                    }));
+                                  }}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                />
+                              </div>
+                            </>
+                          )}
+                          
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                X Position
+                              </label>
+                              <input
+                                type="number"
+                                value={selectedItem.item.x_position}
+                                onChange={(e) => {
+                                  const newX = parseInt(e.target.value) || 0;
+                                  const constrainedX = Math.max(0, Math.min(newX, layout.room_width - selectedItem.item.width));
+                                  
+                                  if (selectedItem.type === 'table') {
+                                    setLayout(prev => ({
+                                      ...prev,
+                                      tables: prev.tables.map(t => 
+                                        t.id === selectedItem.item.id ? { ...t, x_position: constrainedX } : t
+                                      )
+                                    }));
+                                  } else {
+                                    setLayout(prev => ({
+                                      ...prev,
+                                      obstacles: prev.obstacles.map(o => 
+                                        o.id === selectedItem.item.id ? { ...o, x_position: constrainedX } : o
+                                      )
+                                    }));
+                                  }
+                                  
+                                  setSelectedItem(prev => ({
+                                    ...prev,
+                                    item: { ...prev.item, x_position: constrainedX }
+                                  }));
+                                }}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                min="0"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Y Position
+                              </label>
+                              <input
+                                type="number"
+                                value={selectedItem.item.y_position}
+                                onChange={(e) => {
+                                  const newY = parseInt(e.target.value) || 0;
+                                  const constrainedY = Math.max(0, Math.min(newY, layout.room_height - selectedItem.item.height));
+                                  
+                                  if (selectedItem.type === 'table') {
+                                    setLayout(prev => ({
+                                      ...prev,
+                                      tables: prev.tables.map(t => 
+                                        t.id === selectedItem.item.id ? { ...t, y_position: constrainedY } : t
+                                      )
+                                    }));
+                                  } else {
+                                    setLayout(prev => ({
+                                      ...prev,
+                                      obstacles: prev.obstacles.map(o => 
+                                        o.id === selectedItem.item.id ? { ...o, y_position: constrainedY } : o
+                                      )
+                                    }));
+                                  }
+                                  
+                                  setSelectedItem(prev => ({
+                                    ...prev,
+                                    item: { ...prev.item, y_position: constrainedY }
+                                  }));
+                                }}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                min="0"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* File Operations */}
+                <div className="p-4 border-b border-gray-200">
+                  <h3 className="text-lg font-semibold text-gray-800 mb-3">File</h3>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={exportLayout}
+                      className="flex items-center justify-center gap-2 px-3 py-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition-colors"
+                      title="Export Layout"
+                    >
+                      <Download size={16} />
+                      <span className="text-sm">Export</span>
+                    </button>
+                    
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex items-center justify-center gap-2 px-3 py-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors"
+                      title="Import Layout"
+                    >
+                      <Upload size={16} />
+                      <span className="text-sm">Import</span>
+                    </button>
+                  </div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".json"
+                    onChange={importLayout}
+                    className="hidden"
+                  />
+                </div>
+
+                {/* Statistics */}
+                <div className="p-4 flex-1">
+                  <h3 className="text-lg font-semibold text-gray-800 mb-3">Statistics</h3>
+                  <div className="space-y-2 text-sm text-gray-600">
+                    <div className="flex justify-between">
+                      <span>Tables:</span>
+                      <span className="font-medium">{layout.tables.length}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Total Seats:</span>
+                      <span className="font-medium">{getAllSeatIds().length}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Accessible Seats:</span>
+                      <span className="font-medium">
+                        {layout.tables.reduce((sum, t) => 
+                          sum + (t.seats?.filter(s => s.is_accessible).length || 0), 0
+                        )}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Obstacles:</span>
+                      <span className="font-medium">{layout.obstacles.length}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Room Size:</span>
+                      <span className="font-medium">{layout.room_width} × {layout.room_height}</span>
+                    </div>
+                  </div>
+                  
+                  {/* Seat ID Preview */}
+                  {layout.tables.length > 0 && (
+                    <div className="mt-4">
+                      <h4 className="text-sm font-semibold text-gray-700 mb-2">Available Seat IDs:</h4>
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-2 max-h-24 overflow-y-auto">
+                        <div className="text-xs text-gray-600 flex flex-wrap gap-1">
+                          {getAllSeatIds().map(seatId => (
+                            <span 
+                              key={seatId} 
+                              className={`px-2 py-1 rounded ${
+                                getSeatInfo(seatId)?.isAccessible 
+                                  ? 'bg-green-100 text-green-700' 
+                                  : 'bg-blue-100 text-blue-700'
+                              }`}
+                            >
+                              {seatId}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Seat status indicators */}
+                  {selectedClass && (
+                    <div className="mt-2">
+                      <h4 className="text-sm font-semibold text-gray-700 mb-2">Seat Status:</h4>
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-2 max-h-32 overflow-y-auto">
+                        <div className="text-xs space-y-1">
+                          {getAllSeatIds().map(seatId => {
+                            const student = getStudentForSeat(seatId);
+                            const seatInfo = getSeatInfo(seatId);
+                            return (
+                              <div 
+                                key={seatId} 
+                                className={`flex justify-between items-center p-1 rounded ${
+                                  student 
+                                    ? `bg-${student.group_number ? 'blue' : 'green'}-100` 
+                                    : 'bg-gray-100'
+                                }`}
+                              >
+                                <span className="font-medium">{seatId}</span>
+                                <span className="text-gray-600">
+                                  {student ? (
+                                    <>
+                                      {student.student_name}
+                                      {student.group_number && (
+                                        <span className="ml-1 text-blue-600">
+                                          (G{student.group_number})
+                                        </span>
+                                      )}
+                                    </>
+                                  ) : (
+                                    <span className="text-gray-400">Empty</span>
+                                  )}
+                                </span>
+                                {seatInfo?.isAccessible && (
+                                  <span className="text-green-600">♿</span>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Save Button */}
+                <div className="p-4 border-t border-gray-200">
+                  <button
+                    onClick={async () => {
+                      try {
+                        const apiLayout = exportForAPI();
+                        console.log('Saving layout to API:', apiLayout);
+                        
+                        // Example API call - replace with your actual endpoint
+                        const response = await fetch('/api/layouts/', {
+                          method: 'POST',
+                          headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                          },
+                          body: JSON.stringify(apiLayout)
+                        });
+                        
+                        if (response.ok) {
+                          const savedLayout = await response.json();
+                          setLayout(prev => ({ ...prev, id: savedLayout.id }));
+                          alert('✅ Layout saved successfully!');
+                        } else {
+                          throw new Error('Failed to save layout');
+                        }
+                      } catch (error) {
+                        console.error('Save error:', error);
+                        alert('❌ Error saving layout. Check console for details.');
+                      }
+                    }}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                  >
+                    <Save size={18} />
+                    Save Layout
+                  </button>
+                  
+                  {/* API Integration Info */}
+                  <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+                    <h4 className="text-xs font-semibold text-gray-700 mb-1">API Integration Ready</h4>
+                    <div className="text-xs text-gray-600 space-y-1">
+                      <div>✓ Seat IDs: {getAllSeatIds().length} generated</div>
+                      <div>✓ Django model compatible</div>
+                      <div>✓ SeatingAssignment ready</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Canvas Area */}
+              <div className="flex-1 flex flex-col bg-gray-50">
+                {/* Canvas Header */}
+                <div className="bg-white shadow-sm border-b border-gray-200 p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-800">{layout.name}</h3>
+                      <p className="text-sm text-gray-500">
+                        {selectedTool === 'select' && 'Click to select items, drag to move'}
+                        {selectedTool === 'table' && 'Click to place a new table'}
+                        {selectedTool === 'obstacle' && 'Click to place a new obstacle'}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {selectedItem && (
+                        <div className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+                          {selectedItem.type === 'table' ? '🪑' : '📦'} {selectedItem.item.table_name || selectedItem.item.name}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Canvas */}
+                <div className="flex-1 overflow-auto p-8">
+                  <div 
+                    className="relative mx-auto border-2 border-gray-300 bg-white shadow-lg"
+                    style={{ 
+                      width: layout.room_width * GRID_SIZE,
+                      height: layout.room_height * GRID_SIZE
+                    }}
+                  >
+                    {/* Canvas for drawing */}
+                    <canvas
+                      ref={canvasRef}
+                      width={layout.room_width * GRID_SIZE}
+                      height={layout.room_height * GRID_SIZE}
+                      className="absolute inset-0 cursor-crosshair"
+                      onClick={handleCanvasClick}
+                      onMouseDown={handleMouseDown}
+                      onMouseMove={handleMouseMove}
+                      onMouseUp={handleMouseUp}
+                      style={{ cursor: selectedTool === 'select' ? 'default' : 'crosshair' }}
+                    />
+
+                    {/* Grid */}
+                    {showGrid && (
+                      <div className="absolute inset-0 pointer-events-none">
+                        {/* Vertical lines */}
+                        {Array.from({ length: layout.room_width + 1 }).map((_, i) => (
+                          <div
+                            key={`v-${i}`}
+                            className="absolute top-0 bottom-0 border-l border-gray-200"
+                            style={{ left: i * GRID_SIZE }}
+                          />
+                        ))}
+                        {/* Horizontal lines */}
+                        {Array.from({ length: layout.room_height + 1 }).map((_, i) => (
+                          <div
+                            key={`h-${i}`}
+                            className="absolute left-0 right-0 border-t border-gray-200"
+                            style={{ top: i * GRID_SIZE }}
+                          />
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Obstacles */}
+                    {layout.obstacles.map(obstacle => (
+                      <div
+                        key={obstacle.id}
+                        className={`absolute border-2 transition-all duration-200 ${
+                          selectedItem?.item?.id === obstacle.id 
+                            ? 'border-blue-500 shadow-lg ring-2 ring-blue-300' 
+                            : 'border-gray-400'
+                        }`}
+                        style={{
+                          left: obstacle.x_position * GRID_SIZE,
+                          top: obstacle.y_position * GRID_SIZE,
+                          width: obstacle.width * GRID_SIZE,
+                          height: obstacle.height * GRID_SIZE,
+                          backgroundColor: obstacle.color,
+                          cursor: selectedTool === 'select' ? 'pointer' : 'default'
+                        }}
+                      >
+                        <div className="flex items-center justify-center h-full text-white font-semibold text-sm shadow-text">
+                          {obstacle.name}
+                        </div>
+                      </div>
+                    ))}
+
+                    {/* Tables */}
+                    {layout.tables.map(table => (
+                      <div
+                        key={table.id}
+                        className={`absolute bg-blue-100 border-2 transition-all duration-200 ${
+                          selectedItem?.item?.id === table.id 
+                            ? 'border-blue-500 shadow-lg ring-2 ring-blue-300' 
+                            : 'border-blue-400'
+                        } ${table.table_shape === 'round' ? 'rounded-full' : 'rounded-lg'}`}
+                        style={{
+                          left: table.x_position * GRID_SIZE,
+                          top: table.y_position * GRID_SIZE,
+                          width: table.width * GRID_SIZE,
+                          height: table.height * GRID_SIZE,
+                          transform: `rotate(${table.rotation}deg)`,
+                          cursor: selectedTool === 'select' ? 'pointer' : 'default'
+                        }}
+                      >
+                        {/* Table label */}
+                        <div className="absolute -top-6 left-0 bg-blue-600 text-white px-2 py-1 rounded text-xs font-semibold">
+                          {table.table_name}
+                        </div>
+
+                        {/* Enhanced seats with student assignments */}
+                        {!isPreviewMode && table.seats?.map(seat => {
+                          const seatId = `${table.table_number}-${seat.seat_number}`;
+                          const student = getStudentForSeat(seatId);
+                          const isOccupied = !!student;
+                          
+                          return (
+                            <div
+                              key={seat.seat_number}
+                              className={`absolute w-5 h-5 border-2 rounded-full transform -translate-x-1/2 -translate-y-1/2 flex items-center justify-center text-xs font-bold transition-all ${
+                                isOccupied 
+                                  ? student.group_number 
+                                    ? `bg-blue-400 border-blue-600 text-blue-800 ring-2 ring-blue-300` 
+                                    : `bg-purple-400 border-purple-600 text-purple-800 ring-2 ring-purple-300`
+                                  : seat.is_accessible 
+                                    ? 'bg-green-400 border-green-600 text-green-800 hover:bg-green-500' 
+                                    : 'bg-gray-300 border-gray-500 text-gray-700 hover:bg-gray-400'
+                              }`}
+                              style={{
+                                left: `${seat.relative_x * 100}%`,
+                                top: `${seat.relative_y * 100}%`
+                              }}
+                              title={
+                                isOccupied 
+                                  ? `${student.student_name} - Seat ${seatId}${student.group_number ? ` (Group ${student.group_number})` : ''}${student.group_role ? ` - ${student.group_role}` : ''}`
+                                  : `Seat ${seatId}${seat.is_accessible ? ' (Accessible)' : ''} - Empty`
+                              }
+                            >
+                              {isOccupied ? (
+                                <span className="text-[10px]">{student.group_number || '★'}</span>
+                              ) : (
+                                seat.seat_number
+                              )}
+                            </div>
+                          );
+                        }) || null}
+
+                        {/* Seat count indicator */}
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <div className="bg-white bg-opacity-80 px-2 py-1 rounded text-xs font-semibold text-gray-700">
+                            {table.max_seats} seats
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Instructions */}
+                {!isPreviewMode && (
+                  <div className="bg-white border-t border-gray-200 p-4">
+                    <div className="text-sm text-gray-600">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <h4 className="font-semibold text-gray-800 mb-2">Keyboard Shortcuts:</h4>
+                          <ul className="space-y-1">
+                            <li><kbd className="px-1 py-0.5 bg-gray-100 rounded text-xs">Ctrl+Z</kbd> Undo</li>
+                            <li><kbd className="px-1 py-0.5 bg-gray-100 rounded text-xs">Ctrl+Y</kbd> Redo</li>
+                            <li><kbd className="px-1 py-0.5 bg-gray-100 rounded text-xs">Ctrl+D</kbd> Duplicate</li>
+                            <li><kbd className="px-1 py-0.5 bg-gray-100 rounded text-xs">Del</kbd> Delete</li>
+                          </ul>
+                        </div>
+                        <div>
+                          <h4 className="font-semibold text-gray-800 mb-2">Tips:</h4>
+                          <ul className="space-y-1">
+                            <li>• Drag items to move them around</li>
+                            <li>• Press <kbd className="px-1 py-0.5 bg-gray-100 rounded text-xs">R</kbd> to rotate tables</li>
+                            <li>• Use grid snap for precise placement</li>
+                            <li>• Preview mode hides editing elements</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        };
+
+        // Render the app
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(React.createElement(LayoutEditor));
+    </script>
+</body>
+</html>
