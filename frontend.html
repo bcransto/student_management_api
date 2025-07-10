@@ -1409,16 +1409,21 @@
                                         </td>
 
                                         <td>
-                                            <button 
-                                                className="btn btn-secondary btn-sm"
-                                                onClick={() => {
-                                                const token = api.getToken();
-                                                const url = `/layout-editor/?layout=${layout.id}&token=${encodeURIComponent(token)}`;
-                                                window.open(url, '_blank');
-                                                }}
-                                            >
-                                                <i className="fas fa-eye"></i> View
-                                            </button>
+                                        <button 
+                                            className="btn btn-secondary btn-sm"
+                                            onClick={() => {
+                                            const token = api.getToken();
+                                            // Store token in both locations to ensure compatibility
+                                            if (token) {
+                                                localStorage.setItem('access_token', token);
+                                                sessionStorage.setItem('access_token', token);
+                                            }
+                                            // Open without token in URL
+                                            window.open(`/layout-editor/?layout=${layout.id}`, '_blank');
+                                            }}
+                                        >
+                                            <i className="fas fa-eye"></i> View
+                                        </button>
                                         </td>
 
                                         </tr>

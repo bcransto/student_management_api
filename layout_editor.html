@@ -39,21 +39,22 @@
         const LayoutEditor = () => {
         
           // State for API integration
-        const [apiToken, setApiToken] = useState(() => {
-          // First check URL parameter
-          const urlParams = new URLSearchParams(window.location.search);
-          const urlToken = urlParams.get('token');
-          if (urlToken) {
-            // Store it in localStorage for future use
-            localStorage.setItem('access_token', urlToken);
-            return urlToken;
-          }
-          
-          // Fallback to storage
-          return localStorage.getItem('access_token') || 
-                sessionStorage.getItem('access_token') || 
-                null;
-        });
+          const [apiToken, setApiToken] = useState(() => {
+            // Check both storage locations
+            const sessionToken = sessionStorage.getItem('access_token');
+            const localToken = localStorage.getItem('access_token');
+            
+            // Prefer sessionStorage (what frontend.html uses), fallback to localStorage
+            const token = sessionToken || localToken;
+            
+            // If we found a token, make sure it's in both places for consistency
+            if (token) {
+              localStorage.setItem('access_token', token);
+              sessionStorage.setItem('access_token', token);
+            }
+            
+            return token;
+          });
 
           const [selectedClass, setSelectedClass] = useState(null);
           const [currentAssignments, setCurrentAssignments] = useState([]);
@@ -170,31 +171,98 @@
             }
           }, [selectedClass, apiToken]);
 
-          // Add this useEffect to handle URL parameters and load layout
           useEffect(() => {
             const urlParams = new URLSearchParams(window.location.search);
             const layoutId = urlParams.get('layout');
             
-            if (layoutId) {
+            if (layoutId && apiToken) {
               loadExistingLayout(layoutId);
             }
-          }, []); // Empty dependency array means this runs once when component mounts
+          }, [apiToken]); // Depend on apiToken so it loads when token is available
 
           // Add this function inside your LayoutEditor component
           const loadExistingLayout = async (layoutId) => {
             console.log('Loading layout ID:', layoutId);
             
             try {
-              // Use the token from state instead of trying to get it from storage
+              // Use the token from state
               const token = apiToken;
               console.log('Token found:', token ? 'Yes' : 'No');
-              console.log('Token value:', token);
               
               if (!token) {
                 alert('Authentication required. Please log in first.');
                 return;
               }
-             } catch (error) {
+              
+              const url = `http://localhost:8000/api/layouts/${layoutId}/`;
+              console.log('Fetching URL:', url);
+              
+              const headers = {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              };
+              console.log('Headers being sent:', headers);
+              
+              const response = await fetch(url, { headers });
+              
+              console.log('Response status:', response.status);
+              
+              if (!response.ok) {
+                const errorText = await response.text();
+                console.log('Error response body:', errorText);
+                throw new Error(`HTTP error! status: ${response.status}`);
+              }
+              
+              const layoutData = await response.json();
+              console.log('Layout data received:', layoutData);
+              
+              // Update the React state with the loaded layout
+              setLayout({
+                id: layoutData.id,
+                name: layoutData.name,
+                description: layoutData.description || '',
+                room_width: layoutData.room_width,
+                room_height: layoutData.room_height,
+                tables: layoutData.tables.map(tableData => ({
+                  id: tableData.id || Date.now() + Math.random(),
+                  table_number: tableData.table_number,
+                  table_name: tableData.table_name,
+                  x_position: tableData.x_position,
+                  y_position: tableData.y_position,
+                  width: tableData.width,
+                  height: tableData.height,
+                  max_seats: tableData.max_seats,
+                  table_shape: tableData.table_shape,
+                  rotation: tableData.rotation,
+                  seats: tableData.seats?.map(seatData => ({
+                    seat_number: seatData.seat_number,
+                    relative_x: seatData.relative_x,
+                    relative_y: seatData.relative_y,
+                    is_accessible: seatData.is_accessible,
+                    notes: seatData.notes || ''
+                  })) || []
+                })),
+                obstacles: layoutData.obstacles.map(obstacleData => ({
+                  id: obstacleData.id || Date.now() + Math.random(),
+                  name: obstacleData.name,
+                  obstacle_type: obstacleData.obstacle_type,
+                  x_position: obstacleData.x_position,
+                  y_position: obstacleData.y_position,
+                  width: obstacleData.width,
+                  height: obstacleData.height,
+                  color: obstacleData.color
+                }))
+              });
+              
+              // Clear any selected items
+              setSelectedItem(null);
+              
+              // Update page title
+              document.title = `Edit Layout: ${layoutData.name}`;
+              
+              console.log('Layout loaded successfully into React state');
+              
+            } catch (error) {
               console.error('Error loading layout:', error);
               alert('Failed to load layout. Please try again.');
             }
