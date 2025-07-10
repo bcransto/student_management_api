@@ -71,3 +71,6 @@ settings_local.py
 .coverage
 htmlcov/
 .pytest_cache/
+
+# other
+guider_student_management_api.md

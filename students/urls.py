@@ -30,4 +30,5 @@ urlpatterns = [
     
     # API endpoints
     path('', include(router.urls)),
+
 ]

@@ -1379,7 +1379,8 @@
                                     <th>Dimensions</th>
                                     <th>Tables</th>
                                     <th>Total Seats</th>
-                                    <th>Template</th>
+                                    <th>Created By</th>
+                                    <th>Privacy</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -1406,12 +1407,21 @@
                                                 <span className="badge badge-warning">Private</span>
                                             )}
                                         </td>
+
                                         <td>
-                                            <button className="btn btn-secondary btn-sm">
+                                            <button 
+                                                className="btn btn-secondary btn-sm"
+                                                onClick={() => {
+                                                const token = api.getToken();
+                                                const url = `/layout-editor/?layout=${layout.id}&token=${encodeURIComponent(token)}`;
+                                                window.open(url, '_blank');
+                                                }}
+                                            >
                                                 <i className="fas fa-eye"></i> View
                                             </button>
                                         </td>
-                                    </tr>
+
+                                        </tr>
                                 ))}
                             </tbody>
                         </table>
@@ -1637,6 +1647,14 @@
                             >
                                 <i className="fas fa-th-large"></i>
                                 Classroom Layouts
+                            </div>
+
+                            <div 
+                                className={getNavItemClass('layout-editor')}
+                                onClick={() => window.open('/layout-editor/', '_blank')}
+                            >
+                                <i className="fas fa-edit"></i>
+                                Layout Editor
                             </div>
                         </nav>
 

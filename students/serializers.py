@@ -59,6 +59,9 @@ class ClassroomLayoutSerializer(serializers.ModelSerializer):
                  'created_by', 'created_by_name', 'is_template', 'total_seats', 
                  'total_tables', 'tables', 'obstacles', 'created_at', 'updated_at']
         read_only_fields = ['created_at', 'updated_at']
+        extra_kwargs = {
+            'created_by': {'write_only': True}  # Add this to hide created_by in responses
+        }
 
 # Seating assignment serializers  
 class SeatingAssignmentSerializer(serializers.ModelSerializer):
@@ -288,7 +291,10 @@ class ClassroomLayoutSerializer(serializers.ModelSerializer):
                  'created_by', 'created_by_name', 'is_template', 'total_seats', 
                  'total_tables', 'tables', 'obstacles', 'created_at', 'updated_at']
         read_only_fields = ['created_at', 'updated_at']
-
+        extra_kwargs = {
+            'created_by': {'write_only': True}  # Make sure this is here
+        }
+        
 # Seating assignment serializers  
 class SeatingAssignmentSerializer(serializers.ModelSerializer):
     student_name = serializers.CharField(source='roster_entry.student.get_full_name', read_only=True)
