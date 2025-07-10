@@ -262,9 +262,14 @@ class SeatingAssignmentViewSet(viewsets.ModelViewSet):
             seating_period__class_assigned__teacher=self.request.user
         )
 
+import os
+from django.conf import settings
+from django.http import HttpResponse
+
 def frontend_view(request):
     """Serve the frontend HTML file as static content"""
     try:
+        # Use absolute path to be more explicit
         frontend_path = os.path.join(settings.BASE_DIR, 'frontend.html')
         
         if os.path.exists(frontend_path):
@@ -279,7 +284,7 @@ def frontend_view(request):
             
             return HttpResponse(content, content_type='text/html')
         else:
-            return HttpResponse(f'<h1>Frontend not found</h1><p>Path: {frontend_path}</p>', status=404)
+            return HttpResponse(f'<h1>Frontend not found</h1><p>Path: {frontend_path}</p><p>Files in BASE_DIR: {os.listdir(settings.BASE_DIR)}</p>', status=404)
             
     except Exception as e:
         return HttpResponse(f'<h1>Error</h1><p>{str(e)}</p>', status=500)
@@ -291,6 +296,7 @@ def test_view(request):
 def layout_editor_view(request):
     """Serve the layout editor HTML file as static content"""
     try:
+        # Use absolute path to be more explicit
         layout_editor_path = os.path.join(settings.BASE_DIR, 'layout_editor.html')
         
         if os.path.exists(layout_editor_path):
@@ -305,11 +311,11 @@ def layout_editor_view(request):
             
             return HttpResponse(content, content_type='text/html')
         else:
-            return HttpResponse(f'<h1>Layout Editor not found</h1><p>Path: {layout_editor_path}</p>', status=404)
+            return HttpResponse(f'<h1>Layout Editor not found</h1><p>Path: {layout_editor_path}</p><p>Files in BASE_DIR: {os.listdir(settings.BASE_DIR)}</p>', status=404)
             
     except Exception as e:
         return HttpResponse(f'<h1>Error</h1><p>{str(e)}</p>', status=500)
-    
+        
 @action(detail=True, methods=['get'])
 def validate_seat(self, request, pk=None, seat_id=None):
     """Validate if a seat ID exists in the class layout"""
