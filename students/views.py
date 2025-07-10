@@ -315,7 +315,40 @@ def layout_editor_view(request):
             
     except Exception as e:
         return HttpResponse(f'<h1>Error</h1><p>{str(e)}</p>', status=500)
-        
+
+def debug_paths(request):
+    """Debug view to check paths and files"""
+    import os
+    from django.conf import settings
+    
+    base_dir = settings.BASE_DIR
+    frontend_path = os.path.join(base_dir, 'frontend.html')
+    layout_path = os.path.join(base_dir, 'layout_editor.html')
+    
+    try:
+        files_in_base = os.listdir(base_dir)
+    except:
+        files_in_base = ["Error reading directory"]
+    
+    debug_info = f"""
+    <h1>Debug Information</h1>
+    <p><strong>BASE_DIR:</strong> {base_dir}</p>
+    <p><strong>Frontend path:</strong> {frontend_path}</p>
+    <p><strong>Layout editor path:</strong> {layout_path}</p>
+    <p><strong>Frontend exists:</strong> {os.path.exists(frontend_path)}</p>
+    <p><strong>Layout editor exists:</strong> {os.path.exists(layout_path)}</p>
+    <p><strong>Production mode:</strong> {getattr(settings, 'PRODUCTION', 'Not set')}</p>
+    <h2>Files in BASE_DIR:</h2>
+    <ul>
+    """
+    
+    for file in files_in_base:
+        debug_info += f"<li>{file}</li>"
+    
+    debug_info += "</ul>"
+    
+    return HttpResponse(debug_info, content_type='text/html')    
+
 @action(detail=True, methods=['get'])
 def validate_seat(self, request, pk=None, seat_id=None):
     """Validate if a seat ID exists in the class layout"""
