@@ -419,3 +419,26 @@ def create_from_editor(self, request):
         
     except Exception as e:
         return Response({'error': str(e)}, status=400)
+    
+
+def modular_layout_editor_view(request):
+    """Serve the new modular layout editor"""
+    try:
+        layout_editor_path = os.path.join(settings.BASE_DIR, 'layout_editor', 'index.html')
+        
+        if os.path.exists(layout_editor_path):
+            with open(layout_editor_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            # Only update API URLs for production
+            if hasattr(settings, 'PRODUCTION') and settings.PRODUCTION:
+                content = content.replace('localhost:8000', 'bcranston.pythonanywhere.com')
+                content = content.replace('127.0.0.1:8000', 'bcranston.pythonanywhere.com') 
+                content = content.replace('http://bcranston.pythonanywhere.com', 'https://bcranston.pythonanywhere.com')
+            
+            return HttpResponse(content, content_type='text/html')
+        else:
+            return HttpResponse(f'<h1>Modular Layout Editor not found</h1><p>Path: {layout_editor_path}</p>', status=404)
+            
+    except Exception as e:
+        return HttpResponse(f'<h1>Error</h1><p>{str(e)}</p>', status=500)
