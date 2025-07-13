@@ -5,6 +5,16 @@ from .models import (
     ClassroomTable, TableSeat, LayoutObstacle, 
     SeatingPeriod, SeatingAssignment
 )
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    email = serializers.EmailField()
+    
+    def validate(self, attrs):
+        # Map email to username for authentication
+        if 'email' in attrs:
+            attrs['username'] = attrs['email']
+        return super().validate(attrs)
 
 class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=8)
@@ -208,35 +218,6 @@ class BulkSeatingAssignmentSerializer(serializers.Serializer):
         child=AssignSeatSerializer(),
         min_length=1
     )
-
-# JWT Token serializer (if you're still using the custom one)
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-
-class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
-    username_field = 'email'
-    
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # Add email field to the serializer
-        self.fields['email'] = self.fields['username']
-    
-    def validate(self, attrs):
-        # Use email as username for authentication
-        email = attrs.get('email') or attrs.get('username')
-        password = attrs.get('password')
-        
-        if email and password:
-            attrs['username'] = email
-        
-        return super().validate(attrs)
-    
-    # students/serializers.py - Updated for new model structure
-from rest_framework import serializers
-from .models import (
-    User, Class, Student, ClassRoster, ClassroomLayout, 
-    ClassroomTable, TableSeat, LayoutObstacle, 
-    SeatingPeriod, SeatingAssignment
-)
 
 class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=8)

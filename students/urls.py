@@ -1,8 +1,17 @@
-# students/urls.py - Updated with new model routes
+# students/urls.py - Fixed to use custom token serializer
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from rest_framework_simplejwt.views import TokenRefreshView
 from . import views
+from .serializers import CustomTokenObtainPairSerializer
+from rest_framework_simplejwt.views import TokenObtainPairView
+
+# Create a custom token view that uses our custom serializer
+
+
+class CustomTokenObtainPairView(TokenObtainPairView):
+    serializer_class = CustomTokenObtainPairSerializer
+
 
 # Create router for ViewSets
 router = DefaultRouter()
@@ -24,11 +33,10 @@ router.register(r'seating-periods', views.SeatingPeriodViewSet)
 router.register(r'seating-assignments', views.SeatingAssignmentViewSet)
 
 urlpatterns = [
-    # JWT Authentication endpoints
-    path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    # JWT Authentication endpoints - FIXED to use custom serializer
+    path('token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-    
+
     # API endpoints
     path('', include(router.urls)),
-
 ]
