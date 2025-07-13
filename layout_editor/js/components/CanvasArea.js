@@ -63,221 +63,164 @@ const CanvasArea = ({ layout, setLayout, selectedTool, showGrid, selectedItem, s
         
         e.stopPropagation();
         const rect = canvasRef.current.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left;
-        const mouseY = e.clientY - rect.top;
-        const itemX = item.x_position * GRID_SIZE;
-        const itemY = item.y_position * GRID_SIZE;
+        const startX = e.clientX - rect.left;
+        const startY = e.clientY - rect.top;
         
         setDraggedItem({ item, type });
         setDragOffset({
-            x: mouseX - itemX,
-            y: mouseY - itemY
+            x: startX - (item.x_position * GRID_SIZE),
+            y: startY - (item.y_position * GRID_SIZE)
         });
         setSelectedItem({ item, type });
     };
 
-    const handleMouseMove = (e) => {
-        if (!draggedItem || selectedTool !== TOOL_MODES.SELECT) return;
+    const handleMouseMove = useCallback((e) => {
+        if (!draggedItem) return;
         
-        const rect = canvasRef.current.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left;
-        const mouseY = e.clientY - rect.top;
+        const rect = canvasRef.current?.getBoundingClientRect();
+        if (!rect) return;
         
-        // Calculate new position
-        const newX = mouseX - dragOffset.x;
-        const newY = mouseY - dragOffset.y;
+        const currentX = e.clientX - rect.left;
+        const currentY = e.clientY - rect.top;
         
-        // Convert to grid coordinates
-        const gridX = Math.round(newX / GRID_SIZE);
-        const gridY = Math.round(newY / GRID_SIZE);
+        const newX = Math.floor((currentX - dragOffset.x) / GRID_SIZE);
+        const newY = Math.floor((currentY - dragOffset.y) / GRID_SIZE);
         
-        // Constrain to room bounds
-        const constrainedX = Math.max(0, Math.min(gridX, layout.room_width - draggedItem.item.width));
-        const constrainedY = Math.max(0, Math.min(gridY, layout.room_height - draggedItem.item.height));
+        // Constrain to grid bounds
+        const constrainedX = Math.max(0, Math.min(newX, layout.room_width - draggedItem.item.width));
+        const constrainedY = Math.max(0, Math.min(newY, layout.room_height - draggedItem.item.height));
         
-        // Update the item position
+        const updatedItem = {
+            ...draggedItem.item,
+            x_position: constrainedX,
+            y_position: constrainedY
+        };
+        
         if (draggedItem.type === 'table') {
             setLayout(prev => ({
                 ...prev,
-                tables: prev.tables.map(t => 
-                    t.id === draggedItem.item.id 
-                        ? { ...t, x_position: constrainedX, y_position: constrainedY }
-                        : t
-                )
+                tables: prev.tables.map(t => t.id === draggedItem.item.id ? updatedItem : t)
             }));
         } else if (draggedItem.type === 'obstacle') {
             setLayout(prev => ({
                 ...prev,
-                obstacles: prev.obstacles.map(o => 
-                    o.id === draggedItem.item.id 
-                        ? { ...o, x_position: constrainedX, y_position: constrainedY }
-                        : o
-                )
+                obstacles: prev.obstacles.map(o => o.id === draggedItem.item.id ? updatedItem : o)
             }));
         }
         
-        // Update selected item
-        setSelectedItem(prev => ({
-            ...prev,
-            item: { ...prev.item, x_position: constrainedX, y_position: constrainedY }
-        }));
-    };
+        setSelectedItem(prev => prev ? { ...prev, item: updatedItem } : null);
+    }, [draggedItem, dragOffset, layout.room_width, layout.room_height, setLayout, setSelectedItem]);
 
-    const handleMouseUp = () => {
+    const handleMouseUp = useCallback(() => {
         setDraggedItem(null);
         setDragOffset({ x: 0, y: 0 });
-    };
+    }, []);
 
-    // Add global mouse event listeners
     useEffect(() => {
-        const handleGlobalMouseMove = (e) => handleMouseMove(e);
-        const handleGlobalMouseUp = () => handleMouseUp();
-        
         if (draggedItem) {
-            document.addEventListener('mousemove', handleGlobalMouseMove);
-            document.addEventListener('mouseup', handleGlobalMouseUp);
+            document.addEventListener('mousemove', handleMouseMove);
+            document.addEventListener('mouseup', handleMouseUp);
+            return () => {
+                document.removeEventListener('mousemove', handleMouseMove);
+                document.removeEventListener('mouseup', handleMouseUp);
+            };
         }
-        
-        return () => {
-            document.removeEventListener('mousemove', handleGlobalMouseMove);
-            document.removeEventListener('mouseup', handleGlobalMouseUp);
-        };
-    }, [draggedItem, dragOffset, layout.room_width, layout.room_height]);
+    }, [draggedItem, handleMouseMove, handleMouseUp]);
 
-    // Keyboard event handler for delete
-    useEffect(() => {
-        const handleKeyDown = (e) => {
-            if ((e.key === 'Delete' || e.key === 'Backspace') && selectedItem) {
-                e.preventDefault();
-                if (selectedItem.type === 'table') {
-                    setLayout(prev => ({
-                        ...prev,
-                        tables: prev.tables.filter(t => t.id !== selectedItem.item.id)
-                    }));
-                } else if (selectedItem.type === 'obstacle') {
-                    setLayout(prev => ({
-                        ...prev,
-                        obstacles: prev.obstacles.filter(o => o.id !== selectedItem.item.id)
-                    }));
-                }
-                setSelectedItem(null);
-            }
-        };
-
-        document.addEventListener('keydown', handleKeyDown);
-        return () => document.removeEventListener('keydown', handleKeyDown);
-    }, [selectedItem]);
-
-    return React.createElement('div', {
-        className: 'flex-1 flex flex-col bg-gray-50'
-    },
-        // Canvas Header
-        React.createElement('div', {
-            className: 'bg-white shadow-sm border-b border-gray-200 p-4'
+    return React.createElement(
+        'div',
+        {
+            className: 'flex-1 relative bg-gray-50 overflow-auto p-8'
         },
-            React.createElement('div', {
-                className: 'flex items-center justify-between'
-            },
-                React.createElement('div', null,
-                    React.createElement('h3', {
-                        className: 'text-lg font-semibold text-gray-800'
-                    }, layout.name),
-                    React.createElement('p', {
-                        className: 'text-sm text-gray-500'
-                    },
-                        selectedTool === TOOL_MODES.SELECT && 'Click to select items, drag to move them',
-                        selectedTool === TOOL_MODES.TABLE && 'Click to place a new table',
-                        selectedTool === TOOL_MODES.OBSTACLE && 'Click to place a new obstacle'
-                    )
-                ),
-                selectedItem && React.createElement('div', {
-                    className: 'px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium'
-                }, 
-                    `${selectedItem.type === 'table' ? '🪑' : '📦'} ${selectedItem.item.table_name || selectedItem.item.name}`,
-                    React.createElement('span', {
-                        className: 'ml-2 text-xs text-gray-600'
-                    }, `(${selectedItem.item.x_position}, ${selectedItem.item.y_position})`)
-                )
-            )
-        ),
-
-        // Canvas
-        React.createElement('div', {
-            className: 'flex-1 overflow-auto p-8'
-        },
-            React.createElement('div', {
-                ref: canvasRef,
-                className: 'relative mx-auto border-2 border-gray-300 bg-white shadow-lg select-none',
-                style: { 
+        React.createElement(
+            'div',
+            {
+                className: 'bg-white border-2 border-gray-300 shadow-lg rounded-lg overflow-hidden',
+                style: {
                     width: layout.room_width * GRID_SIZE,
                     height: layout.room_height * GRID_SIZE,
-                    cursor: selectedTool === TOOL_MODES.SELECT ? 'default' : 'crosshair'
-                },
-                onClick: handleCanvasClick,
-                onMouseMove: handleMouseMove,
-                onMouseUp: handleMouseUp
+                    maxWidth: 'fit-content',
+                    maxHeight: 'fit-content'
+                }
             },
-                // Grid
-                showGrid && React.createElement('div', {
-                    className: 'absolute inset-0 pointer-events-none'
+            React.createElement(
+                'div',
+                {
+                    ref: canvasRef,
+                    className: 'relative cursor-crosshair',
+                    style: {
+                        width: layout.room_width * GRID_SIZE,
+                        height: layout.room_height * GRID_SIZE
+                    },
+                    onClick: handleCanvasClick
                 },
-                    // Vertical lines
-                    Array.from({ length: layout.room_width + 1 }).map((_, i) =>
-                        React.createElement('div', {
-                            key: `v-${i}`,
-                            className: 'absolute top-0 bottom-0 border-l border-gray-200',
-                            style: { left: i * GRID_SIZE }
-                        })
-                    ),
-                    // Horizontal lines
-                    Array.from({ length: layout.room_height + 1 }).map((_, i) =>
-                        React.createElement('div', {
-                            key: `h-${i}`,
-                            className: 'absolute left-0 right-0 border-t border-gray-200',
-                            style: { top: i * GRID_SIZE }
-                        })
-                    )
+                
+                // Grid background
+                showGrid && React.createElement(
+                    'div',
+                    {
+                        className: 'absolute inset-0 pointer-events-none',
+                        style: {
+                            backgroundImage: `
+                                linear-gradient(to right, #e5e7eb 1px, transparent 1px),
+                                linear-gradient(to bottom, #e5e7eb 1px, transparent 1px)
+                            `,
+                            backgroundSize: `${GRID_SIZE}px ${GRID_SIZE}px`
+                        }
+                    }
                 ),
 
                 // Tables
-                layout.tables.map(table => {
-                    return React.createElement('div', {
-                        key: table.id,
-                        className: `absolute bg-blue-100 border-2 transition-all duration-200 rounded-lg ${
-                            selectedItem?.item?.id === table.id 
-                                ? 'border-blue-500 shadow-lg ring-2 ring-blue-300 z-10' 
-                                : 'border-blue-400 hover:border-blue-500 hover:shadow-md'
-                        } ${selectedTool === TOOL_MODES.SELECT ? 'cursor-move' : 'cursor-pointer'}`,
-                        style: {
-                            left: table.x_position * GRID_SIZE,
-                            top: table.y_position * GRID_SIZE,
-                            width: table.width * GRID_SIZE,
-                            height: table.height * GRID_SIZE,
-                            transform: draggedItem?.item?.id === table.id ? 'scale(1.05)' : 'scale(1)',
-                        },
-                        onMouseDown: (e) => handleItemMouseDown(e, table, 'table'),
-                        onClick: (e) => {
-                            e.stopPropagation();
-                            if (selectedTool === TOOL_MODES.SELECT) {
-                                setSelectedItem({ item: table, type: 'table' });
+                layout.tables.map(table =>
+                    React.createElement(
+                        'div',
+                        {
+                            key: table.id,
+                            className: `absolute border-2 bg-blue-100 transition-all duration-200 ${
+                                table.table_shape === 'round' ? 'rounded-full' : 'rounded-lg'
+                            } ${
+                                selectedItem?.item?.id === table.id 
+                                    ? 'border-blue-500 shadow-lg ring-2 ring-blue-300 z-10' 
+                                    : 'border-blue-400 hover:border-blue-500 hover:shadow-md'
+                            } ${selectedTool === TOOL_MODES.SELECT ? 'cursor-move' : 'cursor-pointer'}`,
+                            style: {
+                                left: table.x_position * GRID_SIZE,
+                                top: table.y_position * GRID_SIZE,
+                                width: table.width * GRID_SIZE,
+                                height: table.height * GRID_SIZE,
+                                transform: draggedItem?.item?.id === table.id ? 'scale(1.05)' : 'scale(1)',
+                            },
+                            onMouseDown: (e) => handleItemMouseDown(e, table, 'table'),
+                            onClick: (e) => {
+                                e.stopPropagation();
+                                if (selectedTool === TOOL_MODES.SELECT) {
+                                    setSelectedItem({ item: table, type: 'table' });
+                                }
                             }
-                        }
-                    },
+                        },
                         // Table label
                         React.createElement('div', {
                             className: 'absolute -top-6 left-0 bg-blue-600 text-white px-2 py-1 rounded text-xs font-semibold pointer-events-none'
                         }, table.table_name),
 
-                        // Seat indicator
-                        React.createElement('div', {
-                            className: 'absolute inset-0 flex items-center justify-center pointer-events-none'
-                        },
+                        // Individual seat circles - RESTORED!
+                        table.seats && table.seats.map(seat =>
                             React.createElement('div', {
-                                className: 'bg-white bg-opacity-80 px-2 py-1 rounded text-xs font-semibold text-gray-700'
-                            }, `${table.max_seats} seats`)
+                                key: seat.seat_number,
+                                className: `absolute w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold pointer-events-none transition-colors ${
+                                    seat.is_accessible 
+                                        ? 'bg-green-400 border-2 border-green-600 text-green-800 hover:bg-green-500' 
+                                        : 'bg-blue-300 border-2 border-blue-500 text-blue-800 hover:bg-blue-400'
+                                }`,
+                                style: {
+                                    left: `calc(${seat.relative_x * 100}% - 12px)`, // Center the 24px circle
+                                    top: `calc(${seat.relative_y * 100}% - 12px)`,  // Center the 24px circle
+                                },
+                                title: `Seat ${seat.seat_number}${seat.is_accessible ? ' (Accessible)' : ''}`
+                            }, seat.seat_number)
                         )
-                    );
-                }),
+                    )
+                ),
 
                 // Obstacles
                 layout.obstacles.map(obstacle =>
@@ -305,62 +248,9 @@ const CanvasArea = ({ layout, setLayout, selectedTool, showGrid, selectedItem, s
                         }
                     },
                         React.createElement('div', {
-                            className: 'flex items-center justify-center h-full text-white font-semibold text-sm shadow-text pointer-events-none'
+                            className: 'absolute inset-0 flex items-center justify-center text-xs font-semibold text-white pointer-events-none',
+                            style: { textShadow: '0 1px 2px rgba(0, 0, 0, 0.5)' }
                         }, obstacle.name)
-                    )
-                )
-            )
-        ),
-
-        // Instructions
-        React.createElement('div', {
-            className: 'bg-white border-t border-gray-200 p-4'
-        },
-            React.createElement('div', {
-                className: 'text-sm text-gray-600 max-w-4xl mx-auto'
-            },
-                React.createElement('div', {
-                    className: 'grid grid-cols-1 md:grid-cols-2 gap-4'
-                },
-                    React.createElement('div', null,
-                        React.createElement('h4', {
-                            className: 'font-semibold text-gray-800 mb-2'
-                        }, 'Instructions:'),
-                        React.createElement('ul', {
-                            className: 'space-y-1'
-                        },
-                            React.createElement('li', null, '• Select the tool you want to use from the sidebar'),
-                            React.createElement('li', null, '• Use Select tool to move items by dragging'),
-                            React.createElement('li', null, '• Click on empty space to place new items'),
-                            React.createElement('li', null, '• Press Delete to remove selected items')
-                        )
-                    ),
-                    React.createElement('div', null,
-                        React.createElement('h4', {
-                            className: 'font-semibold text-gray-800 mb-2'
-                        }, 'Keyboard Shortcuts:'),
-                        React.createElement('ul', {
-                            className: 'space-y-1'
-                        },
-                            React.createElement('li', null, 
-                                React.createElement('kbd', {
-                                    className: 'px-1 py-0.5 bg-gray-100 rounded text-xs mr-2'
-                                }, 'Delete'),
-                                'Remove selected item'
-                            ),
-                            React.createElement('li', null, 
-                                React.createElement('kbd', {
-                                    className: 'px-1 py-0.5 bg-gray-100 rounded text-xs mr-2'
-                                }, 'Click'),
-                                'Select item'
-                            ),
-                            React.createElement('li', null, 
-                                React.createElement('kbd', {
-                                    className: 'px-1 py-0.5 bg-gray-100 rounded text-xs mr-2'
-                                }, 'Drag'),
-                                'Move selected item'
-                            )
-                        )
                     )
                 )
             )

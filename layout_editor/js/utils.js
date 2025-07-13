@@ -1,5 +1,5 @@
 // utils.js - Utility functions and API helper
-const { useState, useRef, useEffect } = React;
+const { useState, useRef, useEffect, useCallback } = React;
 
 // Icon components
 const Save = (props) =>
