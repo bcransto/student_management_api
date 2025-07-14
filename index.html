@@ -19,6 +19,7 @@
     <link rel="stylesheet" href="/frontend/students/students.css" />
     <link rel="stylesheet" href="/frontend/classes/classes.css" />
     <link rel="stylesheet" href="/frontend/seating/seating.css" />
+    <link rel="stylesheet" href="/frontend/navigation/navigation.css" />
   </head>
   <body>
     <div id="root"></div>
@@ -26,6 +27,10 @@
     <!-- Load shared components first -->
     <script type="text/babel" src="/frontend/shared/auth.js"></script>
     <script type="text/babel" src="/frontend/shared/api.js"></script>
+
+    <!-- Load navigation components -->
+    <script type="text/babel" src="/frontend/navigation/header.js"></script>
+    <script type="text/babel" src="/frontend/navigation/sidebar.js"></script>
 
     <!-- Load module components -->
     <script type="text/babel" src="/frontend/students/students.js"></script>
@@ -40,9 +45,23 @@
       const Students = window.StudentsComponent;
       const Classes = window.ClassesComponent;
       const Seating = window.SeatingComponent;
+      const Header = window.Header;
+      const Sidebar = window.Sidebar;
+
+      // Add this debug line
+      console.log("Components loaded:", {
+        Login,
+        Students,
+        Classes,
+        Seating,
+        Header,
+        Sidebar,
+      });
 
       // Placeholder components for other sections
       const Dashboard = ({ data, navigateTo }) => {
+        console.log("Dashboard rendering with data:", data);
+
         const { classes, students, layouts } = data;
 
         // Add null checks and default to empty arrays
@@ -229,6 +248,21 @@
         }
 
         const renderCurrentView = () => {
+          console.log(
+            "renderCurrentView called with:",
+            currentView,
+            "data:",
+            data
+          );
+
+          if (!data) {
+            return React.createElement(
+              "div",
+              { className: "loading" }
+              // ... loading content
+            );
+          }
+
           switch (currentView) {
             case "dashboard":
               return React.createElement(Dashboard, {
@@ -458,81 +492,19 @@
           }
         };
 
-        const getNavItemClass = (view) => {
-          return `nav-item ${currentView === view ? "active" : ""}`;
-        };
-
         return (
           <div className="app">
-            <header className="header">
-              <div className="header-left">
-                <h1 onClick={() => navigateTo("dashboard")}>
-                  <i className="fas fa-graduation-cap"></i> Classroom Manager
-                </h1>
-              </div>
-              <div className="header-right">
-                <div className="user-info">
-                  <i className="fas fa-user-circle"></i>
-                  <span>Welcome, Teacher</span>
-                </div>
-                <button className="btn btn-secondary" onClick={handleLogout}>
-                  <i className="fas fa-sign-out-alt"></i> Logout
-                </button>
-              </div>
-            </header>
+            {React.createElement(Header, {
+              currentUser: "Teacher",
+              onLogout: handleLogout,
+              onNavigate: navigateTo,
+            })}
 
             <div className="main-container">
-              <nav className="sidebar">
-                <h3>Navigation</h3>
-
-                <div
-                  className={getNavItemClass("dashboard")}
-                  onClick={() => navigateTo("dashboard")}
-                >
-                  <i className="fas fa-tachometer-alt"></i>
-                  Dashboard
-                </div>
-
-                <div
-                  className={getNavItemClass("classes")}
-                  onClick={() => navigateTo("classes")}
-                >
-                  <i className="fas fa-chalkboard-teacher"></i>
-                  Classes
-                </div>
-
-                <div
-                  className={getNavItemClass("students")}
-                  onClick={() => navigateTo("students")}
-                >
-                  <i className="fas fa-users"></i>
-                  Students
-                </div>
-
-                <div
-                  className={getNavItemClass("seating")}
-                  onClick={() => navigateTo("seating")}
-                >
-                  <i className="fas fa-chair"></i>
-                  Seating Charts
-                </div>
-
-                <div
-                  className={getNavItemClass("layouts")}
-                  onClick={() => navigateTo("layouts")}
-                >
-                  <i className="fas fa-th-large"></i>
-                  Classroom Layouts
-                </div>
-
-                <div
-                  className={getNavItemClass("layout-editor")}
-                  onClick={() => window.open("/layout-editor/", "_blank")}
-                >
-                  <i className="fas fa-edit"></i>
-                  Layout Editor
-                </div>
-              </nav>
+              {React.createElement(Sidebar, {
+                currentView: currentView,
+                onNavigate: navigateTo,
+              })}
 
               <main className="content-area">{renderCurrentView()}</main>
             </div>
