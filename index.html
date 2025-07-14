@@ -133,6 +133,37 @@
           }
         }, []);
 
+        useEffect(() => {
+          // Function to parse hash and navigate accordingly
+          const handleHashChange = () => {
+            const hash = window.location.hash.slice(1); // Remove the #
+            if (hash) {
+              const [view, queryString] = hash.split("?");
+              const params = queryString
+                ? Object.fromEntries(new URLSearchParams(queryString))
+                : null;
+
+              setCurrentView(view);
+              setCurrentParams(params);
+            } else {
+              // Default to dashboard if no hash
+              setCurrentView("dashboard");
+              window.location.hash = "dashboard";
+            }
+          };
+
+          // Handle initial load
+          handleHashChange();
+
+          // Listen for hash changes (back/forward button)
+          window.addEventListener("hashchange", handleHashChange);
+
+          // Cleanup
+          return () => {
+            window.removeEventListener("hashchange", handleHashChange);
+          };
+        }, []); // Only run once on mount
+
         const fetchData = async () => {
           console.log("=== Fetching data using ApiModule ===");
 
@@ -172,6 +203,16 @@
           console.log("Navigating to:", view, "with params:", params);
           setCurrentView(view);
           setCurrentParams(params);
+
+          // Update URL hash
+          if (params) {
+            // If there are params, encode them in the hash
+            const paramString = new URLSearchParams(params).toString();
+            window.location.hash = `${view}?${paramString}`;
+          } else {
+            // Simple hash for views without params
+            window.location.hash = view;
+          }
         };
 
         if (loading) {
