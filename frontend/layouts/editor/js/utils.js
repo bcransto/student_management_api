@@ -377,9 +377,12 @@ const getSeatInfo = (layout, seatId) => {
 // API Helper
 const ApiHelper = {
   getAuthHeaders: () => {
+    // Look for token with the correct key name used by AuthModule
     const token =
-      localStorage.getItem("access_token") ||
-      sessionStorage.getItem("access_token");
+      localStorage.getItem("token") || // Changed from "access_token" to "token"
+      sessionStorage.getItem("token") || // Changed from "access_token" to "token"
+      localStorage.getItem("access_token") || // Keep as fallback for backward compatibility
+      sessionStorage.getItem("access_token"); // Keep as fallback for backward compatibility
     return token ? { Authorization: `Bearer ${token}` } : {};
   },
 
