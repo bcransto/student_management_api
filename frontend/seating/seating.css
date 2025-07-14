@@ -1,0 +1,419 @@
+/* seating.css - Seating Module Styles */
+
+.seating-container {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Header */
+.seating-header {
+  margin-bottom: 30px;
+  border-bottom: 2px solid #e9ecef;
+  padding-bottom: 20px;
+}
+
+.seating-header h2 {
+  margin: 0 0 8px 0;
+  color: #2c3e50;
+  font-weight: 600;
+}
+
+.seating-subtitle {
+  margin: 0;
+  color: #6c757d;
+  font-size: 1.1rem;
+}
+
+/* Loading and Error States */
+.seating-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 60px 20px;
+  color: #6c757d;
+}
+
+.seating-loading .spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #e9ecef;
+  border-top: 3px solid #007bff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 16px;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.seating-error {
+  text-align: center;
+  padding: 40px 20px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  margin: 20px 0;
+}
+
+.seating-error h3 {
+  color: #dc3545;
+  margin-bottom: 12px;
+}
+
+/* Empty State */
+.seating-empty {
+  text-align: center;
+  padding: 60px 20px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  color: #6c757d;
+}
+
+.seating-empty h3 {
+  margin-bottom: 12px;
+  color: #495057;
+}
+
+/* Seating List */
+.seating-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Seating Card */
+.seating-card {
+  display: grid;
+  grid-template-columns: 2fr 2fr 1fr auto;
+  gap: 20px;
+  align-items: center;
+  padding: 20px;
+  background: white;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.seating-card:hover {
+  border-color: #007bff;
+  box-shadow: 0 2px 8px rgba(0, 123, 255, 0.15);
+}
+
+.seating-card-empty {
+  background: #f8f9fa;
+  border-style: dashed;
+}
+
+.seating-card-empty:hover {
+  background: white;
+  border-style: solid;
+}
+
+/* Class Info Column */
+.seating-card-info h3 {
+  margin: 0 0 8px 0;
+  color: #2c3e50;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.seating-class-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.9rem;
+  color: #6c757d;
+}
+
+/* Chart Info Column */
+.seating-chart-name {
+  font-weight: 600;
+  color: #495057;
+  margin-bottom: 8px;
+  font-size: 1rem;
+}
+
+.seating-chart-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.85rem;
+  color: #6c757d;
+}
+
+/* Status Column */
+.seating-status {
+  padding: 4px 12px;
+  border-radius: 16px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.seating-status-active {
+  background: #d4edda;
+  color: #155724;
+}
+
+.seating-status-no-chart {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+/* Actions Column */
+.seating-card-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.seating-card-actions .btn {
+  padding: 6px 12px;
+  font-size: 0.875rem;
+  border-radius: 4px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.seating-card-actions .btn:hover {
+  transform: translateY(-1px);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .seating-container {
+    padding: 15px;
+  }
+
+  .seating-card {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    text-align: center;
+  }
+
+  .seating-card-actions {
+    justify-content: center;
+  }
+
+  .seating-class-details,
+  .seating-chart-details {
+    text-align: center;
+  }
+}
+
+@media (max-width: 992px) {
+  .seating-card {
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  .seating-card-info {
+    grid-column: 1 / -1;
+  }
+
+  .seating-card-chart {
+    grid-column: 1;
+  }
+
+  .seating-card-status {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .seating-card-actions {
+    grid-column: 1 / -1;
+    justify-content: center;
+  }
+}
+
+/* ===== SEATING CHART COMPONENT STYLES ===== */
+
+.seating-chart-container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.seating-chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+  padding-bottom: 20px;
+  border-bottom: 2px solid #e9ecef;
+}
+
+.seating-chart-header h2 {
+  margin: 0;
+  color: #2c3e50;
+  font-weight: 600;
+}
+
+/* Chart Loading and Error States */
+.seating-chart-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 60px 20px;
+  color: #6c757d;
+}
+
+.seating-chart-error,
+.seating-chart-empty {
+  text-align: center;
+  padding: 40px 20px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  margin: 20px 0;
+}
+
+.seating-chart-error h3,
+.seating-chart-empty h3 {
+  color: #dc3545;
+  margin-bottom: 12px;
+}
+
+/* Statistics Bar */
+.seating-chart-stats {
+  display: flex;
+  justify-content: center;
+  gap: 40px;
+  margin-bottom: 30px;
+  padding: 20px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.seating-stat {
+  text-align: center;
+}
+
+.seating-stat-value {
+  font-size: 2rem;
+  font-weight: bold;
+  color: #2c3e50;
+  line-height: 1;
+}
+
+.seating-stat-label {
+  font-size: 0.9rem;
+  color: #6c757d;
+  margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Room and Chart Elements */
+.seating-chart-room {
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.seating-table {
+  cursor: default;
+  transition: all 0.2s ease;
+}
+
+.seating-table:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.seating-seat {
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.seating-seat:hover {
+  transform: scale(1.1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.seating-seat.occupied {
+  background-color: #10b981 !important;
+  border-color: #059669;
+}
+
+.seating-seat.empty {
+  background-color: #f3f4f6 !important;
+  border-color: #d1d5db;
+}
+
+.seating-obstacle {
+  cursor: default;
+  transition: all 0.2s ease;
+}
+
+.seating-obstacle:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Legend */
+.seating-legend {
+  display: flex;
+  justify-content: center;
+  gap: 30px;
+  margin-top: 30px;
+  padding: 20px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.seating-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  color: #495057;
+}
+
+.seating-legend-color {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* Responsive Design for Seating Chart */
+@media (max-width: 768px) {
+  .seating-chart-stats {
+    gap: 20px;
+    padding: 15px;
+  }
+
+  .seating-stat-value {
+    font-size: 1.5rem;
+  }
+
+  .seating-legend {
+    flex-wrap: wrap;
+    gap: 15px;
+  }
+
+  .seating-chart-room {
+    transform: scale(0.8);
+    transform-origin: center top;
+  }
+}
+
+@media (max-width: 480px) {
+  .seating-chart-stats {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+  }
+
+  .seating-chart-room {
+    transform: scale(0.6);
+  }
+}
