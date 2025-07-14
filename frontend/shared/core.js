@@ -1,11 +1,14 @@
-// Authentication Module
-// frontend/shared/auth.js
+// Core module - Authentication and API functionality combined
+// This reduces the number of files and keeps related functionality together
 
+// ============================================================================
+// AUTHENTICATION MODULE
+// ============================================================================
 const AuthModule = {
   // Get API base URL based on environment
   getApiBaseUrl() {
-    return window.location.hostname === "localhost" ||
-      window.location.hostname === "127.0.0.1"
+    const hostname = window.location.hostname;
+    return hostname === "localhost" || hostname === "127.0.0.1"
       ? "http://127.0.0.1:8000/api"
       : "https://bcranston.pythonanywhere.com/api";
   },
@@ -15,16 +18,16 @@ const AuthModule = {
     return localStorage.getItem("token");
   },
 
-  setToken(token) {
-    localStorage.setItem("token", token);
-  },
-
   getRefreshToken() {
     return localStorage.getItem("refresh_token");
   },
 
-  setRefreshToken(refreshToken) {
-    localStorage.setItem("refresh_token", refreshToken);
+  setToken(token) {
+    localStorage.setItem("token", token);
+  },
+
+  setRefreshToken(token) {
+    localStorage.setItem("refresh_token", token);
   },
 
   clearTokens() {
@@ -32,7 +35,6 @@ const AuthModule = {
     localStorage.removeItem("refresh_token");
   },
 
-  // Check if user is authenticated
   isAuthenticated() {
     return !!this.getToken();
   },
@@ -77,7 +79,6 @@ const AuthModule = {
   // Logout function
   logout() {
     this.clearTokens();
-    // Optionally reload the page or redirect
     window.location.reload();
   },
 
@@ -113,7 +114,6 @@ const AuthModule = {
         this.setToken(data.access);
         return { success: true, data };
       } else {
-        // Refresh failed, clear tokens
         this.clearTokens();
         return { success: false, error: "Token refresh failed" };
       }
@@ -124,7 +124,180 @@ const AuthModule = {
   },
 };
 
-// Login Component
+// ============================================================================
+// API MODULE
+// ============================================================================
+const ApiModule = {
+  // Base request method with authentication
+  async request(endpoint, options = {}) {
+    const url = `${AuthModule.getApiBaseUrl()}${endpoint}`;
+
+    try {
+      const response = await fetch(url, {
+        ...options,
+        headers: {
+          ...AuthModule.getAuthHeaders(),
+          ...options.headers,
+        },
+      });
+
+      // Handle token refresh on 401
+      if (response.status === 401) {
+        const refreshResult = await AuthModule.refreshToken();
+        if (refreshResult.success) {
+          // Retry request with new token
+          return await fetch(url, {
+            ...options,
+            headers: {
+              ...AuthModule.getAuthHeaders(),
+              ...options.headers,
+            },
+          }).then((res) => res.json());
+        } else {
+          // Refresh failed, redirect to login
+          AuthModule.logout();
+          throw new Error("Authentication failed");
+        }
+      }
+
+      if (!response.ok) {
+        throw new Error(`API request failed: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error("API request failed:", error);
+      throw error;
+    }
+  },
+
+  // Specific API endpoints
+  async getClasses() {
+    const data = await this.request("/classes/");
+    return data.results || data;
+  },
+
+  async getStudents() {
+    const data = await this.request("/students/");
+    return data.results || data;
+  },
+
+  async getLayouts() {
+    try {
+      const data = await this.request("/layouts/");
+      return data.results || data;
+    } catch (error) {
+      console.warn("Layouts API not available:", error);
+      return [];
+    }
+  },
+
+  async getSeatingPeriods() {
+    try {
+      const data = await this.request("/seating-periods/");
+      return data.results || data;
+    } catch (error) {
+      console.warn("Seating periods API not available:", error);
+      return [];
+    }
+  },
+
+  async getSeatingAssignments() {
+    try {
+      const data = await this.request("/seating-assignments/");
+      return data.results || data;
+    } catch (error) {
+      console.warn("Seating assignments API not available:", error);
+      return [];
+    }
+  },
+
+  async getRoster() {
+    try {
+      const data = await this.request("/roster/");
+      return data.results || data;
+    } catch (error) {
+      console.warn("Roster API not available:", error);
+      return [];
+    }
+  },
+
+  // Fetch all data needed for the application
+  async fetchAllData() {
+    console.log("=== Fetching all application data ===");
+
+    try {
+      // Fetch core data (classes and students are required)
+      const [classes, students] = await Promise.all([
+        this.getClasses(),
+        this.getStudents(),
+      ]);
+
+      // Fetch optional data (don't fail if these don't exist)
+      const [layouts, periods, assignments, roster] = await Promise.all([
+        this.getLayouts(),
+        this.getSeatingPeriods(),
+        this.getSeatingAssignments(),
+        this.getRoster(),
+      ]);
+
+      const data = {
+        classes,
+        students,
+        layouts,
+        periods,
+        assignments,
+        roster,
+      };
+
+      console.log("Fetched application data:", {
+        classes: Array.isArray(classes) ? classes.length : "not array",
+        students: Array.isArray(students) ? students.length : "not array",
+        layouts: Array.isArray(layouts) ? layouts.length : "not array",
+        periods: Array.isArray(periods) ? periods.length : "not array",
+        assignments: Array.isArray(assignments)
+          ? assignments.length
+          : "not array",
+        roster: Array.isArray(roster) ? roster.length : "not array",
+      });
+
+      return data;
+    } catch (error) {
+      console.error("Error fetching application data:", error);
+      throw error;
+    }
+  },
+
+  // Create/Update/Delete methods
+  async createStudent(studentData) {
+    return await this.request("/students/", {
+      method: "POST",
+      body: JSON.stringify(studentData),
+    });
+  },
+
+  async updateStudent(studentId, studentData) {
+    return await this.request(`/students/${studentId}/`, {
+      method: "PATCH",
+      body: JSON.stringify(studentData),
+    });
+  },
+
+  async deleteStudent(studentId) {
+    return await this.request(`/students/${studentId}/`, {
+      method: "DELETE",
+    });
+  },
+
+  // Classes-specific methods
+  async getSeatingChart(classId) {
+    return await this.request(`/classes/${classId}/seating_chart/`);
+  },
+};
+
+// ============================================================================
+// LOGIN COMPONENT (keeping it in core since it's small and auth-related)
+// ============================================================================
 const LoginComponent = ({ onLogin }) => {
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
@@ -240,8 +413,11 @@ const LoginComponent = ({ onLogin }) => {
   );
 };
 
-// Make auth module and component available globally
+// ============================================================================
+// EXPORT TO GLOBAL SCOPE
+// ============================================================================
 if (typeof window !== "undefined") {
   window.AuthModule = AuthModule;
+  window.ApiModule = ApiModule;
   window.LoginComponent = LoginComponent;
 }
