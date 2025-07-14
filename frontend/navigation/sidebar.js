@@ -13,7 +13,7 @@ const Sidebar = ({ currentView, onNavigate }) => {
   };
 
   const handleLayoutEditorClick = () => {
-    window.open("/layout-editor/", "_blank");
+    window.open("/frontend/layouts/editor/", "_blank");
   };
 
   return React.createElement(

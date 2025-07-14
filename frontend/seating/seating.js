@@ -1,4 +1,4 @@
-// seating.js - Main Seating Charts Management Component
+// frontend/seating/seating.js - Main Seating Charts Management Component
 
 const Seating = ({ data, navigateTo }) => {
   const [classes, setClasses] = React.useState([]);
@@ -24,7 +24,7 @@ const Seating = ({ data, navigateTo }) => {
       if (window.ApiModule) {
         const data = await window.ApiModule.request("/classes/");
         console.log("Classes data received:", data);
-        
+
         // Handle paginated response format
         if (data && data.results && Array.isArray(data.results)) {
           setClasses(data.results);
@@ -47,16 +47,22 @@ const Seating = ({ data, navigateTo }) => {
   const handleViewChart = (classId, className) => {
     console.log("View chart for class:", classId, className);
     console.log("navigateTo function available:", !!navigateTo);
-    
+
     // Navigate to seating chart view using the navigateTo prop from frontend.html
-    if (navigateTo && typeof navigateTo === 'function') {
-      console.log("Calling navigateTo with:", "seating", { action: "view", classId: classId });
+    if (navigateTo && typeof navigateTo === "function") {
+      console.log("Calling navigateTo with:", "seating", {
+        action: "view",
+        classId: classId,
+      });
       navigateTo("seating", { action: "view", classId: classId });
     } else {
-      console.error("navigateTo function not available or not a function:", navigateTo);
+      console.error(
+        "navigateTo function not available or not a function:",
+        navigateTo
+      );
       // Fallback - try to use window functions if available
       if (window.showSeatingChart) {
-        window.showSeatingChart(classId, className, 'view');
+        window.showSeatingChart(classId, className, "view");
       }
     }
   };
@@ -101,19 +107,19 @@ const Seating = ({ data, navigateTo }) => {
         name: "No seating chart",
         lastModified: null,
         assignedCount: 0,
-        totalSeats: 0
+        totalSeats: 0,
       };
     }
 
     // Get seating chart data if available
     const period = cls.current_seating_period;
     const enrollment = cls.current_enrollment || 0;
-    
+
     return {
       name: period.name || "Current",
       lastModified: period.updated_at,
       assignedCount: 0, // TODO: Calculate from seating assignments
-      totalSeats: enrollment
+      totalSeats: enrollment,
     };
   };
 
@@ -136,7 +142,7 @@ const Seating = ({ data, navigateTo }) => {
         "button",
         {
           className: "btn btn-primary",
-          onClick: fetchClassesWithSeatingCharts
+          onClick: fetchClassesWithSeatingCharts,
         },
         "Try Again"
       )
@@ -146,7 +152,7 @@ const Seating = ({ data, navigateTo }) => {
   return React.createElement(
     "div",
     { className: "seating-container" },
-    
+
     // Header
     React.createElement(
       "div",
@@ -163,119 +169,151 @@ const Seating = ({ data, navigateTo }) => {
     React.createElement(
       "div",
       { className: "seating-list" },
-      
-      classes.length === 0 ? 
-        React.createElement(
-          "div",
-          { className: "seating-empty" },
-          React.createElement("h3", null, "No Classes Found"),
-          React.createElement("p", null, "You don't have any classes yet. Create a class first to manage seating charts.")
-        ) :
-        
-        classes.map(cls => {
-          const seatingInfo = getSeatingInfo(cls);
-          const status = getSeatingStatus(cls);
-          const hasChart = status !== "No Chart";
-          
-          return React.createElement(
+
+      classes.length === 0
+        ? React.createElement(
             "div",
-            {
-              key: cls.id,
-              className: `seating-card ${!hasChart ? 'seating-card-empty' : ''}`
-            },
-            
-            // Class info column
+            { className: "seating-empty" },
+            React.createElement("h3", null, "No Classes Found"),
             React.createElement(
-              "div",
-              { className: "seating-card-info" },
-              React.createElement(
-                "h3",
-                { className: "seating-class-name" },
-                cls.name
-              ),
-              React.createElement(
-                "div",
-                { className: "seating-class-details" },
-                React.createElement("span", null, `${cls.subject} • Grade ${cls.grade_level}`),
-                React.createElement("span", null, `${cls.current_enrollment || 0} students`)
-              )
-            ),
-
-            // Seating chart info column
-            React.createElement(
-              "div",
-              { className: "seating-card-chart" },
-              React.createElement(
-                "div",
-                { className: "seating-chart-name" },
-                seatingInfo.name
-              ),
-              hasChart && React.createElement(
-                "div",
-                { className: "seating-chart-details" },
-                React.createElement(
-                  "span",
-                  null,
-                  `${seatingInfo.assignedCount}/${seatingInfo.totalSeats} assigned`
-                ),
-                React.createElement(
-                  "span",
-                  null,
-                  `Modified: ${formatDate(seatingInfo.lastModified)}`
-                )
-              )
-            ),
-
-            // Status column
-            React.createElement(
-              "div",
-              { className: "seating-card-status" },
-              React.createElement(
-                "span",
-                {
-                  className: `seating-status seating-status-${status.toLowerCase().replace(' ', '-')}`
-                },
-                status
-              )
-            ),
-
-            // Actions column
-            React.createElement(
-              "div",
-              { className: "seating-card-actions" },
-              
-              hasChart && React.createElement(
-                "button",
-                {
-                  className: "btn btn-outline-secondary btn-sm",
-                  onClick: () => handleViewChart(cls.id, cls.name),
-                  title: "View seating chart"
-                },
-                "View"
-              ),
-              
-              hasChart && React.createElement(
-                "button",
-                {
-                  className: "btn btn-outline-primary btn-sm",
-                  onClick: () => handleEditChart(cls.id, cls.name),
-                  title: "Edit current seating chart"
-                },
-                "Edit"
-              ),
-              
-              React.createElement(
-                "button",
-                {
-                  className: "btn btn-primary btn-sm",
-                  onClick: () => handleNewChart(cls.id, cls.name),
-                  title: hasChart ? "Create new seating chart" : "Create first seating chart"
-                },
-                hasChart ? "New" : "Create Chart"
-              )
+              "p",
+              null,
+              "You don't have any classes yet. Create a class first to manage seating charts."
             )
-          );
-        })
+          )
+        : [...classes]
+            .sort((a, b) => a.name.localeCompare(b.name))
+            .map((cls) => {
+              const seatingInfo = getSeatingInfo(cls);
+              const status = getSeatingStatus(cls);
+              const hasChart = status !== "No Chart";
+
+              return React.createElement(
+                "div",
+                {
+                  key: cls.id,
+                  className: `seating-card ${!hasChart ? "no-chart" : ""}`,
+                },
+
+                // Class info
+                React.createElement(
+                  "div",
+                  { className: "seating-card-info" },
+                  React.createElement(
+                    "h3",
+                    { className: "seating-card-title" },
+                    cls.name
+                  ),
+                  React.createElement(
+                    "p",
+                    { className: "seating-card-subtitle" },
+                    `${cls.subject || "General"} • Grade ${cls.grade || "N/A"}`
+                  ),
+                  React.createElement(
+                    "p",
+                    { className: "seating-card-subtitle" },
+                    `${cls.current_enrollment || 0} students`
+                  )
+                ),
+
+                // Status badge
+                React.createElement(
+                  "span",
+                  {
+                    className: `seating-card-status ${
+                      hasChart ? "active" : "no-chart"
+                    }`,
+                  },
+                  hasChart ? "ACTIVE" : "NO CHART"
+                ),
+
+                // Seating chart info (if exists)
+                hasChart &&
+                  React.createElement(
+                    "div",
+                    { className: "seating-card-chart" },
+                    React.createElement(
+                      "div",
+                      { className: "seating-chart-name" },
+                      seatingInfo.name
+                    ),
+                    React.createElement(
+                      "div",
+                      { className: "seating-chart-meta" },
+                      React.createElement(
+                        "div",
+                        { className: "seating-meta-item" },
+                        React.createElement("i", { className: "fas fa-users" }),
+                        `${seatingInfo.assignedCount}/${
+                          cls.current_enrollment || 0
+                        } assigned`
+                      ),
+                      React.createElement(
+                        "div",
+                        { className: "seating-meta-item" },
+                        React.createElement("i", {
+                          className: "fas fa-calendar",
+                        }),
+                        `Modified: ${formatDate(seatingInfo.lastModified)}`
+                      )
+                    )
+                  ),
+
+                // Action buttons
+                React.createElement(
+                  "div",
+                  { className: "seating-card-actions" },
+
+                  hasChart &&
+                    React.createElement(
+                      "button",
+                      {
+                        className: "action-icon-btn view",
+                        onClick: () => handleViewChart(cls.id, cls.name),
+                        "data-tooltip": "View Chart",
+                      },
+                      React.createElement("i", { className: "fas fa-eye" })
+                    ),
+
+                  hasChart &&
+                    React.createElement(
+                      "button",
+                      {
+                        className: "action-icon-btn edit",
+                        onClick: () => handleEditChart(cls.id, cls.name),
+                        "data-tooltip": "Edit Chart",
+                      },
+                      React.createElement("i", { className: "fas fa-edit" })
+                    ),
+
+                  React.createElement(
+                    "button",
+                    {
+                      className: `action-icon-btn new ${
+                        !hasChart ? "primary" : ""
+                      }`,
+                      onClick: () => handleNewChart(cls.id, cls.name),
+                      "data-tooltip": hasChart
+                        ? "Create new seating chart"
+                        : "",
+                    },
+                    !hasChart
+                      ? [
+                          React.createElement("i", {
+                            key: "icon",
+                            className: "fas fa-plus",
+                          }),
+                          React.createElement(
+                            "span",
+                            { key: "text" },
+                            "Create Chart"
+                          ),
+                        ]
+                      : React.createElement("i", { className: "fas fa-plus" })
+                  )
+                )
+              );
+            })
     )
   );
 };

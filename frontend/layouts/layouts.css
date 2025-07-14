@@ -1,0 +1,386 @@
+/* frontend/layouts/layouts.css */
+
+/* ==========================================================================
+   LAYOUTS CONTAINER & HEADER
+   ========================================================================== */
+
+.layouts-container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.layouts-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  gap: 2rem;
+}
+
+.layouts-header-content {
+  flex: 1;
+}
+
+.layouts-header h2 {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin-bottom: 0.5rem;
+}
+
+.layouts-subtitle {
+  color: #6b7280;
+  font-size: 1.125rem;
+}
+
+/* ==========================================================================
+   LAYOUTS GRID
+   ========================================================================== */
+
+.layouts-list {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+}
+
+/* ==========================================================================
+   LAYOUT CARDS
+   ========================================================================== */
+
+.layout-card {
+  background: white;
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.layout-card:hover {
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+  transform: translateY(-2px);
+}
+
+.layout-card-info {
+  flex: 1;
+}
+
+.layout-card-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0 0 0.5rem 0;
+}
+
+.layout-card-description {
+  color: #6b7280;
+  font-size: 0.9375rem;
+  margin: 0 0 1rem 0;
+  line-height: 1.5;
+}
+
+.layout-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.layout-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #6b7280;
+  font-size: 0.875rem;
+}
+
+.layout-meta-item i {
+  width: 16px;
+  color: #9ca3af;
+  text-align: center;
+}
+
+/* ==========================================================================
+   STATUS BADGES
+   ========================================================================== */
+
+.layout-card-badges {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.layout-badge {
+  padding: 0.375rem 0.875rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.layout-badge.default {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.layout-badge.in-use {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.layout-badge.unused {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+/* ==========================================================================
+   CARD FOOTER
+   ========================================================================== */
+
+.layout-card-footer {
+  padding-top: 1rem;
+  border-top: 1px solid #f3f4f6;
+}
+
+.layout-date {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #9ca3af;
+  font-size: 0.875rem;
+}
+
+.layout-date i {
+  width: 16px;
+  text-align: center;
+}
+
+/* ==========================================================================
+   ACTION BUTTONS (Matching Seating Style)
+   ========================================================================== */
+
+.layout-card-actions {
+  position: absolute;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  display: flex;
+  gap: 0.75rem;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.layout-card:hover .layout-card-actions {
+  opacity: 1;
+}
+
+.action-icon-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid #e5e7eb;
+  background: white;
+  color: #6b7280;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  transition: all 0.2s ease;
+  position: relative;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.action-icon-btn:hover {
+  color: white;
+  border-color: transparent;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.action-icon-btn.view:hover {
+  background: #3b82f6;
+}
+
+.action-icon-btn.edit:hover {
+  background: #f59e0b;
+}
+
+.action-icon-btn.delete:hover {
+  background: #ef4444;
+}
+
+/* Tooltips */
+.action-icon-btn::before {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%) translateY(-4px);
+  background: #1f2937;
+  color: white;
+  padding: 0.375rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.2s ease;
+}
+
+.action-icon-btn::after {
+  content: "";
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  border: 4px solid transparent;
+  border-top-color: #1f2937;
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.2s ease;
+}
+
+.action-icon-btn:hover::before,
+.action-icon-btn:hover::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(-8px);
+}
+
+.action-icon-btn:hover::after {
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ==========================================================================
+   EMPTY STATE
+   ========================================================================== */
+
+.layouts-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 4rem 2rem;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+.layouts-empty i {
+  font-size: 3rem;
+  color: #d1d5db;
+  margin-bottom: 1rem;
+  display: block;
+}
+
+.layouts-empty h3 {
+  color: #1f2937;
+  font-size: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.layouts-empty p {
+  color: #6b7280;
+  margin-bottom: 2rem;
+}
+
+/* ==========================================================================
+   LOADING & ERROR STATES
+   ========================================================================== */
+
+.layouts-loading,
+.layouts-error {
+  text-align: center;
+  padding: 4rem 2rem;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+.layouts-error h3 {
+  color: #dc3545;
+  margin-bottom: 1rem;
+}
+
+/* ==========================================================================
+   RESPONSIVE DESIGN
+   ========================================================================== */
+
+@media (max-width: 1024px) {
+  .layouts-list {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .layouts-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .layouts-header .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .layout-card {
+    padding: 1.5rem;
+  }
+
+  .layout-card-meta {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .layout-card-actions {
+    opacity: 1;
+    position: static;
+    margin-top: 1rem;
+    justify-content: flex-start;
+  }
+}
+
+/* ==========================================================================
+   BUTTONS (Reusing shared styles)
+   ========================================================================== */
+
+.btn {
+  padding: 0.75rem 1.5rem;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+}
+
+/* Spinner */
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(102, 126, 234, 0.3);
+  border-top-color: #667eea;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto 1rem;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

@@ -16,9 +16,12 @@
     <link rel="stylesheet" href="/frontend/shared/styles.css" />
 
     <!-- Load module-specific styles -->
+    <link rel="stylesheet" href="/frontend/login/login.css" />
+    <link rel="stylesheet" href="/frontend/dashboard/dashboard.css" />
     <link rel="stylesheet" href="/frontend/students/students.css" />
     <link rel="stylesheet" href="/frontend/classes/classes.css" />
     <link rel="stylesheet" href="/frontend/seating/seating.css" />
+    <link rel="stylesheet" href="/frontend/layouts/layouts.css" />
     <link rel="stylesheet" href="/frontend/navigation/navigation.css" />
   </head>
   <body>
@@ -33,315 +36,133 @@
     <script type="text/babel" src="/frontend/navigation/sidebar.js"></script>
 
     <!-- Load module components -->
+    <script type="text/babel" src="/frontend/dashboard/dashboard.js"></script>
     <script type="text/babel" src="/frontend/students/students.js"></script>
     <script type="text/babel" src="/frontend/classes/classes.js"></script>
     <script type="text/babel" src="/frontend/seating/seating-chart.js"></script>
     <script type="text/babel" src="/frontend/seating/seating.js"></script>
+    <script type="text/babel" src="/frontend/layouts/layouts.js"></script>
+
     <script type="text/babel">
       const { useState, useEffect } = React;
 
       // Use shared components
       const Login = window.LoginComponent;
+      const Dashboard = window.DashboardComponent;
       const Students = window.StudentsComponent;
       const Classes = window.ClassesComponent;
       const Seating = window.SeatingComponent;
+      const Layouts = window.LayoutsComponent;
       const Header = window.Header;
       const Sidebar = window.Sidebar;
 
       // Add this debug line
       console.log("Components loaded:", {
         Login,
+        Dashboard,
         Students,
         Classes,
         Seating,
+        Layouts,
         Header,
         Sidebar,
       });
 
-      // Placeholder components for other sections
-      const Dashboard = ({ data, navigateTo }) => {
-        console.log("Dashboard rendering with data:", data);
-
-        const { classes, students, layouts } = data;
-
-        // Add null checks and default to empty arrays
-        const classesArray = Array.isArray(classes) ? classes : [];
-        const studentsArray = Array.isArray(students) ? students : [];
-        const layoutsArray = Array.isArray(layouts) ? layouts : [];
-
-        const totalEnrollment = classesArray.reduce(
-          (sum, cls) => sum + (cls.current_enrollment || 0),
-          0
-        );
-        const activeStudents = studentsArray.filter((s) => s.is_active).length;
-
-        return (
-          <div>
-            <div className="page-header">
-              <h1 className="page-title">Dashboard</h1>
-              <p className="page-subtitle">
-                Overview of your classroom management system
-              </p>
-            </div>
-
-            <div className="stats-grid">
-              <div className="stat-card" onClick={() => navigateTo("classes")}>
-                <div className="stat-value">{classesArray.length}</div>
-                <div className="stat-label">Total Classes</div>
-              </div>
-              <div className="stat-card" onClick={() => navigateTo("students")}>
-                <div className="stat-value">{activeStudents}</div>
-                <div className="stat-label">Active Students</div>
-              </div>
-              <div className="stat-card">
-                <div className="stat-value">{totalEnrollment}</div>
-                <div className="stat-label">Total Enrollments</div>
-              </div>
-              <div className="stat-card" onClick={() => navigateTo("layouts")}>
-                <div className="stat-value">{layoutsArray.length}</div>
-                <div className="stat-label">Classroom Layouts</div>
-              </div>
-            </div>
-
-            <div className="card">
-              <div className="card-header">
-                <h3 className="card-title">Recent Classes</h3>
-                <button
-                  className="btn btn-secondary"
-                  onClick={() => navigateTo("classes")}
-                >
-                  View All Classes
-                </button>
-              </div>
-              <p>Recent classes will be displayed here.</p>
-            </div>
-          </div>
-        );
-      };
-
-      const Layouts = ({ data, navigateTo }) => {
-        return (
-          <div>
-            <div className="page-header">
-              <h1 className="page-title">Classroom Layouts</h1>
-              <p className="page-subtitle">
-                Manage physical classroom arrangements
-              </p>
-            </div>
-            <div className="card">
-              <p>Layouts component - to be extracted next</p>
-            </div>
-          </div>
-        );
-      };
-
+      // Main App Component
       const App = () => {
-        const [isAuthenticated, setIsAuthenticated] = useState(false);
-        const [loading, setLoading] = useState(true);
-        const [data, setData] = useState({});
+        const [token, setToken] = useState(window.AuthModule?.getToken());
         const [currentView, setCurrentView] = useState("dashboard");
-        const [currentParams, setCurrentParams] = useState({});
+        const [currentParams, setCurrentParams] = useState(null);
+        const [data, setData] = useState({
+          classes: [],
+          students: [],
+          layouts: [],
+        });
 
+        // Check authentication on mount
         useEffect(() => {
-          // Check if user is already authenticated
-          if (window.AuthModule && window.AuthModule.isAuthenticated()) {
-            setIsAuthenticated(true);
-            fetchData();
+          if (!token) {
+            console.log("No token found, user needs to login");
           } else {
-            setLoading(false);
+            fetchData();
           }
-        }, []);
+        }, [token]);
 
-        useEffect(() => {
-          // Function to parse hash and navigate accordingly
-          const handleHashChange = () => {
-            const hash = window.location.hash.slice(1); // Remove the #
-            if (hash) {
-              const [view, queryString] = hash.split("?");
-              const params = queryString
-                ? Object.fromEntries(new URLSearchParams(queryString))
-                : null;
-
-              setCurrentView(view);
-              setCurrentParams(params);
-            } else {
-              // Default to dashboard if no hash
-              setCurrentView("dashboard");
-              window.location.hash = "dashboard";
-            }
-          };
-
-          // Handle initial load
-          handleHashChange();
-
-          // Listen for hash changes (back/forward button)
-          window.addEventListener("hashchange", handleHashChange);
-
-          // Cleanup
-          return () => {
-            window.removeEventListener("hashchange", handleHashChange);
-          };
-        }, []); // Only run once on mount
-
+        // Fetch all data
         const fetchData = async () => {
-          console.log("=== Fetching data using ApiModule ===");
-
           try {
-            const appData = await window.ApiModule.fetchAllData();
-            console.log("Setting app data:", appData);
-            setData(appData);
+            const [classesData, studentsData] = await Promise.all([
+              window.ApiModule.request("/classes/"),
+              window.ApiModule.request("/students/"),
+            ]);
+
+            setData({
+              classes: classesData.results || classesData || [],
+              students: studentsData.results || studentsData || [],
+              layouts: [], // Placeholder for now
+            });
           } catch (error) {
-            console.error("Error fetching app data:", error);
-            // If API fails due to auth, logout
-            if (window.AuthModule) {
-              window.AuthModule.logout();
+            console.error("Error fetching data:", error);
+            if (error.message.includes("401")) {
+              handleLogout();
             }
           }
-          setLoading(false);
         };
 
-        const handleLogin = (token) => {
-          console.log("Login successful, fetching data...");
-          setIsAuthenticated(true);
+        const handleLogin = (newToken) => {
+          setToken(newToken);
           fetchData();
         };
 
         const handleLogout = () => {
-          if (window.AuthModule) {
-            window.AuthModule.logout();
-          } else {
-            // Fallback if AuthModule not available
-            localStorage.removeItem("token");
-            localStorage.removeItem("refresh_token");
-            setIsAuthenticated(false);
-            setCurrentView("dashboard");
-          }
+          window.AuthModule.logout();
+          setToken(null);
+          setCurrentView("dashboard");
+          setData({ classes: [], students: [], layouts: [] });
         };
 
         const navigateTo = (view, params = null) => {
           console.log("Navigating to:", view, "with params:", params);
           setCurrentView(view);
           setCurrentParams(params);
-
-          // Update URL hash
-          if (params) {
-            // If there are params, encode them in the hash
-            const paramString = new URLSearchParams(params).toString();
-            window.location.hash = `${view}?${paramString}`;
-          } else {
-            // Simple hash for views without params
-            window.location.hash = view;
-          }
         };
 
-        if (loading) {
-          return (
-            <div className="loading">
-              <div className="spinner"></div>
-              Loading your classroom...
-            </div>
-          );
+        // If not authenticated, show login
+        if (!token) {
+          return React.createElement(Login, { onLogin: handleLogin });
         }
 
-        if (!isAuthenticated) {
-          return <Login onLogin={handleLogin} />;
-        }
-
+        // Function to render the current view
         const renderCurrentView = () => {
-          console.log(
-            "renderCurrentView called with:",
-            currentView,
-            "data:",
-            data
-          );
-
-          if (!data) {
-            return React.createElement(
-              "div",
-              { className: "loading" }
-              // ... loading content
-            );
-          }
-
           switch (currentView) {
-            case "dashboard":
-              return React.createElement(Dashboard, {
-                data: data,
-                navigateTo: navigateTo,
-              });
-
-            case "classes":
-              // Classes module - no longer handles seating charts
-              return React.createElement(Classes, {
-                data: data,
-                navigateTo: navigateTo,
-                currentParams: currentParams,
-              });
-
             case "students":
               return React.createElement(Students, {
                 data: data,
                 navigateTo: navigateTo,
               });
 
+            case "classes":
+              return React.createElement(Classes, {
+                data: data,
+                navigateTo: navigateTo,
+              });
+
             case "seating":
-              // Handle seating module navigation
+              // Handle seating chart view modes
               if (currentParams?.action === "view" && currentParams?.classId) {
-                // Show seating chart view
                 const selectedClass = data.classes?.find(
                   (c) => c.id.toString() === currentParams.classId
                 );
-                return React.createElement(
-                  "div",
-                  null,
-                  React.createElement(
-                    "div",
-                    { className: "page-header" },
-                    React.createElement(
-                      "div",
-                      {
-                        style: {
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "1rem",
-                        },
-                      },
-                      React.createElement(
-                        "button",
-                        {
-                          className: "btn btn-secondary",
-                          onClick: () => navigateTo("seating"),
-                        },
-                        "← Back to Seating Charts"
-                      ),
-                      React.createElement(
-                        "div",
-                        null,
-                        React.createElement(
-                          "h1",
-                          { className: "page-title" },
-                          "Seating Chart"
-                        ),
-                        React.createElement(
-                          "p",
-                          { className: "page-subtitle" },
-                          selectedClass
-                            ? `${selectedClass.name} - ${selectedClass.subject}`
-                            : `Class ID: ${currentParams.classId}`
-                        )
-                      )
-                    )
-                  ),
-                  React.createElement(window.SeatingChartComponent, {
-                    classId: currentParams.classId,
-                    className: selectedClass?.name || "Unknown Class",
-                  })
-                );
+                return React.createElement(SeatingChart, {
+                  classId: currentParams.classId,
+                  className: selectedClass?.name || "Unknown Class",
+                  mode: "standalone",
+                });
               } else if (
                 currentParams?.action === "edit" &&
                 currentParams?.classId
               ) {
-                // Show seating editor for editing existing chart
+                // Show seating editor placeholder
                 const selectedClass = data.classes?.find(
                   (c) => c.id.toString() === currentParams.classId
                 );
@@ -367,7 +188,7 @@
                     "p",
                     null,
                     React.createElement("strong", null, "Mode: "),
-                    "Edit existing chart"
+                    "Edit mode"
                   ),
                   React.createElement(
                     "div",
@@ -377,7 +198,7 @@
                         padding: "20px",
                         background: "white",
                         borderRadius: "8px",
-                        borderLeft: "4px solid #007bff",
+                        borderLeft: "4px solid #ffc107",
                       },
                     },
                     React.createElement(
@@ -386,7 +207,7 @@
                       React.createElement(
                         "em",
                         null,
-                        "Interactive seating editor coming next!"
+                        "Interactive seating editor coming soon!"
                       )
                     ),
                     React.createElement(
@@ -484,6 +305,7 @@
                 navigateTo: navigateTo,
               });
 
+            case "dashboard":
             default:
               return React.createElement(Dashboard, {
                 data: data,
@@ -492,28 +314,32 @@
           }
         };
 
-        return (
-          <div className="app">
-            {React.createElement(Header, {
-              currentUser: "Teacher",
-              onLogout: handleLogout,
+        return React.createElement(
+          "div",
+          { className: "app" },
+          React.createElement(Header, {
+            currentUser: "Teacher",
+            onLogout: handleLogout,
+            onNavigate: navigateTo,
+          }),
+          React.createElement(
+            "div",
+            { className: "main-container" },
+            React.createElement(Sidebar, {
+              currentView: currentView,
               onNavigate: navigateTo,
-            })}
-
-            <div className="main-container">
-              {React.createElement(Sidebar, {
-                currentView: currentView,
-                onNavigate: navigateTo,
-              })}
-
-              <main className="content-area">{renderCurrentView()}</main>
-            </div>
-          </div>
+            }),
+            React.createElement(
+              "main",
+              { className: "content-area" },
+              renderCurrentView()
+            )
+          )
         );
       };
 
       const root = ReactDOM.createRoot(document.getElementById("root"));
-      root.render(<App />);
+      root.render(React.createElement(App));
     </script>
   </body>
 </html>
