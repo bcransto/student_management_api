@@ -82,13 +82,13 @@ const Layouts = ({ data, navigateTo }) => {
   const handleViewLayout = (layoutId, layoutName) => {
     console.log("View layout:", layoutId, layoutName);
     // Open layout editor from new location
-    window.open(`/frontend/layouts/editor/?layoutId=${layoutId}`, "_blank");
+    window.open(`/frontend/layouts/editor/?layout=${layoutId}`, "_blank");
   };
 
   const handleEditLayout = (layoutId, layoutName) => {
     console.log("Edit layout:", layoutId, layoutName);
     window.open(
-      `/frontend/layouts/editor/?layoutId=${layoutId}&mode=edit`,
+      `/frontend/layouts/editor/?layout=${layoutId}&mode=edit`,
       "_blank"
     );
   };
