@@ -62,6 +62,7 @@ const LayoutEditor = () => {
   };
 
   const handleSave = async () => {
+    console.log("Save button clicked!"); // Add this
     try {
       setLoading(true);
 
