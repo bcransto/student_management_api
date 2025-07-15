@@ -1,4 +1,7 @@
-// app.js - Main Layout Editor Component
+// app.js - Main Layout Editor Component (Tailwind-free version)
+// Extract React hooks at the top
+const { useState, useEffect, useRef } = React;
+
 const LayoutEditor = () => {
   const [layout, setLayout] = useState({ ...DEFAULT_LAYOUT });
   const [selectedTool, setSelectedTool] = useState(TOOL_MODES.SELECT);
@@ -62,15 +65,21 @@ const LayoutEditor = () => {
   };
 
   const handleSave = async () => {
-    try {
-      setLoading(true);
+    // Validate layout
+    const validation = validateLayout(layout);
+    if (!validation.isValid) {
+      alert(`Please fix the following issues:\n${validation.errors.join("\n")}`);
+      return;
+    }
 
-      const apiLayout = {
+    setLoading(true);
+    try {
+      // Prepare data for API
+      const layoutData = {
         name: layout.name,
         description: layout.description,
         room_width: layout.room_width,
         room_height: layout.room_height,
-        is_template: false,
         tables: layout.tables.map((table) => ({
           table_number: table.table_number,
           table_name: table.table_name,
@@ -80,15 +89,13 @@ const LayoutEditor = () => {
           height: table.height,
           max_seats: table.max_seats,
           table_shape: table.table_shape,
-          rotation: table.rotation,
-          seats:
-            table.seats?.map((seat) => ({
-              seat_number: seat.seat_number,
-              relative_x: seat.relative_x,
-              relative_y: seat.relative_y,
-              is_accessible: seat.is_accessible,
-              notes: seat.notes || "",
-            })) || [],
+          rotation: table.rotation || 0,
+          seats: table.seats.map((seat) => ({
+            seat_number: seat.seat_number,
+            relative_x: seat.relative_x,
+            relative_y: seat.relative_y,
+            is_accessible: seat.is_accessible,
+          })),
         })),
         obstacles: layout.obstacles.map((obstacle) => ({
           name: obstacle.name,
@@ -101,21 +108,21 @@ const LayoutEditor = () => {
         })),
       };
 
-      let savedLayout;
+      let response;
       if (layout.id) {
-        savedLayout = await ApiHelper.request(
-          `/layouts/${layout.id}/update_from_editor/`,
-          {
-            method: "PUT",
-            body: JSON.stringify(apiLayout),
-          }
-        );
-      } else {
-        savedLayout = await ApiHelper.request("/layouts/create_from_editor/", {
-          method: "POST",
-          body: JSON.stringify(apiLayout),
+        // Update existing layout
+        response = await ApiHelper.request(`/layouts/${layout.id}/`, {
+          method: "PATCH",
+          body: JSON.stringify(layoutData),
         });
-        setLayout((prev) => ({ ...prev, id: savedLayout.id }));
+      } else {
+        // Create new layout
+        response = await ApiHelper.request("/layouts/", {
+          method: "POST",
+          body: JSON.stringify(layoutData),
+        });
+        // Update layout with the new ID
+        setLayout((prev) => ({ ...prev, id: response.id }));
       }
 
       alert(
@@ -136,21 +143,20 @@ const LayoutEditor = () => {
     return React.createElement(
       "div",
       {
-        className: "flex items-center justify-center h-screen bg-gray-100",
+        className: "layout-loading",
       },
       React.createElement(
         "div",
         {
-          className: "text-center",
+          className: "layout-loading-content",
         },
         React.createElement("div", {
-          className:
-            "animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4",
+          className: "layout-loading-spinner",
         }),
         React.createElement(
           "p",
           {
-            className: "text-gray-600",
+            className: "layout-loading-text",
           },
           "Loading layout editor..."
         )
@@ -162,9 +168,9 @@ const LayoutEditor = () => {
   return React.createElement(
     "div",
     {
-      className: "flex h-screen bg-gray-100",
+      className: "layout-editor-container",
     },
-    React.createElement(Sidebar, {
+    React.createElement(LayoutEditorSidebar, {
       layout,
       setLayout,
       selectedTool,

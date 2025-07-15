@@ -1,5 +1,5 @@
-// components/Sidebar.js - Sidebar Component
-const Sidebar = ({
+// components/Sidebar.js - Sidebar Component (Tailwind-free version)
+const LayoutEditorSidebar = ({
   layout,
   setLayout,
   selectedTool,
@@ -10,21 +10,23 @@ const Sidebar = ({
   selectedItem,
   setSelectedItem,
 }) => {
+  console.log('LayoutEditorSidebar rendered, onSave is:', typeof onSave, onSave);
+  
   return React.createElement(
     "div",
     {
-      className: "w-80 bg-white shadow-lg flex flex-col",
+      className: "layout-sidebar",
     },
     // Header
     React.createElement(
       "div",
       {
-        className: "p-4 border-b border-gray-200",
+        className: "layout-sidebar-header",
       },
       React.createElement(
         "h2",
         {
-          className: "text-xl font-bold text-gray-800 mb-4",
+          className: "layout-sidebar-title",
         },
         "Layout Editor"
       ),
@@ -33,15 +35,17 @@ const Sidebar = ({
       React.createElement(
         "div",
         {
-          className: "space-y-3",
+          className: "layout-form-group",
         },
         React.createElement(
           "div",
-          null,
+          {
+            className: "layout-form-group",
+          },
           React.createElement(
             "label",
             {
-              className: "block text-sm font-medium text-gray-700 mb-1",
+              className: "layout-form-label",
             },
             "Layout Name"
           ),
@@ -50,14 +54,13 @@ const Sidebar = ({
             value: layout.name,
             onChange: (e) =>
               setLayout((prev) => ({ ...prev, name: e.target.value })),
-            className:
-              "w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500",
+            className: "layout-form-input",
           })
         ),
         React.createElement(
           "div",
           {
-            className: "grid grid-cols-2 gap-3",
+            className: "layout-form-row",
           },
           React.createElement(
             "div",
@@ -65,7 +68,7 @@ const Sidebar = ({
             React.createElement(
               "label",
               {
-                className: "block text-sm font-medium text-gray-700 mb-1",
+                className: "layout-form-label",
               },
               "Width"
             ),
@@ -77,7 +80,7 @@ const Sidebar = ({
                   ...prev,
                   room_width: parseInt(e.target.value) || 15,
                 })),
-              className: "w-full px-3 py-2 border border-gray-300 rounded-lg",
+              className: "layout-form-input",
               min: ROOM_CONSTRAINTS.MIN_WIDTH,
               max: ROOM_CONSTRAINTS.MAX_WIDTH,
             })
@@ -88,7 +91,7 @@ const Sidebar = ({
             React.createElement(
               "label",
               {
-                className: "block text-sm font-medium text-gray-700 mb-1",
+                className: "layout-form-label",
               },
               "Height"
             ),
@@ -100,7 +103,7 @@ const Sidebar = ({
                   ...prev,
                   room_height: parseInt(e.target.value) || 10,
                 })),
-              className: "w-full px-3 py-2 border border-gray-300 rounded-lg",
+              className: "layout-form-input",
               min: ROOM_CONSTRAINTS.MIN_HEIGHT,
               max: ROOM_CONSTRAINTS.MAX_HEIGHT,
             })
@@ -109,144 +112,94 @@ const Sidebar = ({
       )
     ),
 
-    // Tools
+    // Tools Section
     React.createElement(
       "div",
       {
-        className: "p-4 border-b border-gray-200",
+        className: "layout-tools",
       },
       React.createElement(
         "h3",
         {
-          className: "text-lg font-semibold text-gray-800 mb-3",
+          className: "layout-tools-title",
         },
         "Tools"
       ),
       React.createElement(
         "div",
         {
-          className: "grid grid-cols-3 gap-2",
+          className: "layout-tools-grid",
         },
+        // Select Tool
         React.createElement(
           "button",
           {
             onClick: () => setSelectedTool(TOOL_MODES.SELECT),
-            className: `p-3 rounded-lg transition-colors ${
-              selectedTool === TOOL_MODES.SELECT
-                ? "bg-blue-100 text-blue-600 border-2 border-blue-300"
-                : "bg-gray-50 text-gray-600 hover:bg-gray-100 border-2 border-transparent"
+            className: `layout-tool-btn ${
+              selectedTool === TOOL_MODES.SELECT ? "active" : ""
             }`,
           },
           React.createElement(
             "div",
             {
-              className: "text-center",
+              className: "layout-tool-icon",
             },
-            React.createElement(
-              "div",
-              {
-                className: "text-xl mb-1",
-              },
-              "👆"
-            ),
-            React.createElement(
-              "div",
-              {
-                className: "text-xs",
-              },
-              "Select"
-            )
-          )
+            "👆"
+          ),
+          React.createElement("div", null, "Select")
         ),
+        // Table Tool
         React.createElement(
           "button",
           {
             onClick: () => setSelectedTool(TOOL_MODES.TABLE),
-            className: `p-3 rounded-lg transition-colors ${
-              selectedTool === TOOL_MODES.TABLE
-                ? "bg-green-100 text-green-600 border-2 border-green-300"
-                : "bg-gray-50 text-gray-600 hover:bg-gray-100 border-2 border-transparent"
+            className: `layout-tool-btn ${
+              selectedTool === TOOL_MODES.TABLE ? "active table" : ""
             }`,
           },
           React.createElement(
             "div",
             {
-              className: "text-center",
+              className: "layout-tool-icon",
             },
-            React.createElement(
-              "div",
-              {
-                className: "text-xl mb-1",
-              },
-              "🪑"
-            ),
-            React.createElement(
-              "div",
-              {
-                className: "text-xs",
-              },
-              "Table"
-            )
-          )
+            "🪑"
+          ),
+          React.createElement("div", null, "Table")
         ),
+        // Obstacle Tool
         React.createElement(
           "button",
           {
             onClick: () => setSelectedTool(TOOL_MODES.OBSTACLE),
-            className: `p-3 rounded-lg transition-colors ${
-              selectedTool === TOOL_MODES.OBSTACLE
-                ? "bg-orange-100 text-orange-600 border-2 border-orange-300"
-                : "bg-gray-50 text-gray-600 hover:bg-gray-100 border-2 border-transparent"
+            className: `layout-tool-btn ${
+              selectedTool === TOOL_MODES.OBSTACLE ? "active obstacle" : ""
             }`,
           },
           React.createElement(
             "div",
             {
-              className: "text-center",
+              className: "layout-tool-icon",
             },
-            React.createElement(
-              "div",
-              {
-                className: "text-xl mb-1",
-              },
-              "📦"
-            ),
-            React.createElement(
-              "div",
-              {
-                className: "text-xs",
-              },
-              "Object"
-            )
-          )
+            "📦"
+          ),
+          React.createElement("div", null, "Object")
         )
       ),
 
       // Grid toggle
       React.createElement(
-        "div",
+        "button",
         {
-          className: "mt-3",
-        },
-        React.createElement(
-          "button",
-          {
-            onClick: () => setShowGrid(!showGrid),
-            className: `flex items-center justify-center gap-2 w-full px-3 py-2 rounded-lg transition-colors ${
-              showGrid
-                ? "bg-green-100 text-green-600"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-            }`,
+          onClick: () => {
+            console.log('Grid toggle clicked, current state:', showGrid);
+            setShowGrid(!showGrid);
           },
-          React.createElement(Grid, { size: 16 }),
-          React.createElement(
-            "span",
-            {
-              className: "text-sm",
-            },
-            showGrid ? "Hide Grid" : "Show Grid"
-          )
-        )
+          className: `layout-grid-toggle ${showGrid ? "active" : ""}`,
+          type: "button"
+        },
+        React.createElement("i", { className: "fas fa-th" }),
+        " ",
+        React.createElement("span", null, showGrid ? "Hide Grid" : "Show Grid")
       )
     ),
 
@@ -264,30 +217,30 @@ const Sidebar = ({
     React.createElement(
       "div",
       {
-        className: "p-4 flex-1",
+        className: "layout-stats",
       },
       React.createElement(
         "h3",
         {
-          className: "text-lg font-semibold text-gray-800 mb-3",
+          className: "layout-stats-title",
         },
         "Statistics"
       ),
       React.createElement(
         "div",
         {
-          className: "space-y-2 text-sm text-gray-600",
+          className: "layout-stats-list",
         },
         React.createElement(
           "div",
           {
-            className: "flex justify-between",
+            className: "layout-stat-row",
           },
           React.createElement("span", null, "Tables:"),
           React.createElement(
             "span",
             {
-              className: "font-medium",
+              className: "layout-stat-value",
             },
             layout.tables.length
           )
@@ -295,13 +248,13 @@ const Sidebar = ({
         React.createElement(
           "div",
           {
-            className: "flex justify-between",
+            className: "layout-stat-row",
           },
           React.createElement("span", null, "Total Seats:"),
           React.createElement(
             "span",
             {
-              className: "font-medium",
+              className: "layout-stat-value",
             },
             layout.tables.reduce((sum, t) => sum + (t.max_seats || 0), 0)
           )
@@ -309,13 +262,13 @@ const Sidebar = ({
         React.createElement(
           "div",
           {
-            className: "flex justify-between",
+            className: "layout-stat-row",
           },
           React.createElement("span", null, "Obstacles:"),
           React.createElement(
             "span",
             {
-              className: "font-medium",
+              className: "layout-stat-value",
             },
             layout.obstacles.length
           )
@@ -323,13 +276,13 @@ const Sidebar = ({
         React.createElement(
           "div",
           {
-            className: "flex justify-between",
+            className: "layout-stat-row",
           },
           React.createElement("span", null, "Room Size:"),
           React.createElement(
             "span",
             {
-              className: "font-medium",
+              className: "layout-stat-value",
             },
             `${layout.room_width} × ${layout.room_height}`
           )
@@ -341,16 +294,28 @@ const Sidebar = ({
     React.createElement(
       "div",
       {
-        className: "p-4 border-t border-gray-200",
+        className: "layout-save-section",
       },
       React.createElement(
         "button",
         {
-          onClick: onSave,
-          className:
-            "w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium",
+          onClick: () => {
+            console.log('Save button in sidebar clicked!');
+            console.log('onSave type:', typeof onSave);
+            try {
+              if (onSave) {
+                console.log('Calling onSave...');
+                onSave();
+              } else {
+                console.log('onSave is not defined!');
+              }
+            } catch (error) {
+              console.error('Error calling onSave:', error);
+            }
+          },
+          className: "layout-btn layout-btn-primary",
         },
-        React.createElement(Save, { size: 18 }),
+        React.createElement("i", { className: "fas fa-save" }),
         layout.id ? "Update Layout" : "Save Layout"
       )
     )

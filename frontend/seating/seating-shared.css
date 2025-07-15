@@ -1,0 +1,403 @@
+/* ==========================================================================
+   SHARED SEATING STYLES
+   Used by both Layout Editor and Seating Chart Editor
+   ========================================================================== */
+
+/* ==========================================================================
+   GRID SYSTEM
+   ========================================================================== */
+
+.seating-grid {
+  background-image: linear-gradient(rgba(0, 0, 0, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.1) 1px, transparent 1px);
+  background-size: 40px 40px;
+  background-position: 0 0;
+  background-repeat: repeat;
+}
+
+/* Make sure the grid shows on white backgrounds */
+.layout-canvas.seating-grid {
+  background-color: white;
+  background-image: linear-gradient(rgba(0, 0, 0, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.1) 1px, transparent 1px);
+  background-size: 40px 40px;
+  background-position: 0 0;
+}
+
+.seating-grid.hidden {
+  background-image: none;
+}
+
+/* Alternative: Use a separate class for no grid */
+.no-grid {
+  background-image: none !important;
+}
+
+/* ==========================================================================
+   TABLE SHAPES
+   ========================================================================== */
+
+.seating-table {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+/* Rectangular Table */
+.seating-table.rectangular {
+  background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+  border: 2px solid #6366f1;
+  border-radius: 8px;
+}
+
+/* Round Table */
+.seating-table.round {
+  background: radial-gradient(circle at center, #fce7f3 0%, #fbcfe8 100%);
+  border: 2px solid #ec4899;
+  border-radius: 50%;
+}
+
+/* U-Shaped Table */
+.seating-table.u-shaped {
+  background: linear-gradient(135deg, #d9f7be 0%, #b7eb8f 100%);
+  border: 2px solid #52c41a;
+  border-radius: 50% 50% 8px 8px;
+  position: relative;
+}
+
+.seating-table.u-shaped::after {
+  content: "";
+  position: absolute;
+  top: 30%;
+  left: 20%;
+  right: 20%;
+  height: 40%;
+  background: white;
+  border-radius: 8px;
+}
+
+/* Individual Desk */
+.seating-table.individual {
+  background: linear-gradient(135deg, #ffe7ba 0%, #ffd591 100%);
+  border: 2px solid #fa8c16;
+  border-radius: 4px;
+}
+
+/* Table States */
+.seating-table:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.seating-table.selected {
+  box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.3);
+  transform: scale(1.05);
+  z-index: 100;
+}
+
+.seating-table.dragging {
+  opacity: 0.8;
+  cursor: grabbing;
+  z-index: 1000;
+}
+
+/* Table Number Display */
+.seating-table-number {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1f2937;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+  z-index: 1;
+  position: relative;
+}
+
+/* ==========================================================================
+   SEAT STYLES
+   ========================================================================== */
+
+.seating-seat {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Empty Seat */
+.seating-seat.empty {
+  background: #f3f4f6;
+  border: 2px solid #9ca3af;
+  color: #6b7280;
+}
+
+.seating-seat.empty:hover {
+  background: #e5e7eb;
+  border-color: #6b7280;
+  transform: scale(1.1);
+}
+
+/* Occupied Seat */
+.seating-seat.occupied {
+  background: linear-gradient(135deg, #a5b4fc 0%, #818cf8 100%);
+  border: 2px solid #6366f1;
+  color: white;
+}
+
+/* Accessible Seat */
+.seating-seat.accessible {
+  background: linear-gradient(135deg, #86efac 0%, #4ade80 100%);
+  border: 2px solid #16a34a;
+  color: #14532d;
+}
+
+.seating-seat.accessible::before {
+  content: "♿";
+  position: absolute;
+  top: -20px;
+  font-size: 0.875rem;
+}
+
+/* Selected Seat */
+.seating-seat.selected {
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.5);
+  transform: scale(1.2);
+  z-index: 10;
+}
+
+/* Seat with Student (for seating chart) */
+.seating-seat.has-student {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: 2px solid #5a67d8;
+  color: white;
+  font-weight: 600;
+}
+
+/* ==========================================================================
+   OBSTACLES
+   ========================================================================== */
+
+.seating-obstacle {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  border-radius: 4px;
+  user-select: none;
+}
+
+/* Door */
+.seating-obstacle.door {
+  background: linear-gradient(135deg, #8b5a3c 0%, #6b4423 100%);
+  border: 2px solid #5d4e37;
+}
+
+/* Window */
+.seating-obstacle.window {
+  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+  border: 2px solid #2563eb;
+  opacity: 0.8;
+}
+
+/* Whiteboard */
+.seating-obstacle.whiteboard {
+  background: white;
+  border: 3px solid #374151;
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+/* Storage */
+.seating-obstacle.storage {
+  background: linear-gradient(135deg, #9ca3af 0%, #6b7280 100%);
+  border: 2px solid #4b5563;
+}
+
+/* Column */
+.seating-obstacle.column {
+  background: radial-gradient(circle at center, #e5e7eb 0%, #9ca3af 100%);
+  border: 2px solid #6b7280;
+  border-radius: 4px;
+}
+
+.seating-obstacle:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.seating-obstacle.selected {
+  box-shadow: 0 0 0 3px rgba(107, 114, 128, 0.5);
+  z-index: 100;
+}
+
+/* ==========================================================================
+   RESIZE HANDLES
+   ========================================================================== */
+
+.seating-resize-handle {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: white;
+  border: 2px solid #667eea;
+  border-radius: 50%;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.seating-table.selected .seating-resize-handle,
+.seating-obstacle.selected .seating-resize-handle {
+  opacity: 1;
+}
+
+.seating-resize-handle:hover {
+  background: #667eea;
+  transform: scale(1.2);
+}
+
+.seating-resize-handle.top-left {
+  top: -6px;
+  left: -6px;
+  cursor: nw-resize;
+}
+
+.seating-resize-handle.top-right {
+  top: -6px;
+  right: -6px;
+  cursor: ne-resize;
+}
+
+.seating-resize-handle.bottom-left {
+  bottom: -6px;
+  left: -6px;
+  cursor: sw-resize;
+}
+
+.seating-resize-handle.bottom-right {
+  bottom: -6px;
+  right: -6px;
+  cursor: se-resize;
+}
+
+/* ==========================================================================
+   DRAG & DROP STATES
+   ========================================================================== */
+
+.seating-dropzone {
+  transition: all 0.2s ease;
+}
+
+.seating-dropzone.drag-over {
+  background: rgba(102, 126, 234, 0.1);
+  border-color: #667eea;
+}
+
+.seating-ghost {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.seating-drag-preview {
+  position: fixed;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.8;
+  transform: rotate(2deg);
+}
+
+/* ==========================================================================
+   TOOLTIPS
+   ========================================================================== */
+
+.seating-tooltip {
+  position: absolute;
+  background: #1f2937;
+  color: white;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 9999;
+  transform: translateX(-50%) translateY(-100%);
+  margin-top: -8px;
+}
+
+.seating-tooltip::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: #1f2937;
+}
+
+/* ==========================================================================
+   ANIMATIONS
+   ========================================================================== */
+
+@keyframes seating-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(102, 126, 234, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(102, 126, 234, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(102, 126, 234, 0);
+  }
+}
+
+.seating-table.highlight {
+  animation: seating-pulse 2s infinite;
+}
+
+/* ==========================================================================
+   STUDENT POOL (for Seating Chart Editor)
+   ========================================================================== */
+
+.student-pool {
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 12px;
+  padding: 1rem;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.student-card {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 0.75rem;
+  margin-bottom: 0.5rem;
+  cursor: grab;
+  transition: all 0.2s;
+}
+
+.student-card:hover {
+  border-color: #667eea;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+.student-card.dragging {
+  opacity: 0.5;
+  cursor: grabbing;
+}
+
+.student-card.assigned {
+  opacity: 0.5;
+  background: #f9fafb;
+  cursor: not-allowed;
+}
