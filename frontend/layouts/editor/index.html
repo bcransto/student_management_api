@@ -3,30 +3,126 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Classroom Layout Editor</title>
+    <title>Layout Editor - Student Management System</title>
 
     <!-- External Dependencies -->
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+      rel="stylesheet"
+    />
 
-    <!-- Custom Styles -->
-    <style>
-      .shadow-text {
-        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
-      }
-    </style>
+    <!-- Main App Styles (to inherit the theme) -->
+    <link rel="stylesheet" href="/frontend/shared/styles.css" />
+    <link rel="stylesheet" href="/frontend/navigation/navigation.css" />
+
+    <!-- Seating-specific Styles -->
+    <link rel="stylesheet" href="/frontend/seating/seating-shared.css" />
+    <link rel="stylesheet" href="/frontend/layouts/layout-editor.css" />
   </head>
   <body>
     <div id="root"></div>
 
-    <!-- Load our modular JavaScript files -->
-    <script type="text/babel" src="js/constants.js"></script>
-    <script type="text/babel" src="js/utils.js"></script>
-    <script type="text/babel" src="js/components/TableProperties.js"></script>
-    <script type="text/babel" src="js/components/Sidebar.js"></script>
-    <script type="text/babel" src="js/components/CanvasArea.js"></script>
-    <script type="text/babel" src="js/app.js"></script>
+    <!-- Load core functionality -->
+    <script type="text/babel" src="/frontend/shared/core.js"></script>
+
+    <!-- Load navigation components (for consistent header/sidebar) -->
+    <script type="text/babel" src="/frontend/navigation/header.js"></script>
+    <script type="text/babel" src="/frontend/navigation/sidebar.js"></script>
+
+    <!-- Load layout editor dependencies IN ORDER -->
+    <script
+      type="text/babel"
+      src="/frontend/layouts/editor/js/constants.js"
+    ></script>
+    <script
+      type="text/babel"
+      src="/frontend/layouts/editor/js/utils.js"
+    ></script>
+
+    <!-- Wait for constants and utils to load before loading components -->
+    <script type="text/babel">
+      // Make React hooks available globally for the components
+      const { useState, useEffect, useRef } = React;
+    </script>
+
+    <!-- Load layout editor components that depend on constants -->
+    <script
+      type="text/babel"
+      src="/frontend/layouts/editor/js/components/TableProperties.js"
+    ></script>
+    <script
+      type="text/babel"
+      src="/frontend/layouts/editor/js/components/Sidebar.js"
+    ></script>
+    <script
+      type="text/babel"
+      src="/frontend/layouts/editor/js/components/CanvasArea.js"
+    ></script>
+    <script type="text/babel" src="/frontend/layouts/editor/js/app.js"></script>
+
+    <!-- Integration wrapper -->
+    <script type="text/babel">
+      // Wait for all scripts to load
+      window.addEventListener("load", () => {
+        // Wrap the layout editor to work within the main app structure
+        const IntegratedLayoutEditor = () => {
+          const [currentUser] = React.useState("Teacher");
+
+          const handleNavigate = (view) => {
+            // Navigate back to main app with hash routing
+            window.location.href = `/#${view}`;
+          };
+
+          const handleLogout = () => {
+            window.AuthModule.logout();
+            window.location.href = "/";
+          };
+
+          // Check authentication
+          React.useEffect(() => {
+            if (!window.AuthModule?.isAuthenticated()) {
+              window.location.href = "/";
+            }
+          }, []);
+
+          return React.createElement(
+            "div",
+            { className: "app" },
+
+            // Use the main app's header
+            React.createElement(window.Header, {
+              currentUser,
+              onLogout: handleLogout,
+              onNavigate: handleNavigate,
+            }),
+
+            React.createElement(
+              "div",
+              { className: "main-container" },
+
+              // Use the main app's sidebar
+              React.createElement(window.Sidebar, {
+                currentView: "layouts",
+                onNavigate: handleNavigate,
+              }),
+
+              // Layout editor in the content area
+              React.createElement(
+                "main",
+                { className: "content-area", style: { padding: 0 } },
+                React.createElement(LayoutEditor)
+              )
+            )
+          );
+        };
+
+        // Initialize the integrated editor
+        const root = ReactDOM.createRoot(document.getElementById("root"));
+        root.render(React.createElement(IntegratedLayoutEditor));
+      });
+    </script>
   </body>
 </html>

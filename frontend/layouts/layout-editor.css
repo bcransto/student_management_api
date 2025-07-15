@@ -1,0 +1,522 @@
+/* ==========================================================================
+   LAYOUT EDITOR STYLES
+   Replaces Tailwind CSS with custom styles matching the main app
+   ========================================================================== */
+
+/* ==========================================================================
+   LAYOUT STRUCTURE
+   ========================================================================== */
+
+.layout-editor-container {
+  display: flex;
+  height: 100%;
+  background: transparent; /* Will use parent's gradient background */
+}
+
+/* ==========================================================================
+   SIDEBAR STYLES
+   ========================================================================== */
+
+.layout-sidebar {
+  width: 320px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  display: flex;
+  flex-direction: column;
+  border-radius: 20px 0 0 20px;
+}
+
+.layout-sidebar-header {
+  padding: 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.layout-sidebar-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin-bottom: 1rem;
+}
+
+/* ==========================================================================
+   FORM ELEMENTS
+   ========================================================================== */
+
+.layout-form-group {
+  margin-bottom: 1rem;
+}
+
+.layout-form-label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 0.25rem;
+}
+
+.layout-form-input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  transition: all 0.2s;
+  background: white;
+}
+
+.layout-form-input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.layout-form-input:disabled {
+  background: #f3f4f6;
+  cursor: not-allowed;
+}
+
+.layout-form-textarea {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  transition: all 0.2s;
+  background: white;
+  resize: vertical;
+  min-height: 80px;
+}
+
+.layout-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+/* ==========================================================================
+   TOOL BUTTONS
+   ========================================================================== */
+
+.layout-tools {
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.layout-tools-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #6b7280;
+  margin-bottom: 0.75rem;
+}
+
+.layout-tools-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+}
+
+.layout-tool-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  background: #f9fafb;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.75rem;
+}
+
+.layout-tool-btn:hover {
+  background: #f3f4f6;
+}
+
+.layout-tool-btn.active {
+  background: #eef2ff;
+  color: #667eea;
+  border-color: #667eea;
+}
+
+.layout-tool-btn.active.table {
+  background: #fef3c7;
+  color: #f59e0b;
+  border-color: #f59e0b;
+}
+
+.layout-tool-btn.active.obstacle {
+  background: #fed7aa;
+  color: #ea580c;
+  border-color: #ea580c;
+}
+
+.layout-tool-icon {
+  font-size: 1.5rem;
+  margin-bottom: 0.25rem;
+}
+
+/* ==========================================================================
+   GRID TOGGLE
+   ========================================================================== */
+
+.layout-grid-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  border: none;
+  background: #f3f4f6;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 0.75rem;
+}
+
+.layout-grid-toggle:hover {
+  background: #e5e7eb;
+}
+
+.layout-grid-toggle.active {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+/* ==========================================================================
+   STATISTICS PANEL
+   ========================================================================== */
+
+.layout-stats {
+  padding: 1.5rem;
+  flex: 1;
+}
+
+.layout-stats-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 0.75rem;
+}
+
+.layout-stats-list {
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.layout-stat-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.layout-stat-row:last-child {
+  border-bottom: none;
+}
+
+.layout-stat-value {
+  font-weight: 500;
+  color: #1f2937;
+}
+
+/* ==========================================================================
+   CANVAS AREA
+   ========================================================================== */
+
+.layout-canvas-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: transparent;
+}
+
+.layout-canvas-header {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  padding: 1rem 1.5rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.layout-canvas-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.layout-canvas-subtitle {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin-top: 0.25rem;
+}
+
+.layout-canvas-wrapper {
+  flex: 1;
+  overflow: auto;
+  padding: 2rem;
+}
+
+.layout-canvas {
+  position: relative;
+  margin: 0 auto;
+  border: 2px solid #d1d5db;
+  background: white;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+}
+
+/* ==========================================================================
+   TABLE & OBSTACLE STYLES
+   ========================================================================== */
+
+.layout-table {
+  position: absolute;
+  background: #dbeafe;
+  border: 2px solid #3b82f6;
+  cursor: move;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.layout-table.round {
+  border-radius: 50%;
+}
+
+.layout-table.selected {
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.3);
+  z-index: 10;
+}
+
+.layout-table:hover {
+  border-color: #2563eb;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.layout-table-label {
+  position: absolute;
+  top: -24px;
+  left: 0;
+  background: #667eea;
+  color: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* ==========================================================================
+   SEAT STYLES
+   ========================================================================== */
+
+.layout-seat {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  pointer-events: none;
+  transition: all 0.2s;
+}
+
+.layout-seat.regular {
+  background: #93c5fd;
+  border: 2px solid #2563eb;
+  color: #1e3a8a;
+}
+
+.layout-seat.accessible {
+  background: #86efac;
+  border: 2px solid #16a34a;
+  color: #14532d;
+}
+
+.layout-seat:hover {
+  transform: scale(1.1);
+}
+
+/* ==========================================================================
+   OBSTACLE STYLES
+   ========================================================================== */
+
+.layout-obstacle {
+  position: absolute;
+  border: 2px solid #6b7280;
+  cursor: move;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+}
+
+.layout-obstacle.selected {
+  box-shadow: 0 0 0 3px rgba(107, 114, 128, 0.3);
+  z-index: 10;
+}
+
+.layout-obstacle-label {
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
+
+/* ==========================================================================
+   PROPERTIES PANEL
+   ========================================================================== */
+
+.layout-properties {
+  padding: 1rem 1.5rem;
+  border-top: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+
+.layout-properties-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.layout-properties-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.layout-shape-select {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.layout-shape-option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.layout-shape-option:hover {
+  background: #f9fafb;
+}
+
+.layout-shape-option.selected {
+  background: #eef2ff;
+  border-color: #667eea;
+}
+
+/* ==========================================================================
+   ACTION BUTTONS
+   ========================================================================== */
+
+.layout-save-section {
+  padding: 1.5rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.layout-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border: none;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.layout-btn-primary {
+  background: #667eea;
+  color: white;
+}
+
+.layout-btn-primary:hover {
+  background: #5a67d8;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.layout-btn-danger {
+  background: #ef4444;
+  color: white;
+  margin-top: 0.5rem;
+}
+
+.layout-btn-danger:hover {
+  background: #dc2626;
+}
+
+/* ==========================================================================
+   SELECTED ITEM BADGE
+   ========================================================================== */
+
+.layout-selected-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: #eef2ff;
+  color: #667eea;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+/* ==========================================================================
+   LOADING STATE
+   ========================================================================== */
+
+.layout-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+.layout-loading-content {
+  text-align: center;
+}
+
+.layout-loading-spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid rgba(102, 126, 234, 0.2);
+  border-top-color: #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 1rem;
+}
+
+.layout-loading-text {
+  color: #6b7280;
+  font-size: 1rem;
+}
