@@ -612,7 +612,7 @@ const SeatingCanvas = ({
   return React.createElement(
     "div",
     {
-      className: "seating-canvas",
+      className: `seating-canvas ${draggedStudent ? "drag-active" : ""}`,
       style: {
         width: layout.room_width * 40,
         height: layout.room_height * 40,
@@ -714,6 +714,33 @@ const SeatingCanvas = ({
                 transition: "all 0.2s",
               },
               onClick: () => onSeatClick(table.id, seat.seat_number),
+              onDragOver: (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "move";
+                // Add visual feedback
+                e.currentTarget.classList.add("drag-over");
+              },
+              onDragLeave: (e) => {
+                // Remove visual feedback
+                e.currentTarget.classList.remove("drag-over");
+              },
+              onDrop: (e) => {
+                e.preventDefault();
+                e.currentTarget.classList.remove("drag-over");
+
+                // Get the student ID from the drag data
+                const studentId = parseInt(e.dataTransfer.getData("studentId"));
+
+                if (studentId && !assignedStudent) {
+                  // Only allow drop if seat is empty
+                  onStudentDrop(studentId, table.id, seat.seat_number);
+                } else if (assignedStudent) {
+                  // Show feedback that seat is occupied
+                  alert(
+                    "This seat is already occupied. Please remove the current student first."
+                  );
+                }
+              },
               title: assignedStudent
                 ? `${assignedStudent.first_name} ${assignedStudent.last_name}`
                 : `Seat ${seat.seat_number}`,
@@ -880,6 +907,8 @@ const SeatingEditorSidebar = ({
 };
 
 // Student pool component
+// Replace the StudentPool component in SeatingEditor.js with this enhanced version:
+
 const StudentPool = ({
   students,
   selectedStudent,
@@ -923,8 +952,24 @@ const StudentPool = ({
             } ${student.gender === "F" ? "female" : "male"}`,
             onClick: () => onSelectStudent(student),
             draggable: true,
-            onDragStart: () => onDragStart(student),
-            onDragEnd: onDragEnd,
+            onDragStart: (e) => {
+              // Set the data that will be transferred
+              e.dataTransfer.effectAllowed = "move";
+              e.dataTransfer.setData("studentId", student.id.toString());
+
+              // Call the parent's drag start handler
+              onDragStart(student);
+
+              // Add visual feedback
+              e.currentTarget.classList.add("dragging");
+            },
+            onDragEnd: (e) => {
+              // Remove visual feedback
+              e.currentTarget.classList.remove("dragging");
+
+              // Call the parent's drag end handler
+              onDragEnd();
+            },
           },
           React.createElement(
             "div",

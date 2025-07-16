@@ -256,3 +256,99 @@
     min-width: 70px;
   }
 }
+
+/* Add to seating-editor.css */
+
+/* Drag and Drop Visual Feedback */
+
+/* Student card being dragged */
+.student-card {
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.student-card:active {
+  cursor: grabbing;
+}
+
+.student-card.dragging {
+  opacity: 0.5;
+  transform: scale(0.95);
+  cursor: grabbing;
+}
+
+/* Seat hover states during drag */
+.seat {
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.seat.drag-over {
+  transform: translate(-50%, -50%) scale(1.15) !important;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.5);
+}
+
+.seat.empty.drag-over {
+  background-color: #c7d2fe !important;
+  border-color: #6366f1 !important;
+}
+
+.seat.occupied.drag-over {
+  background-color: #fecaca !important;
+  border-color: #ef4444 !important;
+  animation: shake 0.5s ease-in-out;
+}
+
+@keyframes shake {
+  0%,
+  100% {
+    transform: translate(-50%, -50%) scale(1.15) rotate(0deg);
+  }
+  25% {
+    transform: translate(-50%, -50%) scale(1.15) rotate(-5deg);
+  }
+  75% {
+    transform: translate(-50%, -50%) scale(1.15) rotate(5deg);
+  }
+}
+
+/* Visual indicator that seats can accept drops */
+.seating-canvas.drag-active .seat.empty {
+  animation: gentle-pulse 2s infinite;
+}
+
+@keyframes gentle-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(99, 102, 241, 0);
+  }
+  50% {
+    opacity: 0.8;
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.3);
+  }
+}
+
+/* Enhance student pool during drag */
+.student-pool {
+  transition: background-color 0.2s ease;
+}
+
+.student-pool.drag-active {
+  background-color: #f9fafb;
+}
+
+/* Cursor states */
+.student-card:not(.dragging) {
+  cursor: grab;
+}
+
+.student-card:hover:not(.dragging) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Ensure seats stay circular during animations */
+.seat {
+  border-radius: 50% !important;
+}
