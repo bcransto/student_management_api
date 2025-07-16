@@ -176,21 +176,20 @@ const SeatingEditor = ({ classId, onBack }) => {
     return students.filter((student) => !assigned.has(student.id));
   };
 
+  // Simple save function that works with the fixed ApiModule
   const handleSave = async () => {
     try {
       setSaving(true);
 
       console.log("Starting to save seating assignments...");
       console.log("Current assignments:", assignments);
-      console.log("Class info:", classInfo);
 
-      // First, get or create the current seating period
+      // Get or create seating period
       let seatingPeriodId;
       if (classInfo.current_seating_period) {
         seatingPeriodId = classInfo.current_seating_period.id;
         console.log("Using existing seating period:", seatingPeriodId);
       } else {
-        // Create a new seating period
         console.log("Creating new seating period...");
         const newPeriod = await window.ApiModule.request("/seating-periods/", {
           method: "POST",
@@ -206,13 +205,12 @@ const SeatingEditor = ({ classId, onBack }) => {
         console.log("Created new seating period:", seatingPeriodId);
       }
 
-      // Clear existing assignments for this seating period
-      // Get current assignments and delete them
+      // Clear existing assignments
       const currentAssignments = await window.ApiModule.request(
         `/seating-assignments/?seating_period=${seatingPeriodId}`
       );
 
-      if (currentAssignments.results) {
+      if (currentAssignments.results && currentAssignments.results.length > 0) {
         for (const assignment of currentAssignments.results) {
           await window.ApiModule.request(
             `/seating-assignments/${assignment.id}/`,
@@ -229,66 +227,42 @@ const SeatingEditor = ({ classId, onBack }) => {
       // Create new assignments
       const assignmentsToCreate = [];
 
-      // Convert our assignments format to API format
       Object.keys(assignments).forEach((tableId) => {
         const tableAssignments = assignments[tableId];
-
-        // Find the table to get its table_number
         const table = layout.tables.find((t) => t.id == tableId);
-        if (!table) {
-          console.warn(`Table with id ${tableId} not found in layout`);
-          return;
-        }
+        if (!table) return;
 
         Object.keys(tableAssignments).forEach((seatNumber) => {
           const studentId = tableAssignments[seatNumber];
-
-          // Find the roster entry for this student
           const rosterEntry = classInfo.roster.find(
             (r) => r.student == studentId
           );
-          if (!rosterEntry) {
-            console.warn(`Roster entry not found for student ${studentId}`);
-            return;
-          }
+          if (!rosterEntry) return;
 
-          // Create the assignment data
-          const assignmentData = {
+          assignmentsToCreate.push({
             seating_period: seatingPeriodId,
             roster_entry: rosterEntry.id,
             seat_id: `${table.table_number}-${seatNumber}`,
-            group_number: null, // You can modify this to support groups
+            group_number: null,
             group_role: "",
             assignment_notes: "",
-          };
-
-          assignmentsToCreate.push(assignmentData);
+          });
         });
       });
 
       console.log(`Creating ${assignmentsToCreate.length} new assignments...`);
 
-      // Create all the assignments
+      // Create all assignments
       const createdAssignments = [];
       for (const assignmentData of assignmentsToCreate) {
-        try {
-          const created = await window.ApiModule.request(
-            "/seating-assignments/",
-            {
-              method: "POST",
-              body: JSON.stringify(assignmentData),
-            }
-          );
-          createdAssignments.push(created);
-          console.log(
-            `Created assignment: ${assignmentData.seat_id} -> Student ${assignmentData.roster_entry}`
-          );
-        } catch (error) {
-          console.error("Failed to create assignment:", assignmentData, error);
-          throw new Error(
-            `Failed to create assignment for seat ${assignmentData.seat_id}: ${error.message}`
-          );
-        }
+        const created = await window.ApiModule.request(
+          "/seating-assignments/",
+          {
+            method: "POST",
+            body: JSON.stringify(assignmentData),
+          }
+        );
+        createdAssignments.push(created);
       }
 
       console.log(
