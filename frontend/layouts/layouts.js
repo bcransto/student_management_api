@@ -1,4 +1,5 @@
 // frontend/layouts/layouts.js - Classroom Layouts Management Component
+// Now with hash-based routing for the editor
 
 const Layouts = ({ data, navigateTo }) => {
   const [layouts, setLayouts] = React.useState([]);
@@ -16,8 +17,7 @@ const Layouts = ({ data, navigateTo }) => {
       setError("");
 
       if (window.ApiModule) {
-        // TODO: Replace with actual layouts endpoint when available
-        const data = await window.ApiModule.request("/classroom_layouts/");
+        const data = await window.ApiModule.request("/layouts/");
         console.log("Layouts data received:", data);
 
         if (data && data.results && Array.isArray(data.results)) {
@@ -81,21 +81,20 @@ const Layouts = ({ data, navigateTo }) => {
 
   const handleViewLayout = (layoutId, layoutName) => {
     console.log("View layout:", layoutId, layoutName);
-    // Open layout editor from new location
-    window.open(`/frontend/layouts/editor/?layout=${layoutId}`, "_blank");
+    // Directly redirect to the editor
+    window.location.href = `/frontend/layouts/editor/?layout=${layoutId}`;
   };
 
   const handleEditLayout = (layoutId, layoutName) => {
     console.log("Edit layout:", layoutId, layoutName);
-    window.open(
-      `/frontend/layouts/editor/?layout=${layoutId}&mode=edit`,
-      "_blank"
-    );
+    // Directly redirect to the editor
+    window.location.href = `/frontend/layouts/editor/?layout=${layoutId}&mode=edit`;
   };
 
   const handleNewLayout = () => {
     console.log("Create new layout");
-    window.open("/frontend/layouts/editor/?mode=new", "_blank");
+    // Directly redirect to the editor
+    window.location.href = "/frontend/layouts/editor/?mode=new";
   };
 
   const handleDeleteLayout = async (layoutId, layoutName) => {
@@ -103,10 +102,10 @@ const Layouts = ({ data, navigateTo }) => {
       confirm(`Are you sure you want to delete the layout "${layoutName}"?`)
     ) {
       try {
-        // TODO: Implement delete API call
-        console.log("Delete layout:", layoutId);
-        // await window.ApiModule.request(`/classroom_layouts/${layoutId}/`, { method: 'DELETE' });
-        // fetchLayouts(); // Refresh the list
+        await window.ApiModule.request(`/layouts/${layoutId}/`, {
+          method: "DELETE",
+        });
+        fetchLayouts(); // Refresh the list
       } catch (err) {
         console.error("Error deleting layout:", err);
         alert("Failed to delete layout. Please try again.");
@@ -188,13 +187,10 @@ const Layouts = ({ data, navigateTo }) => {
         ? React.createElement(
             "div",
             { className: "layouts-empty" },
-            React.createElement("i", { className: "fas fa-th-large" }),
-            React.createElement("h3", null, "No Layouts Yet"),
-            React.createElement(
-              "p",
-              null,
-              "Create your first classroom layout to get started."
-            ),
+            React.createElement("i", {
+              className: "fas fa-th-large empty-icon",
+            }),
+            React.createElement("p", null, "No classroom layouts created yet"),
             React.createElement(
               "button",
               {
@@ -243,13 +239,13 @@ const Layouts = ({ data, navigateTo }) => {
                       "span",
                       { className: "layout-meta-item" },
                       React.createElement("i", { className: "fas fa-th" }),
-                      `${layout.table_count} tables`
+                      `${layout.table_count || 0} tables`
                     ),
                     React.createElement(
                       "span",
                       { className: "layout-meta-item" },
                       React.createElement("i", { className: "fas fa-users" }),
-                      `${layout.total_capacity} seats`
+                      `${layout.total_capacity || 0} seats`
                     )
                   )
                 ),

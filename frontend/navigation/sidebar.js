@@ -5,15 +5,11 @@ const Sidebar = ({ currentView, onNavigate }) => {
     { id: "classes", label: "Classes", icon: "fas fa-chalkboard-teacher" },
     { id: "students", label: "Students", icon: "fas fa-users" },
     { id: "seating", label: "Seating Charts", icon: "fas fa-chair" },
-    { id: "layouts", label: "Classroom Layouts", icon: "fas fa-th-large" },
+    { id: "layouts", label: "Layouts", icon: "fas fa-th" },
   ];
 
   const getNavItemClass = (view) => {
     return `nav-item ${currentView === view ? "active" : ""}`;
-  };
-
-  const handleLayoutEditorClick = () => {
-    window.open("/frontend/layouts/editor/", "_blank");
   };
 
   return React.createElement(
@@ -33,17 +29,6 @@ const Sidebar = ({ currentView, onNavigate }) => {
         React.createElement("i", { className: item.icon }),
         item.label
       )
-    ),
-
-    // Layout Editor (external link)
-    React.createElement(
-      "div",
-      {
-        className: "nav-item",
-        onClick: handleLayoutEditorClick,
-      },
-      React.createElement("i", { className: "fas fa-edit" }),
-      "Layout Editor"
     )
   );
 };
