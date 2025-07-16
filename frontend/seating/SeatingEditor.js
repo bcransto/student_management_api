@@ -55,23 +55,61 @@ const SeatingEditor = ({ classId, onBack }) => {
       }
 
       // Load existing seating assignments if any
-      if (classData.current_seating_period?.seating_assignments) {
+      if (
+        classData.current_seating_period?.seating_assignments &&
+        classData.current_seating_period.seating_assignments.length > 0
+      ) {
         console.log(
           "Loading seating assignments:",
           classData.current_seating_period.seating_assignments
         );
-        // Convert assignments to our format
+        // Convert assignments to our format: {tableId: {seatNumber: studentId}}
         const assignmentMap = {};
+
         classData.current_seating_period.seating_assignments.forEach(
           (assignment) => {
-            if (!assignmentMap[assignment.table]) {
-              assignmentMap[assignment.table] = {};
+            // Find the table by table_number
+            const table = classData.classroom_layout.tables.find(
+              (t) => t.table_number === assignment.table_number
+            );
+            if (!table) {
+              console.warn(
+                `Table ${assignment.table_number} not found in layout`
+              );
+              return;
             }
-            assignmentMap[assignment.table][assignment.seat_number] =
-              assignment.student;
+
+            const tableId = table.id;
+            const seatNumber = assignment.seat_number;
+
+            // Find the student ID from the roster
+            const rosterEntry = classData.roster.find(
+              (r) => r.id === assignment.roster_entry
+            );
+            const studentId = rosterEntry ? rosterEntry.student : null;
+
+            if (!studentId) {
+              console.warn(
+                `Student not found for roster entry ${assignment.roster_entry}`
+              );
+              return;
+            }
+
+            console.log(
+              `Assignment: Table ${tableId} (number ${assignment.table_number}), Seat ${seatNumber}, Student ${studentId} (${assignment.student_name})`
+            );
+
+            if (!assignmentMap[tableId]) {
+              assignmentMap[tableId] = {};
+            }
+            assignmentMap[tableId][seatNumber] = studentId;
           }
         );
+
+        console.log("Assignment map:", assignmentMap);
         setAssignments(assignmentMap);
+      } else {
+        console.log("No seating assignments found");
       }
     } catch (error) {
       console.error("Failed to load class data:", error);
