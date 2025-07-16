@@ -1,0 +1,258 @@
+/* frontend/seating/seating-editor.css */
+
+/* Main Layout */
+.seating-editor-integrated {
+  height: calc(100vh - 80px);
+  display: flex;
+  background: #f5f5f5;
+}
+
+.editor-main-area {
+  flex: 1;
+  display: flex;
+  position: relative;
+}
+
+.editor-content-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.editor-canvas-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* Canvas Area */
+.canvas-toolbar {
+  background: white;
+  padding: 1rem;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-shrink: 0;
+}
+
+.editor-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.seating-canvas-container {
+  flex: 1;
+  overflow: auto;
+  padding: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f9fafb;
+}
+
+/* Student Pool */
+.student-pool {
+  background: white;
+  border-top: 2px solid #e5e7eb;
+  height: 200px;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.pool-header {
+  padding: 1rem;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.pool-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.pool-sort {
+  padding: 0.25rem 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 0.875rem;
+}
+
+.student-grid {
+  flex: 1;
+  padding: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-content: flex-start;
+  overflow-y: auto;
+}
+
+/* Student Cards */
+.student-card {
+  background: white;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 80px;
+}
+
+.student-card:hover {
+  border-color: #9ca3af;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.student-card.selected {
+  border-color: #6366f1;
+  background: #eef2ff;
+}
+
+.student-card.male {
+  background: #dbeafe;
+}
+
+.student-card.female {
+  background: #fef3c7;
+}
+
+.student-avatar {
+  font-size: 1.5rem;
+}
+
+.student-name {
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-align: center;
+  color: #374151;
+}
+
+/* Seats */
+.seat {
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.seat:hover {
+  transform: scale(1.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.seat.empty:hover {
+  background-color: #d1d5db !important;
+}
+
+.seat.accessible {
+  box-shadow: 0 0 0 2px #10b981;
+}
+
+/* Right Sidebar */
+.editor-right-sidebar {
+  width: 320px;
+  background: white;
+  border-left: 1px solid #e5e7eb;
+  padding: 1.5rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-section {
+  margin-bottom: 2rem;
+}
+
+.sidebar-section h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 1rem;
+}
+
+.sidebar-section p {
+  margin: 0.5rem 0;
+  font-size: 0.875rem;
+  color: #4b5563;
+}
+
+/* Auto-fill buttons */
+.auto-fill-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.btn-outline {
+  background: white;
+  border: 1px solid #d1d5db;
+  color: #374151;
+}
+
+.btn-outline:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+/* Radio labels */
+.radio-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: #4b5563;
+}
+
+.radio-label input[type="radio"] {
+  cursor: pointer;
+}
+
+/* Utilities */
+.mt-auto {
+  margin-top: auto;
+}
+
+.btn-block {
+  width: 100%;
+}
+
+/* Loading and error states */
+.loading,
+.error-message {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.error-message h3 {
+  color: #dc2626;
+  margin-bottom: 1rem;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .editor-right-sidebar {
+    width: 280px;
+  }
+
+  .student-card {
+    min-width: 70px;
+  }
+}
