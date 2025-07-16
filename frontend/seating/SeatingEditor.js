@@ -24,6 +24,25 @@ const SeatingEditor = ({ classId, onBack }) => {
     loadClassData();
   }, [classId]);
 
+  // Add this inside your SeatingEditor component for debugging:
+  // Debug helper - expose to window for console access
+  useEffect(() => {
+    window.debugSeating = {
+      assignments,
+      classInfo,
+      layout,
+      students,
+      getState: () => ({
+        assignments,
+        classInfo,
+        layout,
+        students,
+        currentPeriod: classInfo?.current_seating_period,
+      }),
+      testSave: () => handleSave(),
+    };
+  }, [assignments, classInfo, layout, students]);
+
   const loadClassData = async () => {
     try {
       setLoading(true);
@@ -160,15 +179,332 @@ const SeatingEditor = ({ classId, onBack }) => {
   const handleSave = async () => {
     try {
       setSaving(true);
-      // TODO: Implement save to API
-      alert("Seating chart saved!");
+
+      console.log("Starting to save seating assignments...");
+      console.log("Current assignments:", assignments);
+      console.log("Class info:", classInfo);
+
+      // First, get or create the current seating period
+      let seatingPeriodId;
+      if (classInfo.current_seating_period) {
+        seatingPeriodId = classInfo.current_seating_period.id;
+        console.log("Using existing seating period:", seatingPeriodId);
+      } else {
+        // Create a new seating period
+        console.log("Creating new seating period...");
+        const newPeriod = await window.ApiModule.request("/seating-periods/", {
+          method: "POST",
+          body: JSON.stringify({
+            class_assigned: classId,
+            name: `Seating Chart - ${new Date().toLocaleDateString()}`,
+            start_date: new Date().toISOString().split("T")[0],
+            is_active: true,
+            notes: "Created from seating chart editor",
+          }),
+        });
+        seatingPeriodId = newPeriod.id;
+        console.log("Created new seating period:", seatingPeriodId);
+      }
+
+      // Clear existing assignments for this seating period
+      // Get current assignments and delete them
+      const currentAssignments = await window.ApiModule.request(
+        `/seating-assignments/?seating_period=${seatingPeriodId}`
+      );
+
+      if (currentAssignments.results) {
+        for (const assignment of currentAssignments.results) {
+          await window.ApiModule.request(
+            `/seating-assignments/${assignment.id}/`,
+            {
+              method: "DELETE",
+            }
+          );
+        }
+        console.log(
+          `Cleared ${currentAssignments.results.length} existing assignments`
+        );
+      }
+
+      // Create new assignments
+      const assignmentsToCreate = [];
+
+      // Convert our assignments format to API format
+      Object.keys(assignments).forEach((tableId) => {
+        const tableAssignments = assignments[tableId];
+
+        // Find the table to get its table_number
+        const table = layout.tables.find((t) => t.id == tableId);
+        if (!table) {
+          console.warn(`Table with id ${tableId} not found in layout`);
+          return;
+        }
+
+        Object.keys(tableAssignments).forEach((seatNumber) => {
+          const studentId = tableAssignments[seatNumber];
+
+          // Find the roster entry for this student
+          const rosterEntry = classInfo.roster.find(
+            (r) => r.student == studentId
+          );
+          if (!rosterEntry) {
+            console.warn(`Roster entry not found for student ${studentId}`);
+            return;
+          }
+
+          // Create the assignment data
+          const assignmentData = {
+            seating_period: seatingPeriodId,
+            roster_entry: rosterEntry.id,
+            seat_id: `${table.table_number}-${seatNumber}`,
+            group_number: null, // You can modify this to support groups
+            group_role: "",
+            assignment_notes: "",
+          };
+
+          assignmentsToCreate.push(assignmentData);
+        });
+      });
+
+      console.log(`Creating ${assignmentsToCreate.length} new assignments...`);
+
+      // Create all the assignments
+      const createdAssignments = [];
+      for (const assignmentData of assignmentsToCreate) {
+        try {
+          const created = await window.ApiModule.request(
+            "/seating-assignments/",
+            {
+              method: "POST",
+              body: JSON.stringify(assignmentData),
+            }
+          );
+          createdAssignments.push(created);
+          console.log(
+            `Created assignment: ${assignmentData.seat_id} -> Student ${assignmentData.roster_entry}`
+          );
+        } catch (error) {
+          console.error("Failed to create assignment:", assignmentData, error);
+          throw new Error(
+            `Failed to create assignment for seat ${assignmentData.seat_id}: ${error.message}`
+          );
+        }
+      }
+
+      console.log(
+        `Successfully created ${createdAssignments.length} seating assignments`
+      );
+      alert(
+        `✅ Seating chart saved successfully! ${createdAssignments.length} students assigned.`
+      );
+
       if (onBack) onBack();
     } catch (error) {
-      console.error("Failed to save:", error);
-      alert("Failed to save seating chart");
+      console.error("Failed to save seating assignments:", error);
+      alert(`❌ Failed to save seating chart: ${error.message}`);
     } finally {
       setSaving(false);
     }
+  };
+
+  // Add this temporary debug function to your SeatingEditor component
+  // to help diagnose the API issues:
+
+  const debugAPIEndpoint = async () => {
+    console.group("API Endpoint Debug");
+
+    // Check if we can list seating assignments
+    try {
+      const response = await fetch(
+        `${window.AuthModule.getApiBaseUrl()}/seating-assignments/`,
+        {
+          headers: window.AuthModule.getAuthHeaders(),
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log("Current seating assignments:", data);
+
+        // If there are existing assignments, show their structure
+        if (data.length > 0) {
+          console.log("Example assignment structure:", data[0]);
+        }
+      } else {
+        console.error("Failed to list assignments:", response.status);
+      }
+    } catch (error) {
+      console.error("Error listing assignments:", error);
+    }
+
+    // Check the expected format by looking at the serializer
+    console.log("Expected assignment format based on your code:");
+    console.log({
+      seating_period: "number (period ID)",
+      roster_entry: "number (roster entry ID)",
+      seat_id: "string (format: 'tableNumber-seatNumber')",
+      group_number: "number or null",
+      group_role:
+        "string (one of: leader, secretary, presenter, researcher, member, or empty)",
+      assignment_notes: "string",
+    });
+
+    // Check current state
+    console.log("Current classInfo:", classInfo);
+    console.log("Current period:", classInfo?.current_seating_period);
+    console.log("Current roster:", classInfo?.roster);
+    console.log("Current assignments state:", assignments);
+
+    console.groupEnd();
+  };
+
+  // Add this test function to your SeatingEditor component:
+
+  const testAPIEndpoint = async () => {
+    console.group("Testing Seating Assignment API");
+
+    try {
+      // First, let's see what seating assignments exist
+      const listResponse = await fetch(
+        `${window.AuthModule.getApiBaseUrl()}/seating-assignments/`,
+        {
+          headers: window.AuthModule.getAuthHeaders(),
+        }
+      );
+
+      if (listResponse.ok) {
+        const assignments = await listResponse.json();
+        console.log("Existing assignments:", assignments);
+
+        // Look at the structure of an existing assignment
+        if (assignments.results && assignments.results.length > 0) {
+          console.log("Example assignment structure:", assignments.results[0]);
+        }
+      }
+
+      // Now let's check what the OPTIONS endpoint says about required fields
+      const optionsResponse = await fetch(
+        `${window.AuthModule.getApiBaseUrl()}/seating-assignments/`,
+        {
+          method: "OPTIONS",
+          headers: window.AuthModule.getAuthHeaders(),
+        }
+      );
+
+      if (optionsResponse.ok) {
+        const options = await optionsResponse.json();
+        console.log("API endpoint options:", options);
+        if (options.actions && options.actions.POST) {
+          console.log("Required fields for POST:", options.actions.POST);
+        }
+      }
+    } catch (error) {
+      console.error("Test failed:", error);
+    }
+
+    console.groupEnd();
+  };
+
+  // Make it available in the console
+  useEffect(() => {
+    window.testAPI = testAPIEndpoint;
+  }, []);
+
+  // Add a button or call this in console to debug
+  useEffect(() => {
+    window.debugAPI = debugAPIEndpoint;
+  }, [classInfo, assignments]);
+
+  // Function to validate all assignments before saving
+  const validateAssignments = () => {
+    const errors = [];
+
+    // Check for duplicate seat assignments
+    const seatMap = new Map();
+    Object.entries(assignments).forEach(([tableId, seatAssignments]) => {
+      Object.entries(seatAssignments).forEach(([seatNumber, studentId]) => {
+        const seatKey = `${tableId}-${seatNumber}`;
+        if (seatMap.has(seatKey)) {
+          errors.push(`Seat ${seatKey} is assigned to multiple students`);
+        }
+        seatMap.set(seatKey, studentId);
+      });
+    });
+
+    // Check for students assigned to multiple seats
+    const studentSeatMap = new Map();
+    seatMap.forEach((studentId, seatKey) => {
+      if (studentSeatMap.has(studentId)) {
+        errors.push(`Student ${studentId} is assigned to multiple seats`);
+      }
+      studentSeatMap.set(studentId, seatKey);
+    });
+
+    return errors;
+  };
+
+  // Function to get a summary of the current assignments
+  const getAssignmentSummary = () => {
+    let totalAssigned = 0;
+    const tablesSummary = {};
+
+    Object.entries(assignments).forEach(([tableId, seatAssignments]) => {
+      const table = layout.tables.find((t) => t.id === parseInt(tableId));
+      const tableName = table?.table_name || `Table ${table?.table_number}`;
+      const assignedCount = Object.keys(seatAssignments).length;
+      totalAssigned += assignedCount;
+      tablesSummary[tableName] = assignedCount;
+    });
+
+    return {
+      totalAssigned,
+      totalStudents: students.length,
+      unassignedCount: students.length - totalAssigned,
+      tablesSummary,
+    };
+  };
+
+  // Optional: Add a confirmation dialog before saving
+  const handleSaveWithConfirmation = async () => {
+    const errors = validateAssignments();
+    if (errors.length > 0) {
+      const proceed = window.confirm(
+        `Found ${errors.length} issue(s):\n${errors.join(
+          "\n"
+        )}\n\nProceed anyway?`
+      );
+      if (!proceed) return;
+    }
+
+    const summary = getAssignmentSummary();
+    const message =
+      `Save seating chart?\n\n` +
+      `Students assigned: ${summary.totalAssigned}/${summary.totalStudents}\n` +
+      `Unassigned: ${summary.unassignedCount}\n\n` +
+      `Continue?`;
+
+    if (window.confirm(message)) {
+      await handleSave();
+    }
+  };
+
+  // Debug helper - log current state
+  const debugAssignments = () => {
+    console.group("Current Seating Assignments");
+    console.log("Raw assignments:", assignments);
+    console.log("Class info:", classInfo);
+    console.log("Layout:", layout);
+    console.log("Students:", students);
+
+    const summary = getAssignmentSummary();
+    console.log("Summary:", summary);
+
+    const errors = validateAssignments();
+    if (errors.length > 0) {
+      console.warn("Validation errors:", errors);
+    }
+
+    console.groupEnd();
   };
 
   if (loading) {
@@ -551,7 +887,7 @@ const SeatingEditorSidebar = ({
         "button",
         {
           className: "btn btn-primary btn-block mb-2",
-          onClick: onSave,
+          onClick: onSave, // Simple direct call
           disabled: saving,
         },
         React.createElement("i", { className: "fas fa-save" }),
