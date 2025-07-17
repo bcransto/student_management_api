@@ -352,3 +352,46 @@
 .seat {
   border-radius: 50% !important;
 }
+
+/* Add these styles for dragging occupied seats */
+.seat.occupied.dragging {
+  opacity: 0.5;
+  cursor: grabbing;
+}
+
+.seat.occupied {
+  cursor: grab;
+}
+
+.seat.occupied:active {
+  cursor: grabbing;
+}
+
+/* Student pool drop zone styling */
+.student-pool.drag-over {
+  background-color: #f0f9ff;
+  border-top-color: #3b82f6;
+  box-shadow: inset 0 2px 4px rgba(59, 130, 246, 0.1);
+}
+
+/* Optional: Add a visual hint when dragging from a seat */
+.seating-canvas.drag-active .student-pool {
+  border-top: 2px dashed #9ca3af;
+}
+
+/* When specifically dragging from a seat */
+.student-pool.can-accept-drop {
+  animation: pulse-border 2s infinite;
+}
+
+@keyframes pulse-border {
+  0% {
+    border-top-color: #e5e7eb;
+  }
+  50% {
+    border-top-color: #3b82f6;
+  }
+  100% {
+    border-top-color: #e5e7eb;
+  }
+}

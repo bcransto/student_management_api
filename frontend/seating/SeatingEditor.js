@@ -557,25 +557,26 @@ const SeatingEditor = ({ classId, onBack }) => {
               students: students,
               highlightMode: highlightMode,
               onSeatClick: (tableId, seatNumber) => {
-                // Handle seat click for assignment
-                if (selectedStudent) {
-                  handleSeatAssignment(selectedStudent.id, tableId, seatNumber);
-                  setSelectedStudent(null);
-                }
+                // existing code
               },
               onStudentDrop: handleSeatAssignment,
+              onStudentUnassign: handleSeatUnassignment, // ADD THIS LINE
               draggedStudent: draggedStudent,
+              onDragStart: setDraggedStudent, // ADD THIS LINE
+              onDragEnd: () => setDraggedStudent(null), // ADD THIS LINE
             })
           )
         ),
 
         // Student pool at bottom
+        // In SeatingEditor component
         React.createElement(StudentPool, {
           students: getUnassignedStudents(),
           selectedStudent: selectedStudent,
           onSelectStudent: setSelectedStudent,
           onDragStart: setDraggedStudent,
           onDragEnd: () => setDraggedStudent(null),
+          onStudentReturn: handleSeatUnassignment, // ADD THIS
         })
       ),
 
@@ -606,7 +607,10 @@ const SeatingCanvas = ({
   highlightMode,
   onSeatClick,
   onStudentDrop,
+  onStudentUnassign,
   draggedStudent,
+  onDragStart,
+  onDragEnd,
 }) => {
   // This will render the layout with students assigned to seats
   return React.createElement(
@@ -679,6 +683,7 @@ const SeatingCanvas = ({
             ? students.find((s) => s.id === assignedStudentId)
             : null;
 
+          // In SeatingCanvas component, replace the seat rendering with this:
           return React.createElement(
             "div",
             {
@@ -714,28 +719,77 @@ const SeatingCanvas = ({
                 transition: "all 0.2s",
               },
               onClick: () => onSeatClick(table.id, seat.seat_number),
+
+              // ADD THESE NEW PROPERTIES FOR DRAGGING:
+              draggable: assignedStudent ? true : false,
+              onDragStart: assignedStudent
+                ? (e) => {
+                    e.dataTransfer.effectAllowed = "move";
+                    e.dataTransfer.setData(
+                      "studentId",
+                      assignedStudent.id.toString()
+                    );
+                    e.dataTransfer.setData("sourceType", "seat");
+                    e.dataTransfer.setData(
+                      "sourceTableId",
+                      table.id.toString()
+                    );
+                    e.dataTransfer.setData(
+                      "sourceSeatNumber",
+                      seat.seat_number.toString()
+                    );
+
+                    // Visual feedback
+                    e.currentTarget.classList.add("dragging");
+
+                    // Update parent state
+                    if (onDragStart) onDragStart(assignedStudent);
+                  }
+                : undefined,
+              onDragEnd: assignedStudent
+                ? (e) => {
+                    e.currentTarget.classList.remove("dragging");
+                    if (onDragEnd) onDragEnd();
+                  }
+                : undefined,
+
+              // KEEP EXISTING HANDLERS:
               onDragOver: (e) => {
                 e.preventDefault();
                 e.dataTransfer.dropEffect = "move";
-                // Add visual feedback
                 e.currentTarget.classList.add("drag-over");
               },
               onDragLeave: (e) => {
-                // Remove visual feedback
                 e.currentTarget.classList.remove("drag-over");
               },
               onDrop: (e) => {
                 e.preventDefault();
                 e.currentTarget.classList.remove("drag-over");
 
-                // Get the student ID from the drag data
                 const studentId = parseInt(e.dataTransfer.getData("studentId"));
+                const sourceType = e.dataTransfer.getData("sourceType");
 
-                if (studentId && !assignedStudent) {
-                  // Only allow drop if seat is empty
+                if (!studentId) return;
+
+                // If dropping on an empty seat
+                if (!assignedStudent) {
+                  // If the student is being moved from another seat, remove them first
+                  if (sourceType === "seat") {
+                    const sourceTableId = parseInt(
+                      e.dataTransfer.getData("sourceTableId")
+                    );
+                    const sourceSeatNumber = parseInt(
+                      e.dataTransfer.getData("sourceSeatNumber")
+                    );
+
+                    // First unassign from the original seat
+                    onStudentUnassign(sourceTableId, sourceSeatNumber);
+                  }
+
+                  // Then assign to the new seat
                   onStudentDrop(studentId, table.id, seat.seat_number);
-                } else if (assignedStudent) {
-                  // Show feedback that seat is occupied
+                } else {
+                  // This seat is occupied
                   alert(
                     "This seat is already occupied. Please remove the current student first."
                   );
@@ -915,10 +969,45 @@ const StudentPool = ({
   onSelectStudent,
   onDragStart,
   onDragEnd,
+  onStudentReturn, // NEW PROP
 }) => {
   return React.createElement(
     "div",
-    { className: "student-pool" },
+    {
+      className: "student-pool",
+      // NEW DRAG HANDLERS FOR ACCEPTING DROPS:
+      onDragOver: (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        // Add visual feedback
+        e.currentTarget.classList.add("drag-over");
+      },
+      onDragLeave: (e) => {
+        // Remove visual feedback
+        e.currentTarget.classList.remove("drag-over");
+      },
+      onDrop: (e) => {
+        e.preventDefault();
+        e.currentTarget.classList.remove("drag-over");
+
+        // Get the drag data
+        const studentId = parseInt(e.dataTransfer.getData("studentId"));
+        const sourceType = e.dataTransfer.getData("sourceType");
+
+        // Only accept drops from seats, not from the pool itself
+        if (studentId && sourceType === "seat") {
+          const sourceTableId = parseInt(
+            e.dataTransfer.getData("sourceTableId")
+          );
+          const sourceSeatNumber = parseInt(
+            e.dataTransfer.getData("sourceSeatNumber")
+          );
+
+          // Call the handler to unassign the student
+          onStudentReturn(sourceTableId, sourceSeatNumber);
+        }
+      },
+    },
 
     // Header
     React.createElement(
@@ -956,6 +1045,7 @@ const StudentPool = ({
               // Set the data that will be transferred
               e.dataTransfer.effectAllowed = "move";
               e.dataTransfer.setData("studentId", student.id.toString());
+              e.dataTransfer.setData("sourceType", "pool"); // Mark as from pool
 
               // Call the parent's drag start handler
               onDragStart(student);
