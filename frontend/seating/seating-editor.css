@@ -395,3 +395,30 @@
     border-top-color: #e5e7eb;
   }
 }
+
+/* Swap target styling */
+.seat.occupied.swap-target {
+  background-color: #818cf8 !important;
+  border-color: #6366f1 !important;
+  animation: pulse-swap 1s infinite;
+}
+
+@keyframes pulse-swap {
+  0% {
+    transform: translate(-50%, -50%) scale(1.15);
+    box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.7);
+  }
+  70% {
+    transform: translate(-50%, -50%) scale(1.2);
+    box-shadow: 0 0 0 6px rgba(99, 102, 241, 0);
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.15);
+    box-shadow: 0 0 0 0 rgba(99, 102, 241, 0);
+  }
+}
+
+/* Different cursor for swap operations */
+.seat.occupied.swap-target {
+  cursor: grab !important;
+}

@@ -148,6 +148,39 @@ const SeatingEditor = ({ classId, onBack }) => {
     }));
   };
 
+  const handleSeatSwap = (studentA, tableA, seatA, studentB, tableB, seatB) => {
+    setAssignments((prev) => {
+      const newAssignments = { ...prev };
+
+      // Remove both students from their current seats
+      if (newAssignments[tableA]) {
+        delete newAssignments[tableA][seatA];
+        if (Object.keys(newAssignments[tableA]).length === 0) {
+          delete newAssignments[tableA];
+        }
+      }
+      if (newAssignments[tableB]) {
+        delete newAssignments[tableB][seatB];
+        if (Object.keys(newAssignments[tableB]).length === 0) {
+          delete newAssignments[tableB];
+        }
+      }
+
+      // Assign students to their new seats (swapped)
+      return {
+        ...newAssignments,
+        [tableA]: {
+          ...newAssignments[tableA],
+          [seatA]: studentB,
+        },
+        [tableB]: {
+          ...newAssignments[tableB],
+          [seatB]: studentA,
+        },
+      };
+    });
+  };
+
   const handleSeatUnassignment = (tableId, seatNumber) => {
     setAssignments((prev) => {
       const newAssignments = { ...prev };
@@ -561,6 +594,7 @@ const SeatingEditor = ({ classId, onBack }) => {
               },
               onStudentDrop: handleSeatAssignment,
               onStudentUnassign: handleSeatUnassignment, // ADD THIS LINE
+              onStudentSwap: handleSeatSwap, // ADD THIS LINE
               draggedStudent: draggedStudent,
               onDragStart: setDraggedStudent, // ADD THIS LINE
               onDragEnd: () => setDraggedStudent(null), // ADD THIS LINE
@@ -608,6 +642,7 @@ const SeatingCanvas = ({
   onSeatClick,
   onStudentDrop,
   onStudentUnassign,
+  onStudentSwap, // ADD THIS LINE
   draggedStudent,
   onDragStart,
   onDragEnd,
@@ -752,12 +787,21 @@ const SeatingCanvas = ({
                     if (onDragEnd) onDragEnd();
                   }
                 : undefined,
-
-              // KEEP EXISTING HANDLERS:
               onDragOver: (e) => {
                 e.preventDefault();
                 e.dataTransfer.dropEffect = "move";
-                e.currentTarget.classList.add("drag-over");
+
+                const sourceType = e.dataTransfer.getData("sourceType");
+
+                // Add different classes for different operations
+                if (assignedStudent && sourceType === "seat") {
+                  e.currentTarget.classList.add("drag-over", "swap-target");
+                } else {
+                  e.currentTarget.classList.add("drag-over");
+                }
+              },
+              onDragLeave: (e) => {
+                e.currentTarget.classList.remove("drag-over", "swap-target");
               },
               onDragLeave: (e) => {
                 e.currentTarget.classList.remove("drag-over");
@@ -788,11 +832,45 @@ const SeatingCanvas = ({
 
                   // Then assign to the new seat
                   onStudentDrop(studentId, table.id, seat.seat_number);
-                } else {
-                  // This seat is occupied
-                  alert(
-                    "This seat is already occupied. Please remove the current student first."
+                }
+                // If dropping on an occupied seat AND coming from another seat = SWAP!
+                else if (sourceType === "seat") {
+                  const sourceTableId = parseInt(
+                    e.dataTransfer.getData("sourceTableId")
                   );
+                  const sourceSeatNumber = parseInt(
+                    e.dataTransfer.getData("sourceSeatNumber")
+                  );
+
+                  // Don't swap with self
+                  if (
+                    sourceTableId === table.id &&
+                    sourceSeatNumber === seat.seat_number
+                  ) {
+                    return;
+                  }
+
+                  // Perform the swap
+                  onStudentSwap(
+                    studentId, // Student A (being dragged)
+                    sourceTableId, // Student A's original table
+                    sourceSeatNumber, // Student A's original seat
+                    assignedStudent.id, // Student B (in target seat)
+                    table.id, // Student B's table
+                    seat.seat_number // Student B's seat
+                  );
+                }
+                // If dropping from pool onto occupied seat - bump the seated student back to pool
+                else if (sourceType === "pool" && assignedStudent) {
+                  // First unassign the current student (send them back to pool)
+                  onStudentUnassign(table.id, seat.seat_number);
+
+                  // Then assign the new student to this seat
+                  onStudentDrop(studentId, table.id, seat.seat_number);
+                }
+                // Any other case (shouldn't happen with our current logic)
+                else {
+                  console.warn("Unexpected drop scenario");
                 }
               },
               title: assignedStudent
