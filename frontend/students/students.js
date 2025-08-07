@@ -64,11 +64,7 @@ const Students = ({ data, navigateTo }) => {
                 null,
                 React.createElement("strong", null, student.student_id)
               ),
-              React.createElement(
-                "td",
-                null,
-                `${student.first_name} ${student.last_name}`
-              ),
+              React.createElement("td", null, `${student.first_name} ${student.last_name}`),
               React.createElement("td", null, student.email || "N/A"),
               React.createElement(
                 "td",
@@ -76,9 +72,7 @@ const Students = ({ data, navigateTo }) => {
                 React.createElement(
                   "span",
                   {
-                    className: `badge ${
-                      student.is_active ? "badge-success" : "badge-warning"
-                    }`,
+                    className: `badge ${student.is_active ? "badge-success" : "badge-warning"}`,
                   },
                   student.is_active ? "Active" : "Inactive"
                 )

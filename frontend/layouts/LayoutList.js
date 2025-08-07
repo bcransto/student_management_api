@@ -64,11 +64,7 @@ const LayoutList = ({ onNavigate }) => {
     React.createElement(
       "div",
       { className: "page-header" },
-      React.createElement(
-        "h1",
-        { className: "page-title" },
-        "Classroom Layouts"
-      ),
+      React.createElement("h1", { className: "page-title" }, "Classroom Layouts"),
       React.createElement(
         "p",
         { className: "page-subtitle" },
@@ -165,11 +161,7 @@ const LayoutList = ({ onNavigate }) => {
               React.createElement(
                 "div",
                 { className: "p-4" },
-                React.createElement(
-                  "h3",
-                  { className: "font-semibold text-lg mb-1" },
-                  layout.name
-                ),
+                React.createElement("h3", { className: "font-semibold text-lg mb-1" }, layout.name),
                 React.createElement(
                   "div",
                   { className: "text-sm text-gray-600 space-y-1" },
@@ -190,11 +182,7 @@ const LayoutList = ({ onNavigate }) => {
                     `${layout.room_width}m × ${layout.room_height}m`
                   ),
                   layout.description &&
-                    React.createElement(
-                      "p",
-                      { className: "italic" },
-                      layout.description
-                    )
+                    React.createElement("p", { className: "italic" }, layout.description)
                 ),
 
                 // Actions
@@ -221,8 +209,7 @@ const LayoutList = ({ onNavigate }) => {
                         e.stopPropagation();
                         handleDeleteLayout(layout.id);
                       },
-                      className:
-                        "px-3 py-1 bg-red-100 text-red-600 rounded hover:bg-red-200",
+                      className: "px-3 py-1 bg-red-100 text-red-600 rounded hover:bg-red-200",
                     },
                     React.createElement("i", { className: "fas fa-trash" })
                   )

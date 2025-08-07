@@ -98,9 +98,7 @@ const Layouts = ({ data, navigateTo }) => {
   };
 
   const handleDeleteLayout = async (layoutId, layoutName) => {
-    if (
-      confirm(`Are you sure you want to delete the layout "${layoutName}"?`)
-    ) {
+    if (confirm(`Are you sure you want to delete the layout "${layoutName}"?`)) {
       try {
         await window.ApiModule.request(`/layouts/${layoutId}/`, {
           method: "DELETE",
@@ -215,11 +213,7 @@ const Layouts = ({ data, navigateTo }) => {
                 React.createElement(
                   "div",
                   { className: "layout-card-info" },
-                  React.createElement(
-                    "h3",
-                    { className: "layout-card-title" },
-                    layout.name
-                  ),
+                  React.createElement("h3", { className: "layout-card-title" }, layout.name),
                   layout.description &&
                     React.createElement(
                       "p",
@@ -255,17 +249,11 @@ const Layouts = ({ data, navigateTo }) => {
                   "div",
                   { className: "layout-card-badges" },
                   layout.is_default &&
-                    React.createElement(
-                      "span",
-                      { className: "layout-badge default" },
-                      "DEFAULT"
-                    ),
+                    React.createElement("span", { className: "layout-badge default" }, "DEFAULT"),
                   React.createElement(
                     "span",
                     {
-                      className: `layout-badge ${
-                        layout.used_by_classes > 0 ? "in-use" : "unused"
-                      }`,
+                      className: `layout-badge ${layout.used_by_classes > 0 ? "in-use" : "unused"}`,
                     },
                     layout.used_by_classes > 0
                       ? `Used by ${layout.used_by_classes} ${
@@ -318,8 +306,7 @@ const Layouts = ({ data, navigateTo }) => {
                       "button",
                       {
                         className: "action-icon-btn delete",
-                        onClick: () =>
-                          handleDeleteLayout(layout.id, layout.name),
+                        onClick: () => handleDeleteLayout(layout.id, layout.name),
                         "data-tooltip": "Delete Layout",
                       },
                       React.createElement("i", { className: "fas fa-trash" })

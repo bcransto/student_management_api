@@ -10,10 +10,7 @@ const Dashboard = ({ data, navigateTo }) => {
   const studentsArray = Array.isArray(students) ? students : [];
   const layoutsArray = Array.isArray(layouts) ? layouts : [];
 
-  const totalEnrollment = classesArray.reduce(
-    (sum, cls) => sum + (cls.current_enrollment || 0),
-    0
-  );
+  const totalEnrollment = classesArray.reduce((sum, cls) => sum + (cls.current_enrollment || 0), 0);
   const activeStudents = studentsArray.filter((s) => s.is_active).length;
 
   // Get recent classes (last 5)
@@ -67,16 +64,8 @@ const Dashboard = ({ data, navigateTo }) => {
         React.createElement(
           "div",
           { className: "stat-content" },
-          React.createElement(
-            "div",
-            { className: "stat-value" },
-            classesArray.length
-          ),
-          React.createElement(
-            "div",
-            { className: "stat-label" },
-            "Total Classes"
-          )
+          React.createElement("div", { className: "stat-value" }, classesArray.length),
+          React.createElement("div", { className: "stat-label" }, "Total Classes")
         )
       ),
 
@@ -96,16 +85,8 @@ const Dashboard = ({ data, navigateTo }) => {
         React.createElement(
           "div",
           { className: "stat-content" },
-          React.createElement(
-            "div",
-            { className: "stat-value" },
-            activeStudents
-          ),
-          React.createElement(
-            "div",
-            { className: "stat-label" },
-            "Active Students"
-          )
+          React.createElement("div", { className: "stat-value" }, activeStudents),
+          React.createElement("div", { className: "stat-label" }, "Active Students")
         )
       ),
 
@@ -124,16 +105,8 @@ const Dashboard = ({ data, navigateTo }) => {
         React.createElement(
           "div",
           { className: "stat-content" },
-          React.createElement(
-            "div",
-            { className: "stat-value" },
-            totalEnrollment
-          ),
-          React.createElement(
-            "div",
-            { className: "stat-label" },
-            "Total Enrollments"
-          )
+          React.createElement("div", { className: "stat-value" }, totalEnrollment),
+          React.createElement("div", { className: "stat-label" }, "Total Enrollments")
         )
       ),
 
@@ -153,16 +126,8 @@ const Dashboard = ({ data, navigateTo }) => {
         React.createElement(
           "div",
           { className: "stat-content" },
-          React.createElement(
-            "div",
-            { className: "stat-value" },
-            layoutsArray.length
-          ),
-          React.createElement(
-            "div",
-            { className: "stat-label" },
-            "Classroom Layouts"
-          )
+          React.createElement("div", { className: "stat-value" }, layoutsArray.length),
+          React.createElement("div", { className: "stat-label" }, "Classroom Layouts")
         )
       )
     ),
@@ -174,11 +139,7 @@ const Dashboard = ({ data, navigateTo }) => {
       React.createElement(
         "div",
         { className: "section-header" },
-        React.createElement(
-          "h2",
-          { className: "section-title" },
-          "Recent Classes"
-        ),
+        React.createElement("h2", { className: "section-title" }, "Recent Classes"),
         React.createElement(
           "button",
           {
@@ -200,23 +161,16 @@ const Dashboard = ({ data, navigateTo }) => {
                 {
                   key: cls.id,
                   className: "recent-class-card",
-                  onClick: () =>
-                    navigateTo("classes", { action: "view", classId: cls.id }),
+                  onClick: () => navigateTo("classes", { action: "view", classId: cls.id }),
                 },
                 React.createElement(
                   "div",
                   { className: "class-card-header" },
-                  React.createElement(
-                    "h3",
-                    { className: "class-name" },
-                    cls.name
-                  ),
+                  React.createElement("h3", { className: "class-name" }, cls.name),
                   React.createElement(
                     "span",
                     {
-                      className: `class-status ${
-                        cls.is_active ? "active" : "inactive"
-                      }`,
+                      className: `class-status ${cls.is_active ? "active" : "inactive"}`,
                     },
                     cls.is_active ? "Active" : "Inactive"
                   )
@@ -228,21 +182,13 @@ const Dashboard = ({ data, navigateTo }) => {
                     "div",
                     { className: "info-item" },
                     React.createElement("i", { className: "fas fa-users" }),
-                    React.createElement(
-                      "span",
-                      null,
-                      `${cls.current_enrollment || 0} students`
-                    )
+                    React.createElement("span", null, `${cls.current_enrollment || 0} students`)
                   ),
                   React.createElement(
                     "div",
                     { className: "info-item" },
                     React.createElement("i", { className: "fas fa-calendar" }),
-                    React.createElement(
-                      "span",
-                      null,
-                      formatDate(cls.updated_at)
-                    )
+                    React.createElement("span", null, formatDate(cls.updated_at))
                   )
                 ),
                 cls.teacher &&
@@ -277,11 +223,7 @@ const Dashboard = ({ data, navigateTo }) => {
     React.createElement(
       "div",
       { className: "dashboard-section" },
-      React.createElement(
-        "h2",
-        { className: "section-title" },
-        "Quick Actions"
-      ),
+      React.createElement("h2", { className: "section-title" }, "Quick Actions"),
       React.createElement(
         "div",
         { className: "quick-actions-grid" },

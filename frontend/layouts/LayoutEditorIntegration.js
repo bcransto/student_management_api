@@ -16,11 +16,7 @@ const LayoutEditorIntegration = ({ params, onNavigate }) => {
         body: JSON.stringify(layoutData),
       });
 
-      alert(
-        layoutData.id
-          ? "Layout updated successfully!"
-          : "Layout created successfully!"
-      );
+      alert(layoutData.id ? "Layout updated successfully!" : "Layout created successfully!");
       onNavigate("layouts"); // Go back to list
     } catch (error) {
       console.error("Failed to save layout:", error);
@@ -46,12 +42,7 @@ const LayoutEditorIntegration = ({ params, onNavigate }) => {
         },
       },
       React.createElement("h2", null, "Layout Editor"),
-      React.createElement(
-        "p",
-        null,
-        "Layout ID: ",
-        params?.layoutId || "New Layout"
-      ),
+      React.createElement("p", null, "Layout ID: ", params?.layoutId || "New Layout"),
       React.createElement(
         "div",
         {
@@ -62,16 +53,8 @@ const LayoutEditorIntegration = ({ params, onNavigate }) => {
             borderRadius: "8px",
           },
         },
-        React.createElement(
-          "p",
-          null,
-          "The layout editor will be integrated here."
-        ),
-        React.createElement(
-          "p",
-          null,
-          "For now, you can use the standalone editor."
-        )
+        React.createElement("p", null, "The layout editor will be integrated here."),
+        React.createElement("p", null, "For now, you can use the standalone editor.")
       ),
       React.createElement(
         "div",

@@ -85,45 +85,37 @@ const SeatingEditor = ({ classId, onBack }) => {
         // Convert assignments to our format: {tableId: {seatNumber: studentId}}
         const assignmentMap = {};
 
-        classData.current_seating_period.seating_assignments.forEach(
-          (assignment) => {
-            // Find the table by table_number
-            const table = classData.classroom_layout.tables.find(
-              (t) => t.table_number === assignment.table_number
-            );
-            if (!table) {
-              console.warn(
-                `Table ${assignment.table_number} not found in layout`
-              );
-              return;
-            }
-
-            const tableId = table.id;
-            const seatNumber = assignment.seat_number;
-
-            // Find the student ID from the roster
-            const rosterEntry = classData.roster.find(
-              (r) => r.id === assignment.roster_entry
-            );
-            const studentId = rosterEntry ? rosterEntry.student : null;
-
-            if (!studentId) {
-              console.warn(
-                `Student not found for roster entry ${assignment.roster_entry}`
-              );
-              return;
-            }
-
-            console.log(
-              `Assignment: Table ${tableId} (number ${assignment.table_number}), Seat ${seatNumber}, Student ${studentId} (${assignment.student_name})`
-            );
-
-            if (!assignmentMap[tableId]) {
-              assignmentMap[tableId] = {};
-            }
-            assignmentMap[tableId][seatNumber] = studentId;
+        classData.current_seating_period.seating_assignments.forEach((assignment) => {
+          // Find the table by table_number
+          const table = classData.classroom_layout.tables.find(
+            (t) => t.table_number === assignment.table_number
+          );
+          if (!table) {
+            console.warn(`Table ${assignment.table_number} not found in layout`);
+            return;
           }
-        );
+
+          const tableId = table.id;
+          const seatNumber = assignment.seat_number;
+
+          // Find the student ID from the roster
+          const rosterEntry = classData.roster.find((r) => r.id === assignment.roster_entry);
+          const studentId = rosterEntry ? rosterEntry.student : null;
+
+          if (!studentId) {
+            console.warn(`Student not found for roster entry ${assignment.roster_entry}`);
+            return;
+          }
+
+          console.log(
+            `Assignment: Table ${tableId} (number ${assignment.table_number}), Seat ${seatNumber}, Student ${studentId} (${assignment.student_name})`
+          );
+
+          if (!assignmentMap[tableId]) {
+            assignmentMap[tableId] = {};
+          }
+          assignmentMap[tableId][seatNumber] = studentId;
+        });
 
         console.log("Assignment map:", assignmentMap);
         setAssignments(assignmentMap);
@@ -245,16 +237,11 @@ const SeatingEditor = ({ classId, onBack }) => {
 
       if (currentAssignments.results && currentAssignments.results.length > 0) {
         for (const assignment of currentAssignments.results) {
-          await window.ApiModule.request(
-            `/seating-assignments/${assignment.id}/`,
-            {
-              method: "DELETE",
-            }
-          );
+          await window.ApiModule.request(`/seating-assignments/${assignment.id}/`, {
+            method: "DELETE",
+          });
         }
-        console.log(
-          `Cleared ${currentAssignments.results.length} existing assignments`
-        );
+        console.log(`Cleared ${currentAssignments.results.length} existing assignments`);
       }
 
       // Create new assignments
@@ -267,9 +254,7 @@ const SeatingEditor = ({ classId, onBack }) => {
 
         Object.keys(tableAssignments).forEach((seatNumber) => {
           const studentId = tableAssignments[seatNumber];
-          const rosterEntry = classInfo.roster.find(
-            (r) => r.student == studentId
-          );
+          const rosterEntry = classInfo.roster.find((r) => r.student == studentId);
           if (!rosterEntry) return;
 
           assignmentsToCreate.push({
@@ -288,22 +273,15 @@ const SeatingEditor = ({ classId, onBack }) => {
       // Create all assignments
       const createdAssignments = [];
       for (const assignmentData of assignmentsToCreate) {
-        const created = await window.ApiModule.request(
-          "/seating-assignments/",
-          {
-            method: "POST",
-            body: JSON.stringify(assignmentData),
-          }
-        );
+        const created = await window.ApiModule.request("/seating-assignments/", {
+          method: "POST",
+          body: JSON.stringify(assignmentData),
+        });
         createdAssignments.push(created);
       }
 
-      console.log(
-        `Successfully created ${createdAssignments.length} seating assignments`
-      );
-      alert(
-        `✅ Seating chart saved successfully! ${createdAssignments.length} students assigned.`
-      );
+      console.log(`Successfully created ${createdAssignments.length} seating assignments`);
+      alert(`✅ Seating chart saved successfully! ${createdAssignments.length} students assigned.`);
 
       if (onBack) onBack();
     } catch (error) {
@@ -322,12 +300,9 @@ const SeatingEditor = ({ classId, onBack }) => {
 
     // Check if we can list seating assignments
     try {
-      const response = await fetch(
-        `${window.AuthModule.getApiBaseUrl()}/seating-assignments/`,
-        {
-          headers: window.AuthModule.getAuthHeaders(),
-        }
-      );
+      const response = await fetch(`${window.AuthModule.getApiBaseUrl()}/seating-assignments/`, {
+        headers: window.AuthModule.getAuthHeaders(),
+      });
 
       if (response.ok) {
         const data = await response.json();
@@ -351,8 +326,7 @@ const SeatingEditor = ({ classId, onBack }) => {
       roster_entry: "number (roster entry ID)",
       seat_id: "string (format: 'tableNumber-seatNumber')",
       group_number: "number or null",
-      group_role:
-        "string (one of: leader, secretary, presenter, researcher, member, or empty)",
+      group_role: "string (one of: leader, secretary, presenter, researcher, member, or empty)",
       assignment_notes: "string",
     });
 
@@ -476,9 +450,7 @@ const SeatingEditor = ({ classId, onBack }) => {
     const errors = validateAssignments();
     if (errors.length > 0) {
       const proceed = window.confirm(
-        `Found ${errors.length} issue(s):\n${errors.join(
-          "\n"
-        )}\n\nProceed anyway?`
+        `Found ${errors.length} issue(s):\n${errors.join("\n")}\n\nProceed anyway?`
       );
       if (!proceed) return;
     }
@@ -528,16 +500,8 @@ const SeatingEditor = ({ classId, onBack }) => {
       "div",
       { className: "error-message" },
       React.createElement("h3", null, "No Layout Selected"),
-      React.createElement(
-        "p",
-        null,
-        "This class needs a layout before creating seating charts."
-      ),
-      React.createElement(
-        "button",
-        { className: "btn btn-primary", onClick: onBack },
-        "Go Back"
-      )
+      React.createElement("p", null, "This class needs a layout before creating seating charts."),
+      React.createElement("button", { className: "btn btn-primary", onClick: onBack }, "Go Back")
     );
   }
 
@@ -760,19 +724,10 @@ const SeatingCanvas = ({
               onDragStart: assignedStudent
                 ? (e) => {
                     e.dataTransfer.effectAllowed = "move";
-                    e.dataTransfer.setData(
-                      "studentId",
-                      assignedStudent.id.toString()
-                    );
+                    e.dataTransfer.setData("studentId", assignedStudent.id.toString());
                     e.dataTransfer.setData("sourceType", "seat");
-                    e.dataTransfer.setData(
-                      "sourceTableId",
-                      table.id.toString()
-                    );
-                    e.dataTransfer.setData(
-                      "sourceSeatNumber",
-                      seat.seat_number.toString()
-                    );
+                    e.dataTransfer.setData("sourceTableId", table.id.toString());
+                    e.dataTransfer.setData("sourceSeatNumber", seat.seat_number.toString());
 
                     // Visual feedback
                     e.currentTarget.classList.add("dragging");
@@ -819,12 +774,8 @@ const SeatingCanvas = ({
                 if (!assignedStudent) {
                   // If the student is being moved from another seat, remove them first
                   if (sourceType === "seat") {
-                    const sourceTableId = parseInt(
-                      e.dataTransfer.getData("sourceTableId")
-                    );
-                    const sourceSeatNumber = parseInt(
-                      e.dataTransfer.getData("sourceSeatNumber")
-                    );
+                    const sourceTableId = parseInt(e.dataTransfer.getData("sourceTableId"));
+                    const sourceSeatNumber = parseInt(e.dataTransfer.getData("sourceSeatNumber"));
 
                     // First unassign from the original seat
                     onStudentUnassign(sourceTableId, sourceSeatNumber);
@@ -835,18 +786,11 @@ const SeatingCanvas = ({
                 }
                 // If dropping on an occupied seat AND coming from another seat = SWAP!
                 else if (sourceType === "seat") {
-                  const sourceTableId = parseInt(
-                    e.dataTransfer.getData("sourceTableId")
-                  );
-                  const sourceSeatNumber = parseInt(
-                    e.dataTransfer.getData("sourceSeatNumber")
-                  );
+                  const sourceTableId = parseInt(e.dataTransfer.getData("sourceTableId"));
+                  const sourceSeatNumber = parseInt(e.dataTransfer.getData("sourceSeatNumber"));
 
                   // Don't swap with self
-                  if (
-                    sourceTableId === table.id &&
-                    sourceSeatNumber === seat.seat_number
-                  ) {
+                  if (sourceTableId === table.id && sourceSeatNumber === seat.seat_number) {
                     return;
                   }
 
@@ -1074,12 +1018,8 @@ const StudentPool = ({
 
         // Only accept drops from seats, not from the pool itself
         if (studentId && sourceType === "seat") {
-          const sourceTableId = parseInt(
-            e.dataTransfer.getData("sourceTableId")
-          );
-          const sourceSeatNumber = parseInt(
-            e.dataTransfer.getData("sourceSeatNumber")
-          );
+          const sourceTableId = parseInt(e.dataTransfer.getData("sourceTableId"));
+          const sourceSeatNumber = parseInt(e.dataTransfer.getData("sourceSeatNumber"));
 
           // Call the handler to unassign the student
           onStudentReturn(sourceTableId, sourceSeatNumber);
@@ -1091,11 +1031,7 @@ const StudentPool = ({
     React.createElement(
       "div",
       { className: "pool-header" },
-      React.createElement(
-        "h3",
-        null,
-        `Unassigned Students (${students.length})`
-      ),
+      React.createElement("h3", null, `Unassigned Students (${students.length})`),
       React.createElement(
         "select",
         { className: "pool-sort" },

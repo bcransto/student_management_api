@@ -1,0 +1,14 @@
+node_modules/
+*.min.js
+*.min.css
+dist/
+build/
+coverage/
+*.log
+.git/
+*.pyc
+__pycache__/
+venv/
+myenve/
+staticfiles/
+*.sqlite3

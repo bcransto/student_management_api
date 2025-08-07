@@ -83,7 +83,8 @@ const Classes = ({ data, navigateTo, currentParams }) => {
                 null,
                 React.createElement("strong", null, cls.name),
                 cls.description && React.createElement("br"),
-                cls.description && React.createElement("small", { className: "text-muted" }, cls.description)
+                cls.description &&
+                  React.createElement("small", { className: "text-muted" }, cls.description)
               ),
               React.createElement("td", null, cls.subject || "Not specified"),
               React.createElement("td", null, cls.grade_level || "N/A"),
@@ -99,7 +100,7 @@ const Classes = ({ data, navigateTo, currentParams }) => {
                     {
                       className: "btn btn-primary btn-sm",
                       onClick: () => handleViewChart(cls.id),
-                      title: "View seating chart"
+                      title: "View seating chart",
                     },
                     React.createElement("i", { className: "fas fa-chair" }),
                     " Seating"

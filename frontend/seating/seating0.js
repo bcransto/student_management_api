@@ -22,9 +22,7 @@ const SeatingComponent = ({ data, navigateTo }) => {
         const classData = classes.find((c) => c.id === period.class_assigned);
 
         // Count assignments for this period
-        const periodAssignments = assignments.filter(
-          (a) => a.seating_period === period.id
-        );
+        const periodAssignments = assignments.filter((a) => a.seating_period === period.id);
         const assignedCount = periodAssignments.length;
 
         // Calculate total students in the class
@@ -32,8 +30,7 @@ const SeatingComponent = ({ data, navigateTo }) => {
         if (classData) {
           // Count students enrolled in this class
           totalStudents = students.filter(
-            (student) =>
-              student.classes && student.classes.includes(classData.id)
+            (student) => student.classes && student.classes.includes(classData.id)
           ).length;
         }
 
@@ -84,11 +81,7 @@ const SeatingComponent = ({ data, navigateTo }) => {
     React.createElement(
       "div",
       { className: "page-header" },
-      React.createElement(
-        "h1",
-        { className: "page-title" },
-        "My Seating Charts"
-      ),
+      React.createElement("h1", { className: "page-title" }, "My Seating Charts"),
       React.createElement(
         "p",
         { className: "page-subtitle" },
@@ -98,8 +91,7 @@ const SeatingComponent = ({ data, navigateTo }) => {
     React.createElement(
       "div",
       { className: "seating-charts-list" },
-      loading &&
-        React.createElement("div", { className: "loading" }, "Loading..."),
+      loading && React.createElement("div", { className: "loading" }, "Loading..."),
       !loading &&
         seatingCharts.length === 0 &&
         React.createElement(
@@ -118,11 +110,7 @@ const SeatingComponent = ({ data, navigateTo }) => {
               React.createElement(
                 "div",
                 { className: "chart-class-info" },
-                React.createElement(
-                  "h3",
-                  { className: "chart-class-name" },
-                  chart.class_name
-                ),
+                React.createElement("h3", { className: "chart-class-name" }, chart.class_name),
                 React.createElement(
                   "p",
                   { className: "chart-class-details" },
@@ -134,11 +122,7 @@ const SeatingComponent = ({ data, navigateTo }) => {
               React.createElement(
                 "div",
                 { className: "chart-period-info" },
-                React.createElement(
-                  "h4",
-                  { className: "chart-period-name" },
-                  chart.name
-                ),
+                React.createElement("h4", { className: "chart-period-name" }, chart.name),
                 React.createElement(
                   "p",
                   { className: "chart-assignments" },
@@ -147,19 +131,13 @@ const SeatingComponent = ({ data, navigateTo }) => {
                 React.createElement(
                   "p",
                   { className: "chart-modified" },
-                  `Modified: ${new Date(
-                    chart.updated_at || chart.created_at
-                  ).toLocaleDateString()}`
+                  `Modified: ${new Date(chart.updated_at || chart.created_at).toLocaleDateString()}`
                 )
               ),
               React.createElement(
                 "div",
                 { className: "chart-status" },
-                React.createElement(
-                  "span",
-                  { className: "status-badge active" },
-                  "ACTIVE"
-                )
+                React.createElement("span", { className: "status-badge active" }, "ACTIVE")
               )
             ),
             React.createElement(

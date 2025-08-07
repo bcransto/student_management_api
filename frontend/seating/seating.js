@@ -4,18 +4,18 @@ const Seating = ({ data, navigateTo }) => {
   const [classes, setClasses] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
-  const [currentView, setCurrentView] = React.useState('list'); // 'list' or 'editor'
+  const [currentView, setCurrentView] = React.useState("list"); // 'list' or 'editor'
   const [selectedClassId, setSelectedClassId] = React.useState(null);
 
   React.useEffect(() => {
     console.log("Seating component mounted");
-    
+
     // Load the editor component if needed
     if (!window.SeatingEditor) {
       console.log("SeatingEditor not found, loading script...");
-      const script = document.createElement('script');
-      script.src = '/frontend/seating/SeatingEditor.js';
-      script.type = 'text/babel';
+      const script = document.createElement("script");
+      script.src = "/frontend/seating/SeatingEditor.js";
+      script.type = "text/babel";
       script.onload = () => {
         console.log("SeatingEditor script loaded");
         // Force Babel to transform the newly loaded script
@@ -30,7 +30,7 @@ const Seating = ({ data, navigateTo }) => {
     } else {
       console.log("SeatingEditor already loaded");
     }
-    
+
     fetchClassesWithSeatingCharts();
   }, []);
 
@@ -38,7 +38,7 @@ const Seating = ({ data, navigateTo }) => {
     try {
       setLoading(true);
       setError("");
-      
+
       console.log("Fetching classes...");
 
       if (window.ApiModule) {
@@ -70,45 +70,45 @@ const Seating = ({ data, navigateTo }) => {
   const handleViewChart = (classId, className) => {
     console.log("View chart for class:", classId, className);
     setSelectedClassId(classId);
-    setCurrentView('editor');
+    setCurrentView("editor");
   };
 
   const handleEditChart = (classId, className) => {
     console.log("Edit chart for class:", classId, className);
     setSelectedClassId(classId);
-    setCurrentView('editor');
+    setCurrentView("editor");
   };
 
   const handleNewChart = (classId, className) => {
     console.log("Create new chart for class:", classId, className);
     setSelectedClassId(classId);
-    setCurrentView('editor');
+    setCurrentView("editor");
   };
 
   const handleBackToList = () => {
-    setCurrentView('list');
+    setCurrentView("list");
     setSelectedClassId(null);
     fetchClassesWithSeatingCharts(); // Refresh the list
   };
 
   // Show editor view
-  if (currentView === 'editor') {
+  if (currentView === "editor") {
     console.log("Trying to show editor, SeatingEditor available:", !!window.SeatingEditor);
-    
+
     if (window.SeatingEditor) {
       return React.createElement(window.SeatingEditor, {
         classId: selectedClassId,
-        onBack: handleBackToList
+        onBack: handleBackToList,
       });
     } else {
       // Try loading again
       setTimeout(() => {
         if (window.SeatingEditor) {
-          setCurrentView('list'); // Force re-render
-          setCurrentView('editor');
+          setCurrentView("list"); // Force re-render
+          setCurrentView("editor");
         }
       }, 1000);
-      
+
       return React.createElement(
         "div",
         { className: "loading" },
@@ -194,7 +194,9 @@ const Seating = ({ data, navigateTo }) => {
                 React.createElement(
                   "span",
                   { className: "class-period" },
-                  classItem.grade_level ? `Grade ${classItem.grade_level}` : classItem.subject || "N/A"
+                  classItem.grade_level
+                    ? `Grade ${classItem.grade_level}`
+                    : classItem.subject || "N/A"
                 )
               ),
 
@@ -212,7 +214,9 @@ const Seating = ({ data, navigateTo }) => {
                   "div",
                   { className: "stat" },
                   React.createElement("i", { className: "fas fa-th" }),
-                  React.createElement("span", null, 
+                  React.createElement(
+                    "span",
+                    null,
                     classItem.classroom_layout ? "Layout assigned" : "No layout"
                   )
                 )

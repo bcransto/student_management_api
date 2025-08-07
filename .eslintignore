@@ -1,0 +1,8 @@
+node_modules/
+*.min.js
+dist/
+build/
+coverage/
+*.log
+backend/
+staticfiles/

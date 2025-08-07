@@ -104,13 +104,10 @@ const LayoutEditor = () => {
 
       let savedLayout;
       if (layout.id) {
-        savedLayout = await ApiHelper.request(
-          `/layouts/${layout.id}/update_from_editor/`,
-          {
-            method: "PUT",
-            body: JSON.stringify(apiLayout),
-          }
-        );
+        savedLayout = await ApiHelper.request(`/layouts/${layout.id}/update_from_editor/`, {
+          method: "PUT",
+          body: JSON.stringify(apiLayout),
+        });
       } else {
         savedLayout = await ApiHelper.request("/layouts/create_from_editor/", {
           method: "POST",
@@ -119,11 +116,7 @@ const LayoutEditor = () => {
         setLayout((prev) => ({ ...prev, id: savedLayout.id }));
       }
 
-      alert(
-        layout.id
-          ? "✅ Layout updated successfully!"
-          : "✅ Layout created successfully!"
-      );
+      alert(layout.id ? "✅ Layout updated successfully!" : "✅ Layout created successfully!");
     } catch (error) {
       console.error("Save error:", error);
       alert("❌ Error saving layout. Please check console for details.");
@@ -145,8 +138,7 @@ const LayoutEditor = () => {
           className: "text-center",
         },
         React.createElement("div", {
-          className:
-            "animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4",
+          className: "animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4",
         }),
         React.createElement(
           "p",

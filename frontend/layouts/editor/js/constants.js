@@ -5,8 +5,7 @@ const GRID_SIZE = 40;
 
 // API configuration
 const API_BASE_URL =
-  window.location.hostname === "localhost" ||
-  window.location.hostname === "127.0.0.1"
+  window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
     ? "http://127.0.0.1:8000/api"
     : "https://bcranston.pythonanywhere.com/api";
 

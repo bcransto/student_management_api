@@ -1,10 +1,5 @@
 // components/TableProperties.js - Improved Table Properties Panel Component
-const TablePropertiesPanel = ({
-  selectedItem,
-  layout,
-  setLayout,
-  setSelectedItem,
-}) => {
+const TablePropertiesPanel = ({ selectedItem, layout, setLayout, setSelectedItem }) => {
   if (!selectedItem || selectedItem.type !== "table") return null;
 
   const table = selectedItem.item;
@@ -26,16 +21,10 @@ const TablePropertiesPanel = ({
     if (property === "width" || property === "height") {
       // Ensure table doesn't go outside room bounds
       if (property === "width") {
-        updatedTable.x_position = Math.min(
-          table.x_position,
-          layout.room_width - value
-        );
+        updatedTable.x_position = Math.min(table.x_position, layout.room_width - value);
       }
       if (property === "height") {
-        updatedTable.y_position = Math.min(
-          table.y_position,
-          layout.room_height - value
-        );
+        updatedTable.y_position = Math.min(table.y_position, layout.room_height - value);
       }
 
       // Regenerate seats with new dimensions
@@ -61,9 +50,7 @@ const TablePropertiesPanel = ({
 
   const toggleSeatAccessibility = (seatNumber) => {
     const newSeats = table.seats.map((seat) =>
-      seat.seat_number === seatNumber
-        ? { ...seat, is_accessible: !seat.is_accessible }
-        : seat
+      seat.seat_number === seatNumber ? { ...seat, is_accessible: !seat.is_accessible } : seat
     );
     updateTableProperty("seats", newSeats);
   };
@@ -81,8 +68,7 @@ const TablePropertiesPanel = ({
       React.createElement(
         "h3",
         {
-          className:
-            "text-lg font-semibold text-gray-800 flex items-center gap-2",
+          className: "text-lg font-semibold text-gray-800 flex items-center gap-2",
         },
         React.createElement("span", null, "🪑"),
         "Table Properties"
@@ -104,8 +90,7 @@ const TablePropertiesPanel = ({
         React.createElement(
           "h4",
           {
-            className:
-              "text-sm font-semibold text-gray-700 border-b border-gray-200 pb-1",
+            className: "text-sm font-semibold text-gray-700 border-b border-gray-200 pb-1",
           },
           "Basic Information"
         ),
@@ -146,8 +131,7 @@ const TablePropertiesPanel = ({
             "select",
             {
               value: table.table_shape,
-              onChange: (e) =>
-                updateTableProperty("table_shape", e.target.value),
+              onChange: (e) => updateTableProperty("table_shape", e.target.value),
               className:
                 "w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500",
             },
@@ -179,8 +163,7 @@ const TablePropertiesPanel = ({
             type: "number",
             value: table.max_seats,
             onChange: (e) => {
-              const newMaxSeats =
-                parseInt(e.target.value) || TABLE_CONSTRAINTS.MIN_SEATS;
+              const newMaxSeats = parseInt(e.target.value) || TABLE_CONSTRAINTS.MIN_SEATS;
               const constrainedMaxSeats = Math.max(
                 TABLE_CONSTRAINTS.MIN_SEATS,
                 Math.min(newMaxSeats, TABLE_CONSTRAINTS.MAX_SEATS)
@@ -204,8 +187,7 @@ const TablePropertiesPanel = ({
         React.createElement(
           "h4",
           {
-            className:
-              "text-sm font-semibold text-gray-700 border-b border-gray-200 pb-1",
+            className: "text-sm font-semibold text-gray-700 border-b border-gray-200 pb-1",
           },
           "Size & Position"
         ),
@@ -230,8 +212,7 @@ const TablePropertiesPanel = ({
               type: "number",
               value: table.width,
               onChange: (e) => {
-                const newWidth =
-                  parseInt(e.target.value) || TABLE_CONSTRAINTS.MIN_WIDTH;
+                const newWidth = parseInt(e.target.value) || TABLE_CONSTRAINTS.MIN_WIDTH;
                 const constrainedWidth = Math.max(
                   TABLE_CONSTRAINTS.MIN_WIDTH,
                   Math.min(newWidth, TABLE_CONSTRAINTS.MAX_WIDTH)
@@ -258,8 +239,7 @@ const TablePropertiesPanel = ({
               type: "number",
               value: table.height,
               onChange: (e) => {
-                const newHeight =
-                  parseInt(e.target.value) || TABLE_CONSTRAINTS.MIN_HEIGHT;
+                const newHeight = parseInt(e.target.value) || TABLE_CONSTRAINTS.MIN_HEIGHT;
                 const constrainedHeight = Math.max(
                   TABLE_CONSTRAINTS.MIN_HEIGHT,
                   Math.min(newHeight, TABLE_CONSTRAINTS.MAX_HEIGHT)
@@ -295,10 +275,7 @@ const TablePropertiesPanel = ({
               value: table.x_position,
               onChange: (e) => {
                 const newX = parseInt(e.target.value) || 0;
-                const constrainedX = Math.max(
-                  0,
-                  Math.min(newX, layout.room_width - table.width)
-                );
+                const constrainedX = Math.max(0, Math.min(newX, layout.room_width - table.width));
                 updateTableProperty("x_position", constrainedX);
               },
               className:
@@ -322,10 +299,7 @@ const TablePropertiesPanel = ({
               value: table.y_position,
               onChange: (e) => {
                 const newY = parseInt(e.target.value) || 0;
-                const constrainedY = Math.max(
-                  0,
-                  Math.min(newY, layout.room_height - table.height)
-                );
+                const constrainedY = Math.max(0, Math.min(newY, layout.room_height - table.height));
                 updateTableProperty("y_position", constrainedY);
               },
               className:
@@ -351,19 +325,14 @@ const TablePropertiesPanel = ({
             "select",
             {
               value: table.rotation || 0,
-              onChange: (e) =>
-                updateTableProperty("rotation", parseInt(e.target.value)),
+              onChange: (e) => updateTableProperty("rotation", parseInt(e.target.value)),
               className:
                 "w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500",
             },
             React.createElement("option", { value: 0 }, "0° (Normal)"),
             React.createElement("option", { value: 90 }, "90° (Clockwise)"),
             React.createElement("option", { value: 180 }, "180° (Upside down)"),
-            React.createElement(
-              "option",
-              { value: 270 },
-              "270° (Counter-clockwise)"
-            )
+            React.createElement("option", { value: 270 }, "270° (Counter-clockwise)")
           )
         )
       ),
@@ -395,12 +364,7 @@ const TablePropertiesPanel = ({
                 onClick: () =>
                   updateTableProperty(
                     "seats",
-                    generateSeats(
-                      table.table_shape,
-                      table.max_seats,
-                      table.width,
-                      table.height
-                    )
+                    generateSeats(table.table_shape, table.max_seats, table.width, table.height)
                   ),
                 className:
                   "ml-2 px-2 py-1 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200 transition-colors font-medium",
@@ -437,16 +401,14 @@ const TablePropertiesPanel = ({
                     React.createElement(
                       "span",
                       {
-                        className:
-                          "font-medium text-sm text-gray-700 min-w-[60px]",
+                        className: "font-medium text-sm text-gray-700 min-w-[60px]",
                       },
                       `Seat ${seat.seat_number}`
                     ),
                     React.createElement(
                       "span",
                       {
-                        className:
-                          "text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded font-mono",
+                        className: "text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded font-mono",
                       },
                       `${table.table_number}-${seat.seat_number}`
                     )
@@ -483,8 +445,7 @@ const TablePropertiesPanel = ({
         React.createElement(
           "h4",
           {
-            className:
-              "text-sm font-semibold text-gray-700 border-b border-gray-200 pb-1",
+            className: "text-sm font-semibold text-gray-700 border-b border-gray-200 pb-1",
           },
           "Summary"
         ),
@@ -556,19 +517,14 @@ const TablePropertiesPanel = ({
                 {
                   className: "text-blue-700",
                 },
-                `Shape: ${
-                  TABLE_SHAPES.find((s) => s.id === table.table_shape)?.name ||
-                  "Unknown"
-                }`
+                `Shape: ${TABLE_SHAPES.find((s) => s.id === table.table_shape)?.name || "Unknown"}`
               ),
               React.createElement(
                 "div",
                 {
                   className: "text-blue-700",
                 },
-                `Accessible: ${
-                  table.seats?.filter((s) => s.is_accessible).length || 0
-                }`
+                `Accessible: ${table.seats?.filter((s) => s.is_accessible).length || 0}`
               )
             )
           )
@@ -591,14 +547,8 @@ const TablePropertiesPanel = ({
                 id: Date.now(),
                 table_number: layout.tables.length + 1,
                 table_name: `${table.table_name} Copy`,
-                x_position: Math.min(
-                  table.x_position + 1,
-                  layout.room_width - table.width
-                ),
-                y_position: Math.min(
-                  table.y_position + 1,
-                  layout.room_height - table.height
-                ),
+                x_position: Math.min(table.x_position + 1, layout.room_width - table.width),
+                y_position: Math.min(table.y_position + 1, layout.room_height - table.height),
               };
 
               setLayout((prev) => ({
@@ -618,11 +568,7 @@ const TablePropertiesPanel = ({
           "button",
           {
             onClick: () => {
-              if (
-                confirm(
-                  `Are you sure you want to delete "${table.table_name}"?`
-                )
-              ) {
+              if (confirm(`Are you sure you want to delete "${table.table_name}"?`)) {
                 setLayout((prev) => ({
                   ...prev,
                   tables: prev.tables.filter((t) => t.id !== table.id),

@@ -1,0 +1,35 @@
+{
+  "name": "student_management_api",
+  "version": "1.0.0",
+  "description": "A Django REST API for managing students, classes, and classroom rosters with group and seating assignments.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "lint": "bash lint-frontend.sh",
+    "lint:html": "htmlhint \"frontend/**/*.html\"",
+    "lint:js": "eslint \"frontend/**/*.js\"",
+    "lint:fix": "eslint \"frontend/**/*.js\" --fix",
+    "format": "prettier --write \"frontend/**/*.{html,js,css}\"",
+    "format:check": "prettier --check \"frontend/**/*.{html,js,css}\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bcransto/student_management_api.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/bcransto/student_management_api/issues"
+  },
+  "homepage": "https://github.com/bcransto/student_management_api#readme",
+  "devDependencies": {
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^9.1.2",
+    "eslint-plugin-prettier": "^5.5.4",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^4.6.2",
+    "htmlhint": "^1.6.3",
+    "prettier": "^3.6.2"
+  }
+}

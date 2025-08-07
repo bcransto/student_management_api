@@ -22,13 +22,7 @@ const App = () => {
   // Navigation state - initialize from URL hash
   const getInitialView = () => {
     const hash = window.location.hash.slice(1); // Remove the #
-    const validViews = [
-      "dashboard",
-      "students",
-      "classes",
-      "seating",
-      "layouts",
-    ];
+    const validViews = ["dashboard", "students", "classes", "seating", "layouts"];
     return validViews.includes(hash) ? hash : "dashboard";
   };
 
@@ -61,13 +55,7 @@ const App = () => {
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.slice(1);
-      const validViews = [
-        "dashboard",
-        "students",
-        "classes",
-        "seating",
-        "layouts",
-      ];
+      const validViews = ["dashboard", "students", "classes", "seating", "layouts"];
       if (validViews.includes(hash)) {
         setCurrentView(hash);
       } else {
@@ -225,11 +213,7 @@ const App = () => {
       }),
 
       // Content area
-      React.createElement(
-        "main",
-        { className: "content-area" },
-        renderCurrentView()
-      )
+      React.createElement("main", { className: "content-area" }, renderCurrentView())
     )
   );
 };
@@ -256,9 +240,7 @@ const initializeApp = () => {
     console.error("Missing required components:", missingComponents);
     console.log(
       "Available components:",
-      Object.keys(window).filter(
-        (key) => key.includes("Component") || key.includes("Module")
-      )
+      Object.keys(window).filter((key) => key.includes("Component") || key.includes("Module"))
     );
 
     // Show error to user

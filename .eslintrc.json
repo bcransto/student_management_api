@@ -1,0 +1,87 @@
+{
+  "env": {
+    "browser": true,
+    "es2021": true,
+    "node": false
+  },
+  "extends": [
+    "eslint:recommended",
+    "plugin:react/recommended",
+    "plugin:react-hooks/recommended",
+    "plugin:prettier/recommended"
+  ],
+  "parserOptions": {
+    "ecmaVersion": "latest",
+    "sourceType": "script",
+    "ecmaFeatures": {
+      "jsx": true
+    }
+  },
+  "plugins": ["react", "react-hooks", "prettier"],
+  "settings": {
+    "react": {
+      "version": "18.0"
+    }
+  },
+  "globals": {
+    "React": "readonly",
+    "ReactDOM": "readonly",
+    "tailwind": "readonly",
+    
+    "GRID_SIZE": "readonly",
+    "API_BASE_URL": "readonly",
+    "TABLE_SHAPES": "readonly",
+    "OBSTACLE_TYPES": "readonly",
+    "TOOL_MODES": "readonly",
+    "DEFAULT_LAYOUT": "readonly",
+    "ROOM_CONSTRAINTS": "readonly",
+    "TABLE_CONSTRAINTS": "readonly",
+    "DEFAULT_TABLE": "readonly",
+    "DEFAULT_OBSTACLE": "readonly",
+    
+    "useState": "readonly",
+    "useRef": "readonly",
+    "useEffect": "readonly",
+    "useCallback": "readonly",
+    
+    "Save": "readonly",
+    "Eye": "readonly",
+    "EyeOff": "readonly",
+    "Grid": "readonly",
+    
+    "generateSeats": "readonly",
+    "getAllSeatIds": "readonly",
+    "getSeatInfo": "readonly",
+    "ApiHelper": "readonly",
+    
+    "Sidebar": "readonly",
+    "CanvasArea": "readonly",
+    "TablePropertiesPanel": "readonly"
+  },
+  "rules": {
+    "react/react-in-jsx-scope": "off",
+    "react/prop-types": "off",
+    "react/jsx-no-undef": "error",
+    "react/jsx-uses-react": "error",
+    "react/jsx-uses-vars": "error",
+    "no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
+    "no-console": "off",
+    "prettier/prettier": ["error", {
+      "singleQuote": false,
+      "trailingComma": "es5",
+      "bracketSpacing": true,
+      "printWidth": 100,
+      "tabWidth": 2,
+      "semi": true
+    }]
+  },
+  "overrides": [
+    {
+      "files": ["**/editors/**/*.js"],
+      "parserOptions": {
+        "sourceType": "module"
+      }
+    }
+  ],
+  "ignorePatterns": ["*.html", "node_modules/", "build/", "dist/"]
+}

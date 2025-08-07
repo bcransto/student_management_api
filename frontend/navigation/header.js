@@ -24,11 +24,7 @@ const Header = ({ currentUser, onLogout, onNavigate }) => {
         "div",
         { className: "user-info" },
         React.createElement("i", { className: "fas fa-user-circle" }),
-        React.createElement(
-          "span",
-          null,
-          `Welcome, ${currentUser || "Teacher"}`
-        )
+        React.createElement("span", null, `Welcome, ${currentUser || "Teacher"}`)
       ),
       React.createElement(
         "button",

@@ -21,9 +21,7 @@ const SeatingChart = ({ classId, className, mode = "view" }) => {
         setError("");
 
         if (window.ApiModule) {
-          const data = await window.ApiModule.request(
-            `/classes/${classId}/seating_chart/`
-          );
+          const data = await window.ApiModule.request(`/classes/${classId}/seating_chart/`);
           console.log("Seating chart data received:", data);
 
           if (!cancelled) {
@@ -75,11 +73,7 @@ const SeatingChart = ({ classId, className, mode = "view" }) => {
       "div",
       { className: "seating-chart-empty" },
       React.createElement("h3", null, "No Seating Data"),
-      React.createElement(
-        "p",
-        null,
-        "This class doesn't have seating chart data available."
-      )
+      React.createElement("p", null, "This class doesn't have seating chart data available.")
     );
   }
 
@@ -93,10 +87,7 @@ const SeatingChart = ({ classId, className, mode = "view" }) => {
   };
 
   // Calculate statistics
-  const totalSeats = tables.reduce(
-    (total, table) => total + table.seats.length,
-    0
-  );
+  const totalSeats = tables.reduce((total, table) => total + table.seats.length, 0);
   const occupiedSeats = tables.reduce(
     (total, table) => total + table.seats.filter((seat) => seat.student).length,
     0
@@ -143,58 +134,26 @@ const SeatingChart = ({ classId, className, mode = "view" }) => {
       React.createElement(
         "div",
         { className: "seating-stat" },
-        React.createElement(
-          "div",
-          { className: "seating-stat-value" },
-          tables.length
-        ),
-        React.createElement(
-          "div",
-          { className: "seating-stat-label" },
-          "Tables"
-        )
+        React.createElement("div", { className: "seating-stat-value" }, tables.length),
+        React.createElement("div", { className: "seating-stat-label" }, "Tables")
       ),
       React.createElement(
         "div",
         { className: "seating-stat" },
-        React.createElement(
-          "div",
-          { className: "seating-stat-value" },
-          totalSeats
-        ),
-        React.createElement(
-          "div",
-          { className: "seating-stat-label" },
-          "Total Seats"
-        )
+        React.createElement("div", { className: "seating-stat-value" }, totalSeats),
+        React.createElement("div", { className: "seating-stat-label" }, "Total Seats")
       ),
       React.createElement(
         "div",
         { className: "seating-stat" },
-        React.createElement(
-          "div",
-          { className: "seating-stat-value" },
-          occupiedSeats
-        ),
-        React.createElement(
-          "div",
-          { className: "seating-stat-label" },
-          "Occupied"
-        )
+        React.createElement("div", { className: "seating-stat-value" }, occupiedSeats),
+        React.createElement("div", { className: "seating-stat-label" }, "Occupied")
       ),
       React.createElement(
         "div",
         { className: "seating-stat" },
-        React.createElement(
-          "div",
-          { className: "seating-stat-value" },
-          uniqueGroups.length
-        ),
-        React.createElement(
-          "div",
-          { className: "seating-stat-label" },
-          "Groups"
-        )
+        React.createElement("div", { className: "seating-stat-value" }, uniqueGroups.length),
+        React.createElement("div", { className: "seating-stat-label" }, "Groups")
       )
     ),
 
@@ -245,9 +204,7 @@ const SeatingChart = ({ classId, className, mode = "view" }) => {
               "div",
               {
                 key: seat.absolute_seat_id,
-                className: `seating-seat ${
-                  seat.student ? "occupied" : "empty"
-                }`,
+                className: `seating-seat ${seat.student ? "occupied" : "empty"}`,
                 style: {
                   position: "absolute",
                   left: `${seat.relative_x * table.width * gridSize - 15}px`,
@@ -266,12 +223,8 @@ const SeatingChart = ({ classId, className, mode = "view" }) => {
                   color: seat.student ? "white" : "#374151",
                   transition: "all 0.2s ease",
                 },
-                className: `seating-seat ${
-                  seat.student ? "occupied" : "empty"
-                }`,
-                title: seat.student
-                  ? seat.student.name
-                  : `Seat ${seat.seat_number}`,
+                className: `seating-seat ${seat.student ? "occupied" : "empty"}`,
+                title: seat.student ? seat.student.name : `Seat ${seat.seat_number}`,
               },
               seat.student ? getDisplayName(seat.student) : seat.seat_number
             )

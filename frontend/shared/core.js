@@ -62,10 +62,7 @@ const AuthModule = {
         const errorData = await response.json().catch(() => ({}));
         return {
           success: false,
-          error:
-            errorData.detail ||
-            errorData.non_field_errors?.[0] ||
-            "Invalid credentials",
+          error: errorData.detail || errorData.non_field_errors?.[0] || "Invalid credentials",
         };
       }
     } catch (error) {
@@ -183,11 +180,7 @@ const ApiModule = {
 
       // Handle empty responses (like DELETE requests)
       const contentType = response.headers.get("content-type");
-      if (
-        response.status === 204 ||
-        !contentType ||
-        !contentType.includes("application/json")
-      ) {
+      if (response.status === 204 || !contentType || !contentType.includes("application/json")) {
         return null; // Return null for empty responses
       }
 
@@ -257,10 +250,7 @@ const ApiModule = {
 
     try {
       // Fetch core data (classes and students are required)
-      const [classes, students] = await Promise.all([
-        this.getClasses(),
-        this.getStudents(),
-      ]);
+      const [classes, students] = await Promise.all([this.getClasses(), this.getStudents()]);
 
       // Fetch optional data (don't fail if these don't exist)
       const [layouts, periods, assignments, roster] = await Promise.all([
@@ -284,9 +274,7 @@ const ApiModule = {
         students: Array.isArray(students) ? students.length : "not array",
         layouts: Array.isArray(layouts) ? layouts.length : "not array",
         periods: Array.isArray(periods) ? periods.length : "not array",
-        assignments: Array.isArray(assignments)
-          ? assignments.length
-          : "not array",
+        assignments: Array.isArray(assignments) ? assignments.length : "not array",
         roster: Array.isArray(roster) ? roster.length : "not array",
       });
 
