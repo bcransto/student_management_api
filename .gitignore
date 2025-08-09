@@ -72,5 +72,11 @@ settings_local.py
 htmlcov/
 .pytest_cache/
 
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
 # other
 guider_student_management_api.md
