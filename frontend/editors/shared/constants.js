@@ -64,11 +64,7 @@ export const generateSeats = (shape, maxSeats, width, height) => {
       }
 
       // Right side
-      for (
-        let i = 0;
-        i < Math.min(seatsPerSide, maxSeats - seats.length);
-        i++
-      ) {
+      for (let i = 0; i < Math.min(seatsPerSide, maxSeats - seats.length); i++) {
         seats.push({
           seat_number: seatNumber++,
           relative_x: 1.15,
@@ -78,11 +74,7 @@ export const generateSeats = (shape, maxSeats, width, height) => {
       }
 
       // Bottom side
-      for (
-        let i = 0;
-        i < Math.min(seatsPerSide, maxSeats - seats.length);
-        i++
-      ) {
+      for (let i = 0; i < Math.min(seatsPerSide, maxSeats - seats.length); i++) {
         seats.push({
           seat_number: seatNumber++,
           relative_x: 1 - (i + 1) / (seatsPerSide + 1),
@@ -92,11 +84,7 @@ export const generateSeats = (shape, maxSeats, width, height) => {
       }
 
       // Left side
-      for (
-        let i = 0;
-        i < Math.min(seatsPerSide, maxSeats - seats.length);
-        i++
-      ) {
+      for (let i = 0; i < Math.min(seatsPerSide, maxSeats - seats.length); i++) {
         seats.push({
           seat_number: seatNumber++,
           relative_x: -0.15,

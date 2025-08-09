@@ -150,13 +150,13 @@
     align-items: flex-start;
     gap: 1.5rem;
   }
-  
+
   .seating-chart-card {
     flex-direction: column;
     align-items: stretch;
     gap: 1.5rem;
   }
-  
+
   .chart-actions {
     justify-content: flex-end;
   }

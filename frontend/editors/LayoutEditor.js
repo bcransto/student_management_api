@@ -59,14 +59,8 @@ const LayoutEditor = ({ layoutId = null, onSave, onCancel }) => {
         id: Date.now(),
         table_number: layout.tables.length + 1,
         table_name: `Table ${layout.tables.length + 1}`,
-        x_position: Math.max(
-          0,
-          Math.min(gridX, layout.room_width - DEFAULT_TABLE.width)
-        ),
-        y_position: Math.max(
-          0,
-          Math.min(gridY, layout.room_height - DEFAULT_TABLE.height)
-        ),
+        x_position: Math.max(0, Math.min(gridX, layout.room_width - DEFAULT_TABLE.width)),
+        y_position: Math.max(0, Math.min(gridY, layout.room_height - DEFAULT_TABLE.height)),
         width: DEFAULT_TABLE.width,
         height: DEFAULT_TABLE.height,
         max_seats: DEFAULT_TABLE.max_seats,
@@ -91,14 +85,8 @@ const LayoutEditor = ({ layoutId = null, onSave, onCancel }) => {
         id: Date.now(),
         name: obstacleType.name,
         obstacle_type: obstacleType.id,
-        x_position: Math.max(
-          0,
-          Math.min(gridX, layout.room_width - DEFAULT_OBSTACLE.width)
-        ),
-        y_position: Math.max(
-          0,
-          Math.min(gridY, layout.room_height - DEFAULT_OBSTACLE.height)
-        ),
+        x_position: Math.max(0, Math.min(gridX, layout.room_width - DEFAULT_OBSTACLE.width)),
+        y_position: Math.max(0, Math.min(gridY, layout.room_height - DEFAULT_OBSTACLE.height)),
         width: DEFAULT_OBSTACLE.width,
         height: DEFAULT_OBSTACLE.height,
         color: obstacleType.color,
@@ -129,9 +117,7 @@ const LayoutEditor = ({ layoutId = null, onSave, onCancel }) => {
     } else if (type === "obstacle") {
       setLayout((prev) => ({
         ...prev,
-        obstacles: prev.obstacles.map((o) =>
-          o.id === item.id ? updatedItem : o
-        ),
+        obstacles: prev.obstacles.map((o) => (o.id === item.id ? updatedItem : o)),
       }));
     }
 
@@ -234,8 +220,7 @@ const LayoutEditor = ({ layoutId = null, onSave, onCancel }) => {
             React.createElement("input", {
               type: "text",
               value: layout.name,
-              onChange: (e) =>
-                setLayout((prev) => ({ ...prev, name: e.target.value })),
+              onChange: (e) => setLayout((prev) => ({ ...prev, name: e.target.value })),
               className:
                 "w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500",
             })
@@ -323,17 +308,9 @@ const LayoutEditor = ({ layoutId = null, onSave, onCancel }) => {
                 React.createElement(
                   "div",
                   { className: "text-xl mb-1" },
-                  value === TOOL_MODES.SELECT
-                    ? "👆"
-                    : value === TOOL_MODES.TABLE
-                    ? "🪑"
-                    : "📦"
+                  value === TOOL_MODES.SELECT ? "👆" : value === TOOL_MODES.TABLE ? "🪑" : "📦"
                 ),
-                React.createElement(
-                  "div",
-                  { className: "text-xs capitalize" },
-                  value
-                )
+                React.createElement("div", { className: "text-xs capitalize" }, value)
               )
             )
           )
@@ -348,16 +325,10 @@ const LayoutEditor = ({ layoutId = null, onSave, onCancel }) => {
             {
               onClick: () => setShowGrid(!showGrid),
               className: `flex items-center justify-center gap-2 w-full px-3 py-2 rounded-lg ${
-                showGrid
-                  ? "bg-purple-100 text-purple-600"
-                  : "bg-gray-100 text-gray-600"
+                showGrid ? "bg-purple-100 text-purple-600" : "bg-gray-100 text-gray-600"
               }`,
             },
-            React.createElement(
-              "span",
-              null,
-              showGrid ? "Hide Grid" : "Show Grid"
-            )
+            React.createElement("span", null, showGrid ? "Hide Grid" : "Show Grid")
           )
         )
       ),
@@ -370,9 +341,7 @@ const LayoutEditor = ({ layoutId = null, onSave, onCancel }) => {
           React.createElement(
             "h3",
             { className: "text-lg font-semibold text-gray-800 mb-3" },
-            selectedItem.type === "table"
-              ? "Table Properties"
-              : "Obstacle Properties"
+            selectedItem.type === "table" ? "Table Properties" : "Obstacle Properties"
           ),
 
           // Properties form would go here
@@ -398,8 +367,7 @@ const LayoutEditor = ({ layoutId = null, onSave, onCancel }) => {
             "button",
             {
               onClick: handleSave,
-              className:
-                "flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700",
+              className: "flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700",
             },
             layoutId ? "Update Layout" : "Save Layout"
           ),
@@ -407,8 +375,7 @@ const LayoutEditor = ({ layoutId = null, onSave, onCancel }) => {
             "button",
             {
               onClick: onCancel,
-              className:
-                "flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300",
+              className: "flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300",
             },
             "Cancel"
           )

@@ -82,8 +82,7 @@ const Table = ({
     React.createElement(
       "div",
       {
-        className:
-          "absolute inset-0 flex items-center justify-center pointer-events-none",
+        className: "absolute inset-0 flex items-center justify-center pointer-events-none",
       },
       React.createElement(
         "span",
@@ -113,9 +112,7 @@ const Table = ({
                 ? `${assignedSeats[seat.seat_number].name}${
                     seat.is_accessible ? " (Accessible)" : ""
                   }`
-                : `Seat ${seat.seat_number}${
-                    seat.is_accessible ? " (Accessible)" : ""
-                  }`,
+                : `Seat ${seat.seat_number}${seat.is_accessible ? " (Accessible)" : ""}`,
           },
           getSeatContent(seat)
         )
@@ -126,8 +123,7 @@ const Table = ({
       React.createElement(
         "div",
         {
-          className:
-            "absolute -top-6 left-1/2 transform -translate-x-1/2 text-xs text-gray-500",
+          className: "absolute -top-6 left-1/2 transform -translate-x-1/2 text-xs text-gray-500",
         },
         `${table.rotation}°`
       )

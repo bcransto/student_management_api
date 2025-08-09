@@ -76,21 +76,10 @@ const EditorCanvas = ({
       const newY = Math.floor((currentY - dragOffset.y) / GRID_SIZE);
 
       // Constrain to grid bounds
-      const constrainedX = Math.max(
-        0,
-        Math.min(newX, roomWidth - draggedItem.item.width)
-      );
-      const constrainedY = Math.max(
-        0,
-        Math.min(newY, roomHeight - draggedItem.item.height)
-      );
+      const constrainedX = Math.max(0, Math.min(newX, roomWidth - draggedItem.item.width));
+      const constrainedY = Math.max(0, Math.min(newY, roomHeight - draggedItem.item.height));
 
-      onItemMove(
-        draggedItem.item,
-        draggedItem.type,
-        constrainedX,
-        constrainedY
-      );
+      onItemMove(draggedItem.item, draggedItem.type, constrainedX, constrainedY);
     },
     [draggedItem, dragOffset, roomWidth, roomHeight, onItemMove]
   );
@@ -125,8 +114,7 @@ const EditorCanvas = ({
     React.createElement(
       "div",
       {
-        className:
-          "bg-white border-2 border-gray-300 shadow-lg rounded-lg overflow-hidden",
+        className: "bg-white border-2 border-gray-300 shadow-lg rounded-lg overflow-hidden",
         style: {
           width: roomWidth * GRID_SIZE,
           height: roomHeight * GRID_SIZE,
@@ -165,18 +153,12 @@ const EditorCanvas = ({
           React.createElement(Table, {
             key: table.id,
             table: table,
-            isSelected:
-              selectedItem?.type === "table" &&
-              selectedItem?.item?.id === table.id,
+            isSelected: selectedItem?.type === "table" && selectedItem?.item?.id === table.id,
             isDragging: draggedItem?.item?.id === table.id,
             onMouseDown: (e) => handleItemMouseDown(e, table, "table"),
             onClick: (e) => {
               e.stopPropagation();
-              if (
-                mode === "layout" &&
-                selectedTool === TOOL_MODES.SELECT &&
-                onItemSelect
-              ) {
+              if (mode === "layout" && selectedTool === TOOL_MODES.SELECT && onItemSelect) {
                 onItemSelect(table, "table");
               }
             },
@@ -199,24 +181,16 @@ const EditorCanvas = ({
                   selectedItem?.item?.id === obstacle.id
                     ? "border-orange-500 shadow-lg ring-2 ring-orange-300 z-10"
                     : "border-gray-400 hover:border-gray-500 hover:shadow-md"
-                } ${
-                  selectedTool === TOOL_MODES.SELECT
-                    ? "cursor-move"
-                    : "cursor-pointer"
-                }`,
+                } ${selectedTool === TOOL_MODES.SELECT ? "cursor-move" : "cursor-pointer"}`,
                 style: {
                   left: obstacle.x_position * GRID_SIZE,
                   top: obstacle.y_position * GRID_SIZE,
                   width: obstacle.width * GRID_SIZE,
                   height: obstacle.height * GRID_SIZE,
                   backgroundColor: obstacle.color,
-                  transform:
-                    draggedItem?.item?.id === obstacle.id
-                      ? "scale(1.05)"
-                      : "scale(1)",
+                  transform: draggedItem?.item?.id === obstacle.id ? "scale(1.05)" : "scale(1)",
                 },
-                onMouseDown: (e) =>
-                  handleItemMouseDown(e, obstacle, "obstacle"),
+                onMouseDown: (e) => handleItemMouseDown(e, obstacle, "obstacle"),
                 onClick: (e) => {
                   e.stopPropagation();
                   if (selectedTool === TOOL_MODES.SELECT && onItemSelect) {
