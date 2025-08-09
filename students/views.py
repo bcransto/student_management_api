@@ -256,11 +256,21 @@ class SeatingPeriodViewSet(viewsets.ModelViewSet):
     queryset = SeatingPeriod.objects.all()
     serializer_class = SeatingPeriodSerializer
     permission_classes = [IsAuthenticated]
+    filterset_fields = ['class_assigned', 'is_active']  # Enable filtering
 
     def get_queryset(self):
-        if self.request.user.is_superuser:
-            return SeatingPeriod.objects.all()
-        return SeatingPeriod.objects.filter(class_assigned__teacher=self.request.user)
+        queryset = SeatingPeriod.objects.all()
+        
+        # Filter by user's classes (unless superuser)
+        if not self.request.user.is_superuser:
+            queryset = queryset.filter(class_assigned__teacher=self.request.user)
+        
+        # Filter by class_assigned if provided in query params
+        class_assigned = self.request.query_params.get('class_assigned', None)
+        if class_assigned is not None:
+            queryset = queryset.filter(class_assigned_id=class_assigned)
+        
+        return queryset
 
 
 class SeatingAssignmentViewSet(viewsets.ModelViewSet):

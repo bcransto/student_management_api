@@ -106,11 +106,18 @@ class SeatingPeriodSerializer(serializers.ModelSerializer):
     seating_assignments = SeatingAssignmentSerializer(
         many=True, read_only=True)
     groups = serializers.SerializerMethodField()
+    layout = serializers.PrimaryKeyRelatedField(
+        queryset=ClassroomLayout.objects.all(),
+        required=True,
+        help_text="The classroom layout for this seating period"
+    )
+    layout_details = ClassroomLayoutSerializer(source='layout', read_only=True)
 
     class Meta:
         model = SeatingPeriod
         fields = ['id', 'name', 'start_date', 'end_date', 'is_active', 'notes',
-                  'seating_assignments', 'groups', 'created_at', 'updated_at']
+                  'layout', 'layout_details', 'seating_assignments', 'groups', 
+                  'created_at', 'updated_at']
         read_only_fields = ['created_at', 'updated_at']
 
     def get_groups(self, obj):
@@ -339,11 +346,18 @@ class SeatingPeriodSerializer(serializers.ModelSerializer):
     seating_assignments = SeatingAssignmentSerializer(
         many=True, read_only=True)
     groups = serializers.SerializerMethodField()
+    layout = serializers.PrimaryKeyRelatedField(
+        queryset=ClassroomLayout.objects.all(),
+        required=True,
+        help_text="The classroom layout for this seating period"
+    )
+    layout_details = ClassroomLayoutSerializer(source='layout', read_only=True)
 
     class Meta:
         model = SeatingPeriod
         fields = ['id', 'name', 'start_date', 'end_date', 'is_active', 'notes',
-                  'seating_assignments', 'groups', 'created_at', 'updated_at']
+                  'layout', 'layout_details', 'seating_assignments', 'groups', 
+                  'created_at', 'updated_at']
         read_only_fields = ['created_at', 'updated_at']
 
     def get_groups(self, obj):

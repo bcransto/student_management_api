@@ -41,6 +41,8 @@ const SeatingEditor = ({ classId, onBack }) => {
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [highlightMode, setHighlightMode] = useState("none"); // none, gender, previous
   const [draggedStudent, setDraggedStudent] = useState(null);
+  const [showLayoutSelector, setShowLayoutSelector] = useState(false);
+  const [availableLayouts, setAvailableLayouts] = useState([]);
 
   // Load initial data
   useEffect(() => {
@@ -90,11 +92,18 @@ const SeatingEditor = ({ classId, onBack }) => {
       console.log("Class data loaded:", classData);
       setClassInfo(classData);
 
-      // Load the layout for this class
-      if (classData.classroom_layout) {
-        // The layout is already embedded in the class data
-        console.log("Layout found in class data:", classData.classroom_layout);
-        setLayout(classData.classroom_layout);
+      // Load the layout from the current seating period (if exists) or class
+      let currentLayout = null;
+      if (classData.current_seating_period && classData.current_seating_period.layout_details) {
+        // Use layout from the seating period (new approach)
+        console.log("Layout found in seating period:", classData.current_seating_period.layout_details);
+        currentLayout = classData.current_seating_period.layout_details;
+        setLayout(currentLayout);
+      } else if (classData.classroom_layout) {
+        // Fallback to class layout for backward compatibility
+        console.log("No period layout, using class layout:", classData.classroom_layout);
+        currentLayout = classData.classroom_layout;
+        setLayout(currentLayout);
       }
 
       // Load students from the roster that's already in the class data
@@ -113,7 +122,8 @@ const SeatingEditor = ({ classId, onBack }) => {
       // Load existing seating assignments if any
       if (
         classData.current_seating_period?.seating_assignments &&
-        classData.current_seating_period.seating_assignments.length > 0
+        classData.current_seating_period.seating_assignments.length > 0 &&
+        currentLayout  // Make sure we have a layout
       ) {
         console.log(
           "Loading seating assignments:",
@@ -123,8 +133,13 @@ const SeatingEditor = ({ classId, onBack }) => {
         const assignmentMap = {};
 
         classData.current_seating_period.seating_assignments.forEach((assignment) => {
-          // Find the table by table_number
-          const table = classData.classroom_layout.tables.find(
+          // Use the currentLayout variable we set above
+          if (!currentLayout.tables) {
+            console.warn("No tables in layout");
+            return;
+          }
+          
+          const table = currentLayout.tables.find(
             (t) => t.table_number === assignment.table_number
           );
           if (!table) {
@@ -282,6 +297,75 @@ const SeatingEditor = ({ classId, onBack }) => {
     }
   };
 
+  // Navigate to previous/next seating period
+  const handlePeriodNavigation = async (direction) => {
+    try {
+      // Check for unsaved changes
+      if (hasUnsavedChanges) {
+        if (!window.confirm("You have unsaved changes. Do you want to continue without saving?")) {
+          return;
+        }
+      }
+
+      // Get all periods for this class
+      const response = await window.ApiModule.request(
+        `/seating-periods/?class_assigned=${classId}`
+      );
+      
+      const periods = response.results || [];
+      console.log(`Found ${periods.length} periods for class ${classId}:`, periods);
+      
+      if (periods.length === 0) {
+        alert("No seating periods found for this class");
+        return;
+      }
+      
+      if (periods.length === 1) {
+        alert("This class only has one seating period");
+        return;
+      }
+
+      // Sort by start date
+      periods.sort((a, b) => new Date(a.start_date) - new Date(b.start_date));
+      console.log('Sorted periods:', periods.map(p => ({id: p.id, name: p.name, active: p.is_active})));
+
+      // Find current period index
+      const currentPeriodId = classInfo.current_seating_period?.id;
+      const currentIndex = periods.findIndex(p => p.id === currentPeriodId);
+      
+      let targetIndex;
+      if (direction === 'previous') {
+        targetIndex = currentIndex > 0 ? currentIndex - 1 : periods.length - 1;
+      } else {
+        targetIndex = currentIndex < periods.length - 1 ? currentIndex + 1 : 0;
+      }
+
+      const targetPeriod = periods[targetIndex];
+      
+      console.log(`Navigating from period ${currentPeriodId} to ${targetPeriod.id}`);
+      console.log('Target period:', targetPeriod);
+      
+      // Set the target period as active (this will deactivate others automatically in the backend)
+      await window.ApiModule.request(`/seating-periods/${targetPeriod.id}/`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          is_active: true
+        }),
+      });
+
+      // Small delay to ensure backend has updated
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Reload the data with the new period
+      await loadClassData();
+      setHasUnsavedChanges(false);
+      
+    } catch (error) {
+      console.error("Failed to navigate periods:", error);
+      alert("Failed to navigate to " + direction + " period");
+    }
+  };
+
   // Simple save function that works with the fixed ApiModule
   const handleSave = async () => {
     try {
@@ -297,10 +381,49 @@ const SeatingEditor = ({ classId, onBack }) => {
         console.log("Using existing seating period:", seatingPeriodId);
       } else {
         console.log("Creating new seating period...");
+        
+        // If no layout from class, need to select one
+        if (!layout || !layout.id) {
+          // Load available layouts if not already loaded
+          if (availableLayouts.length === 0) {
+            const layoutsResponse = await window.ApiModule.request("/classroom-layouts/");
+            const layouts = layoutsResponse.results || [];
+            
+            if (layouts.length === 0) {
+              alert("No classroom layouts available. Please create a layout first.");
+              setSaving(false);
+              return;
+            }
+            
+            // Show layout selection dialog
+            const layoutNames = layouts.map((l, i) => `${i + 1}. ${l.name} (${l.room_width}x${l.room_height})`).join('\n');
+            const selectedIndex = prompt(
+              `Select a classroom layout for the new seating period:\n\n${layoutNames}\n\nEnter the number:`,
+              "1"
+            );
+            
+            if (!selectedIndex) {
+              setSaving(false);
+              return;
+            }
+            
+            const selectedLayout = layouts[parseInt(selectedIndex) - 1];
+            if (!selectedLayout) {
+              alert("Invalid selection");
+              setSaving(false);
+              return;
+            }
+            
+            setLayout(selectedLayout);
+            layout = selectedLayout;
+          }
+        }
+        
         const newPeriod = await window.ApiModule.request("/seating-periods/", {
           method: "POST",
           body: JSON.stringify({
             class_assigned: classId,
+            layout: layout.id,  // Now required!
             name: `Seating Chart - ${new Date().toLocaleDateString()}`,
             start_date: new Date().toISOString().split("T")[0],
             is_active: true,
@@ -627,7 +750,7 @@ const SeatingEditor = ({ classId, onBack }) => {
           "button",
           {
             className: "btn btn-sm btn-secondary",
-            onClick: () => console.log("Previous period - not yet implemented"),
+            onClick: () => handlePeriodNavigation('previous'),
             title: "View previous seating period"
           },
           React.createElement("i", { className: "fas fa-chevron-left" }),
@@ -637,7 +760,7 @@ const SeatingEditor = ({ classId, onBack }) => {
           "button",
           {
             className: "btn btn-sm btn-secondary",
-            onClick: () => console.log("Next period - not yet implemented"),
+            onClick: () => handlePeriodNavigation('next'),
             title: "View next seating period"
           },
           "Next ",

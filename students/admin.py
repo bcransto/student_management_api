@@ -72,12 +72,30 @@ class SeatingAssignmentInline(admin.TabularInline):
 
 @admin.register(SeatingPeriod)
 class SeatingPeriodAdmin(admin.ModelAdmin):
-    list_display = ['class_assigned', 'name', 'start_date', 'end_date', 'is_active', 'assignment_count']
-    list_filter = ['is_active', 'start_date', 'class_assigned__teacher']
-    search_fields = ['name', 'class_assigned__name', 'class_assigned__teacher__username']
+    list_display = ['class_assigned', 'name', 'layout', 'start_date', 'end_date', 'is_active', 'assignment_count']
+    list_filter = ['is_active', 'start_date', 'class_assigned__teacher', 'layout']
+    search_fields = ['name', 'class_assigned__name', 'class_assigned__teacher__username', 'layout__name']
     readonly_fields = ['created_at', 'updated_at', 'assignment_count']
+    autocomplete_fields = ['class_assigned', 'layout']  # Add autocomplete for easier selection
     inlines = [SeatingAssignmentInline]
     date_hierarchy = 'start_date'
+    
+    fieldsets = (
+        ('Period Information', {
+            'fields': ('name', 'class_assigned', 'layout')
+        }),
+        ('Dates', {
+            'fields': ('start_date', 'end_date', 'is_active')
+        }),
+        ('Notes', {
+            'fields': ('notes',),
+            'classes': ('collapse',)
+        }),
+        ('Statistics', {
+            'fields': ('assignment_count', 'created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
     
     def assignment_count(self, obj):
         """Display number of seating assignments in this period"""
@@ -157,8 +175,9 @@ class ClassRosterInline(admin.TabularInline):
 class SeatingPeriodInline(admin.TabularInline):
     model = SeatingPeriod
     extra = 0
-    fields = ['name', 'start_date', 'end_date', 'is_active']
+    fields = ['name', 'layout', 'start_date', 'end_date', 'is_active']
     readonly_fields = ['created_at']
+    autocomplete_fields = ['layout']
 
 @admin.register(Class)
 class ClassAdmin(admin.ModelAdmin):

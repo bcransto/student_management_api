@@ -390,6 +390,15 @@ class ClassRoster(models.Model):
 class SeatingPeriod(models.Model):
     """Model to track different seating arrangements over time"""
     class_assigned = models.ForeignKey(Class, on_delete=models.CASCADE, related_name='seating_periods')
+    
+    # Layout for this specific seating period
+    layout = models.ForeignKey(
+        ClassroomLayout, 
+        on_delete=models.PROTECT,  # Prevent deletion of layouts with seating periods
+        related_name='seating_periods_using_layout',
+        help_text="Physical layout used for this seating period"
+    )
+    
     name = models.CharField(max_length=100, help_text="e.g., 'Week 1-2', 'September 1-15', 'Quarter 1'")
     start_date = models.DateField()
     end_date = models.DateField(blank=True, null=True)
@@ -415,18 +424,16 @@ class SeatingPeriod(models.Model):
     def save(self, *args, **kwargs):
         # Ensure only one active period per class
         if self.is_active:
-            # Deactivate other periods and set their end_date
+            # Deactivate other periods (but don't modify their end_date)
             other_periods = SeatingPeriod.objects.filter(
                 class_assigned=self.class_assigned,
                 is_active=True
             ).exclude(id=self.id)
             
-            # Set end_date for previously active periods
+            # Only deactivate other periods, don't touch their end_date
             for period in other_periods:
-                if not period.end_date:
-                    period.end_date = self.start_date
                 period.is_active = False
-                period.save(update_fields=['is_active', 'end_date'])
+                period.save(update_fields=['is_active'])
         
         super().save(*args, **kwargs)
     
