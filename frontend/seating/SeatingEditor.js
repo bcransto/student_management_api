@@ -3,16 +3,39 @@
 
 const { useState, useEffect } = React;
 
+// Name truncation function - max 8 characters
+const formatStudentName = (firstName, lastName) => {
+  if (!firstName) return '';
+  
+  // Get first name and last initial
+  const lastInitial = lastName ? lastName[0] : '';
+  const baseName = `${firstName} ${lastInitial}.`;
+  
+  // If already 8 chars or less, return as is
+  if (baseName.length <= 8) {
+    return baseName;
+  }
+  
+  // Otherwise, truncate first name to fit within 8 chars
+  // Account for space (1 char) + initial (1 char) + period (1 char) = 3 chars
+  const maxFirstNameLength = 5; // 8 - 3
+  const truncatedFirst = firstName.substring(0, maxFirstNameLength);
+  
+  return `${truncatedFirst} ${lastInitial}.`;
+};
+
 const SeatingEditor = ({ classId, onBack }) => {
   // Core state
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   // Data state
   const [classInfo, setClassInfo] = useState(null);
   const [layout, setLayout] = useState(null);
   const [students, setStudents] = useState([]);
   const [assignments, setAssignments] = useState({}); // {tableId: {seatNumber: studentId}}
+  const [initialAssignments, setInitialAssignments] = useState({}); // Track original state
 
   // UI state
   const [selectedStudent, setSelectedStudent] = useState(null);
@@ -23,6 +46,20 @@ const SeatingEditor = ({ classId, onBack }) => {
   useEffect(() => {
     loadClassData();
   }, [classId]);
+
+  // Warn before leaving page with unsaved changes
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+        return 'You have unsaved changes. Are you sure you want to leave?';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
 
   // Add this inside your SeatingEditor component for debugging:
   // Debug helper - expose to window for console access
@@ -119,8 +156,12 @@ const SeatingEditor = ({ classId, onBack }) => {
 
         console.log("Assignment map:", assignmentMap);
         setAssignments(assignmentMap);
+        setInitialAssignments(assignmentMap); // Save initial state
+        setHasUnsavedChanges(false);
       } else {
         console.log("No seating assignments found");
+        setInitialAssignments({});
+        setHasUnsavedChanges(false);
       }
     } catch (error) {
       console.error("Failed to load class data:", error);
@@ -138,6 +179,7 @@ const SeatingEditor = ({ classId, onBack }) => {
         [seatNumber]: studentId,
       },
     }));
+    setHasUnsavedChanges(true);
   };
 
   const handleSeatSwap = (studentA, tableA, seatA, studentB, tableB, seatB) => {
@@ -171,6 +213,7 @@ const SeatingEditor = ({ classId, onBack }) => {
         },
       };
     });
+    setHasUnsavedChanges(true);
   };
 
   const handleSeatUnassignment = (tableId, seatNumber) => {
@@ -184,6 +227,7 @@ const SeatingEditor = ({ classId, onBack }) => {
       }
       return newAssignments;
     });
+    setHasUnsavedChanges(true);
   };
 
   const getAssignedStudentIds = () => {
@@ -199,6 +243,43 @@ const SeatingEditor = ({ classId, onBack }) => {
   const getUnassignedStudents = () => {
     const assigned = getAssignedStudentIds();
     return students.filter((student) => !assigned.has(student.id));
+  };
+
+  // Format date for display (MM/DD/YY)
+  const formatDate = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    const year = date.getFullYear().toString().slice(-2);
+    return `${month}/${day}/${year}`;
+  };
+
+  // Build the title string
+  const getEditorTitle = () => {
+    if (!classInfo) return "Loading...";
+    
+    const className = classInfo.name || "Unknown Class";
+    
+    if (classInfo.current_seating_period) {
+      const period = classInfo.current_seating_period;
+      const periodName = period.name || "Untitled Period";
+      const startDate = formatDate(period.start_date);
+      const endDate = formatDate(period.end_date) || 'Present';
+      return `${className}: ${periodName} (${startDate} - ${endDate})`;
+    }
+    
+    // No current period yet
+    return `${className}: New Seating Chart`;
+  };
+
+  // Reset function - moves all students back to pool
+  const handleReset = () => {
+    if (window.confirm("Are you sure you want to reset? This will move all students back to the pool.")) {
+      setAssignments({});
+      setSelectedStudent(null);
+      setHasUnsavedChanges(true);
+    }
   };
 
   // Simple save function that works with the fixed ApiModule
@@ -282,8 +363,12 @@ const SeatingEditor = ({ classId, onBack }) => {
 
       console.log(`Successfully created ${createdAssignments.length} seating assignments`);
       alert(`✅ Seating chart saved successfully! ${createdAssignments.length} students assigned.`);
+      
+      // Mark as saved
+      setHasUnsavedChanges(false);
+      setInitialAssignments(assignments);
 
-      if (onBack) onBack();
+      // Stay in editor after saving - removed: if (onBack) onBack();
     } catch (error) {
       console.error("Failed to save seating assignments:", error);
       alert(`❌ Failed to save seating chart: ${error.message}`);
@@ -509,42 +594,199 @@ const SeatingEditor = ({ classId, onBack }) => {
     "div",
     { className: "seating-editor-integrated" },
 
-    // Main editor area
+    // Top toolbar
+    React.createElement(
+      "div",
+      { className: "canvas-toolbar" },
+      React.createElement(
+        "button",
+        {
+          onClick: onBack,
+          className: "btn btn-secondary btn-sm",
+        },
+        React.createElement("i", { className: "fas fa-arrow-left" }),
+        " Back"
+      ),
+      React.createElement(
+        "h2",
+        { className: "editor-title" },
+        getEditorTitle()
+      ),
+      // Student count status badge
+      React.createElement(
+        "div",
+        { className: "status-badge", style: { marginLeft: "auto" } },
+        `${getAssignedStudentIds().size} / ${students.length} seated`
+      ),
+      
+      // Period navigation buttons (right-justified)
+      React.createElement(
+        "div",
+        { className: "period-navigation", style: { display: "flex", gap: "0.5rem", marginLeft: "1rem" } },
+        React.createElement(
+          "button",
+          {
+            className: "btn btn-sm btn-secondary",
+            onClick: () => console.log("Previous period - not yet implemented"),
+            title: "View previous seating period"
+          },
+          React.createElement("i", { className: "fas fa-chevron-left" }),
+          " Previous"
+        ),
+        React.createElement(
+          "button",
+          {
+            className: "btn btn-sm btn-secondary",
+            onClick: () => console.log("Next period - not yet implemented"),
+            title: "View next seating period"
+          },
+          "Next ",
+          React.createElement("i", { className: "fas fa-chevron-right" })
+        )
+      )
+    ),
+
+    // Secondary toolbar (replaces right sidebar content)
+    React.createElement(
+      "div",
+      { className: "secondary-toolbar" },
+      
+      // Auto-fill section
+      React.createElement(
+        "div",
+        { className: "toolbar-section" },
+        React.createElement("span", { className: "toolbar-label" }, "Auto-fill:"),
+        React.createElement(
+          "div",
+          { className: "auto-fill-buttons" },
+          React.createElement(
+            "button",
+            {
+              className: "btn btn-sm btn-outline",
+              onClick: () => alert("Auto-fill: Alphabetical"),
+            },
+            React.createElement("i", { className: "fas fa-sort-alpha-down" }),
+            " A-Z"
+          ),
+          React.createElement(
+            "button",
+            {
+              className: "btn btn-sm btn-outline",
+              onClick: () => alert("Auto-fill: Random"),
+            },
+            React.createElement("i", { className: "fas fa-random" }),
+            " Random"
+          ),
+          React.createElement(
+            "button",
+            {
+              className: "btn btn-sm btn-outline",
+              onClick: () => alert("Auto-fill: Boy-Girl"),
+            },
+            React.createElement("i", { className: "fas fa-venus-mars" }),
+            " Boy-Girl"
+          )
+        )
+      ),
+
+      // View options section
+      React.createElement(
+        "div",
+        { className: "toolbar-section" },
+        React.createElement("span", { className: "toolbar-label" }, "View:"),
+        React.createElement(
+          "div",
+          { className: "view-options" },
+          React.createElement(
+            "label",
+            { className: "radio-label" },
+            React.createElement("input", {
+              type: "radio",
+              name: "highlight",
+              checked: highlightMode === "none",
+              onChange: () => setHighlightMode("none"),
+            }),
+            " Normal"
+          ),
+          React.createElement(
+            "label",
+            { className: "radio-label" },
+            React.createElement("input", {
+              type: "radio",
+              name: "highlight",
+              checked: highlightMode === "gender",
+              onChange: () => setHighlightMode("gender"),
+            }),
+            " Gender"
+          ),
+          React.createElement(
+            "label",
+            { className: "radio-label" },
+            React.createElement("input", {
+              type: "radio",
+              name: "highlight",
+              checked: highlightMode === "previous",
+              onChange: () => setHighlightMode("previous"),
+            }),
+            " Previous"
+          )
+        )
+      ),
+
+      // Action buttons (Save, Reset, Cancel)
+      React.createElement(
+        "div",
+        { className: "toolbar-actions" },
+        React.createElement(
+          "button",
+          {
+            className: "btn btn-sm btn-secondary",
+            style: hasUnsavedChanges ? { backgroundColor: "#86efac", borderColor: "#86efac" } : {},
+            onClick: handleSave,
+            disabled: saving,
+          },
+          saving ? "Saving..." : "Save"
+        ),
+        React.createElement(
+          "button",
+          {
+            className: "btn btn-sm btn-secondary",
+            onClick: handleReset,
+          },
+          "Reset"
+        ),
+        React.createElement(
+          "button",
+          {
+            className: "btn btn-sm btn-secondary",
+            onClick: () => {
+              if (hasUnsavedChanges) {
+                if (window.confirm("You have unsaved changes. Are you sure you want to leave?")) {
+                  onBack();
+                }
+              } else {
+                onBack();
+              }
+            },
+          },
+          "Cancel"
+        )
+      )
+    ),
+
+    // Main content area with canvas on left, pool on right
     React.createElement(
       "div",
       { className: "editor-main-area" },
-
-      // Canvas and student pool wrapper
+      
       React.createElement(
         "div",
         { className: "editor-content-wrapper" },
-
-        // Canvas area
+        
+        // Canvas section (left)
         React.createElement(
           "div",
           { className: "editor-canvas-section" },
-
-          // Top toolbar
-          React.createElement(
-            "div",
-            { className: "canvas-toolbar" },
-            React.createElement(
-              "button",
-              {
-                onClick: onBack,
-                className: "btn btn-secondary btn-sm",
-              },
-              React.createElement("i", { className: "fas fa-arrow-left" }),
-              " Back"
-            ),
-            React.createElement(
-              "h2",
-              { className: "editor-title" },
-              `Seating Chart: ${classInfo?.class_name || "Loading..."}`
-            )
-          ),
-
-          // Canvas
           React.createElement(
             "div",
             { className: "seating-canvas-container" },
@@ -557,42 +799,25 @@ const SeatingEditor = ({ classId, onBack }) => {
                 // existing code
               },
               onStudentDrop: handleSeatAssignment,
-              onStudentUnassign: handleSeatUnassignment, // ADD THIS LINE
-              onStudentSwap: handleSeatSwap, // ADD THIS LINE
+              onStudentUnassign: handleSeatUnassignment,
+              onStudentSwap: handleSeatSwap,
               draggedStudent: draggedStudent,
-              onDragStart: setDraggedStudent, // ADD THIS LINE
-              onDragEnd: () => setDraggedStudent(null), // ADD THIS LINE
+              onDragStart: setDraggedStudent,
+              onDragEnd: () => setDraggedStudent(null),
             })
           )
         ),
 
-        // Student pool at bottom
-        // In SeatingEditor component
+        // Student pool (right side)
         React.createElement(StudentPool, {
           students: getUnassignedStudents(),
           selectedStudent: selectedStudent,
           onSelectStudent: setSelectedStudent,
           onDragStart: setDraggedStudent,
           onDragEnd: () => setDraggedStudent(null),
-          onStudentReturn: handleSeatUnassignment, // ADD THIS
+          onStudentReturn: handleSeatUnassignment,
         })
-      ),
-
-      // Right sidebar
-      React.createElement(SeatingEditorSidebar, {
-        classInfo: classInfo,
-        totalStudents: students.length,
-        assignedCount: getAssignedStudentIds().size,
-        highlightMode: highlightMode,
-        onHighlightModeChange: setHighlightMode,
-        onAutoFill: (mode) => {
-          // TODO: Implement auto-fill
-          alert(`Auto-fill: ${mode}`);
-        },
-        onSave: handleSave,
-        onCancel: onBack,
-        saving: saving,
-      })
+      )
     )
   );
 };
@@ -617,8 +842,8 @@ const SeatingCanvas = ({
     {
       className: `seating-canvas ${draggedStudent ? "drag-active" : ""}`,
       style: {
-        width: layout.room_width * 40,
-        height: layout.room_height * 40,
+        width: layout.room_width * 80,
+        height: layout.room_height * 80,
         position: "relative",
         backgroundColor: "white",
         border: "2px solid #e5e7eb",
@@ -635,10 +860,10 @@ const SeatingCanvas = ({
           className: "seating-table",
           style: {
             position: "absolute",
-            left: table.x_position * 40,
-            top: table.y_position * 40,
-            width: table.width * 40,
-            height: table.height * 40,
+            left: table.x_position * 80,
+            top: table.y_position * 80,
+            width: table.width * 80,
+            height: table.height * 80,
           },
         },
 
@@ -695,9 +920,9 @@ const SeatingCanvas = ({
                 left: `${seat.relative_x * 100}%`,
                 top: `${seat.relative_y * 100}%`,
                 transform: "translate(-50%, -50%)",
-                width: "32px",
-                height: "32px",
-                borderRadius: "50%",
+                width: "65px",
+                height: "45px",
+                borderRadius: "8px",
                 backgroundColor: assignedStudent
                   ? assignedStudent.gender === "F"
                     ? "#fbbf24"
@@ -712,8 +937,9 @@ const SeatingCanvas = ({
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                fontSize: "10px",
-                fontWeight: "bold",
+                fontSize: "11px",
+                fontWeight: "500",
+                color: "#333",
                 cursor: "pointer",
                 transition: "all 0.2s",
               },
@@ -822,7 +1048,21 @@ const SeatingCanvas = ({
                 : `Seat ${seat.seat_number}`,
             },
             assignedStudent
-              ? `${assignedStudent.first_name[0]}${assignedStudent.last_name[0]}`
+              ? React.createElement(
+                  "div",
+                  { 
+                    className: "seat-name",
+                    style: {
+                      fontSize: "11px",
+                      fontWeight: "500",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                      maxWidth: "57px"
+                    }
+                  },
+                  formatStudentName(assignedStudent.first_name, assignedStudent.last_name)
+                )
               : seat.seat_number
           );
         })
@@ -1077,13 +1317,8 @@ const StudentPool = ({
           },
           React.createElement(
             "div",
-            { className: "student-avatar" },
-            student.gender === "F" ? "👧" : "👦"
-          ),
-          React.createElement(
-            "div",
-            { className: "student-name" },
-            `${student.first_name} ${student.last_name[0]}.`
+            { className: "student-card-name" },
+            formatStudentName(student.first_name, student.last_name)
           )
         )
       )

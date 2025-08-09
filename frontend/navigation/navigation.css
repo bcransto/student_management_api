@@ -7,7 +7,8 @@
 .header {
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(20px);
-  padding: 1.5rem 2rem;
+  height: 60px;
+  padding: 0 2rem;
   box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
   display: flex;
   justify-content: space-between;
@@ -24,7 +25,8 @@
 .header h1 {
   color: #1f2937;
   font-weight: 700;
-  font-size: 1.75rem;
+  font-size: 1.5rem;
+  margin: 0;
   cursor: pointer;
   transition: color 0.3s ease;
 }
@@ -60,9 +62,9 @@
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(20px);
   border-radius: 20px;
-  padding: 2rem;
+  padding: 1.5rem;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
-  width: 280px;
+  width: 220px;
   height: fit-content;
   border: 1px solid rgba(255, 255, 255, 0.2);
 }
@@ -110,13 +112,15 @@
 
 @media (max-width: 768px) {
   .header {
-    padding: 1rem;
-    flex-direction: column;
+    height: auto;
+    min-height: 60px;
+    padding: 0.75rem 1rem;
+    flex-direction: row;
     gap: 1rem;
   }
 
   .header-left h1 {
-    font-size: 1.5rem;
+    font-size: 1.25rem;
   }
 
   .header-right {

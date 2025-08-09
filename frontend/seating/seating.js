@@ -91,6 +91,19 @@ const Seating = ({ data, navigateTo }) => {
     fetchClassesWithSeatingCharts(); // Refresh the list
   };
 
+  // Add/remove seating-editor-page class based on current view
+  React.useEffect(() => {
+    if (currentView === "editor") {
+      document.body.classList.add("seating-editor-page");
+    } else {
+      document.body.classList.remove("seating-editor-page");
+    }
+    
+    return () => {
+      document.body.classList.remove("seating-editor-page");
+    };
+  }, [currentView]);
+
   // Show editor view
   if (currentView === "editor") {
     console.log("Trying to show editor, SeatingEditor available:", !!window.SeatingEditor);

@@ -1,22 +1,100 @@
 /* frontend/seating/seating-editor.css */
 
+/* Override global container styles for seating editor */
+body.seating-editor-page .sidebar {
+  display: none;
+}
+
+body.seating-editor-page .content-area {
+  max-height: none;
+  height: auto;
+  padding: 0;
+  overflow: visible;
+  width: 100%;
+  max-width: none;
+}
+
+body.seating-editor-page .main-container {
+  max-width: 100%;
+  padding: 20px;
+  width: 100%;
+}
+
 /* Main Layout */
 .seating-editor-integrated {
-  height: calc(100vh - 80px);
+  height: 800px;
   display: flex;
-  background: #f5f5f5;
+  flex-direction: column;
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Secondary Toolbar (below main toolbar) */
+.secondary-toolbar {
+  height: 60px;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  padding: 0 1.5rem;
+  width: 100%;
+  gap: 2rem;
+}
+
+.toolbar-section {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.toolbar-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #374151;
+  margin-right: 0.5rem;
+}
+
+.auto-fill-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.view-options {
+  display: flex;
+  gap: 1rem;
+}
+
+.radio-label {
+  display: flex;
+  align-items: center;
+  font-size: 0.875rem;
+  color: #4b5563;
+  cursor: pointer;
+}
+
+.radio-label input {
+  margin-right: 0.25rem;
+}
+
+.toolbar-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-left: auto;
+  align-items: center;
 }
 
 .editor-main-area {
   flex: 1;
   display: flex;
-  position: relative;
+  overflow: hidden;
+  background: #f9fafb;
 }
 
 .editor-content-wrapper {
   flex: 1;
   display: flex;
-  flex-direction: column;
 }
 
 .editor-canvas-section {
@@ -28,13 +106,15 @@
 
 /* Canvas Area */
 .canvas-toolbar {
+  height: 60px;
   background: white;
-  padding: 1rem;
+  padding: 0 1.5rem;
   border-bottom: 1px solid #e5e7eb;
   display: flex;
   align-items: center;
   gap: 1rem;
   flex-shrink: 0;
+  width: 100%;
 }
 
 .editor-title {
@@ -54,13 +134,14 @@
   background: #f9fafb;
 }
 
-/* Student Pool */
+/* Student Pool - moved to right side */
 .student-pool {
+  width: 250px;
   background: white;
-  border-top: 2px solid #e5e7eb;
-  height: 200px;
+  border-left: 1px solid #e5e7eb;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
   flex-shrink: 0;
 }
 
@@ -89,66 +170,70 @@
 .student-grid {
   flex: 1;
   padding: 1rem;
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   gap: 0.75rem;
-  align-content: flex-start;
   overflow-y: auto;
+  align-content: start;
 }
 
-/* Student Cards */
+/* Student Cards - compact design matching seats */
 .student-card {
+  width: 65px;
+  height: 45px;
   background: white;
-  border: 2px solid #e5e7eb;
+  border: 2px solid #9ca3af;
   border-radius: 8px;
-  padding: 0.75rem;
-  cursor: pointer;
+  padding: 4px;
+  cursor: grab;
   transition: all 0.2s;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 0.25rem;
-  min-width: 80px;
+  justify-content: center;
+  position: relative;
 }
 
 .student-card:hover {
-  border-color: #9ca3af;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border-color: #6b7280;
+  transform: scale(1.05);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
 }
 
 .student-card.selected {
   border-color: #6366f1;
   background: #eef2ff;
+  border-width: 3px;
 }
 
 .student-card.male {
-  background: #dbeafe;
+  background: white;
+  border-color: #60a5fa;
 }
 
 .student-card.female {
-  background: #fef3c7;
+  background: white;
+  border-color: #fbbf24;
 }
 
-.student-avatar {
-  font-size: 1.5rem;
-}
-
-.student-name {
-  font-size: 0.75rem;
+.student-card-name {
+  font-size: 11px;
   font-weight: 500;
+  color: #333;
   text-align: center;
-  color: #374151;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
 }
 
-/* Seats */
+/* Seats - matching card design */
 .seat {
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .seat:hover {
-  transform: scale(1.1);
+  transform: translate(-50%, -50%) scale(1.05) !important;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
@@ -160,38 +245,81 @@
   box-shadow: 0 0 0 2px #10b981;
 }
 
-/* Right Sidebar */
-.editor-right-sidebar {
-  width: 320px;
-  background: white;
-  border-left: 1px solid #e5e7eb;
-  padding: 1.5rem;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-}
-
-.sidebar-section {
-  margin-bottom: 2rem;
-}
-
-.sidebar-section h3 {
-  font-size: 1rem;
-  font-weight: 600;
-  color: #1f2937;
-  margin-bottom: 1rem;
-}
-
-.sidebar-section p {
-  margin: 0.5rem 0;
+/* Status Badge */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
   font-size: 0.875rem;
+  font-weight: 500;
+  background: #f3f4f6;
+  color: #374151;
+}
+
+/* Button Styles */
+.btn {
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btn-sm {
+  padding: 0.5rem 1.25rem;
+  font-size: 0.875rem;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-primary {
+  background: #6366f1;
+  color: white;
+}
+
+.btn-primary:hover {
+  background: #4f46e5;
+}
+
+.btn-primary:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: white;
+  color: #374151;
+  border: 1px solid #d1d5db;
+}
+
+.btn-secondary:hover {
+  background: #f9fafb;
+  border-color: #9ca3af;
+}
+
+.btn-outline {
+  background: white;
   color: #4b5563;
+  border: 1px solid #d1d5db;
+}
+
+.btn-outline:hover {
+  background: #f9fafb;
+  border-color: #9ca3af;
 }
 
 /* Auto-fill buttons */
 .auto-fill-buttons {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: 0.5rem;
 }
 
@@ -248,12 +376,13 @@
 
 /* Responsive */
 @media (max-width: 1024px) {
-  .editor-right-sidebar {
-    width: 280px;
+  .student-pool {
+    width: 240px;
   }
-
-  .student-card {
-    min-width: 70px;
+  
+  .student-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
   }
 }
 
@@ -284,7 +413,7 @@
 }
 
 .seat.drag-over {
-  transform: translate(-50%, -50%) scale(1.15) !important;
+  transform: translate(-50%, -50%) scale(1.1) !important;
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.5);
 }
 
@@ -344,8 +473,8 @@
 }
 
 .student-card:hover:not(.dragging) {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  transform: scale(1.05);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
 }
 
 /* Ensure seats stay circular during animations */
@@ -370,8 +499,8 @@
 /* Student pool drop zone styling */
 .student-pool.drag-over {
   background-color: #f0f9ff;
-  border-top-color: #3b82f6;
-  box-shadow: inset 0 2px 4px rgba(59, 130, 246, 0.1);
+  border-left-color: #3b82f6;
+  box-shadow: inset 2px 0 4px rgba(59, 130, 246, 0.1);
 }
 
 /* Optional: Add a visual hint when dragging from a seat */
