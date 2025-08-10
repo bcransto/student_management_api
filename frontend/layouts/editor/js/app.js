@@ -132,23 +132,42 @@ const LayoutEditor = () => {
     return React.createElement(
       "div",
       {
-        className: "flex items-center justify-center h-screen bg-gray-100",
+        style: {
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: '100vh',
+          backgroundColor: '#f3f4f6'
+        }
       },
       React.createElement(
         "div",
         {
-          className: "text-center",
+          style: { textAlign: 'center' }
         },
         React.createElement("div", {
-          className: "animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4",
+          style: {
+            width: '48px',
+            height: '48px',
+            border: '3px solid #e5e7eb',
+            borderTopColor: '#2563eb',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite',
+            margin: '0 auto 16px'
+          }
         }),
         React.createElement(
           "p",
           {
-            className: "text-gray-600",
+            style: { color: '#6b7280' }
           },
           "Loading layout editor..."
-        )
+        ),
+        React.createElement('style', {
+          dangerouslySetInnerHTML: {
+            __html: '@keyframes spin { to { transform: rotate(360deg); } }'
+          }
+        })
       )
     );
   }
@@ -161,7 +180,11 @@ const LayoutEditor = () => {
   return React.createElement(
     "div",
     {
-      className: "flex h-screen bg-gray-100",
+      style: {
+        display: 'flex',
+        height: '100vh',
+        backgroundColor: '#f3f4f6'
+      }
     },
     React.createElement(Sidebar, {
       layout,

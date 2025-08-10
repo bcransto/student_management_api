@@ -298,7 +298,7 @@ const SeatingViewer = ({ classId, onEdit, onBack }) => {
       // Top toolbar with navigation (matching editor style)
       React.createElement(
         "div",
-        { className: "canvas-toolbar" },
+        { className: "canvas-toolbar", style: { display: "none" } },
 
         // Back button on the left
         React.createElement(
@@ -401,19 +401,53 @@ const SeatingViewerCanvas = ({
 }) => {
   // Get format function from shared utils
   const { formatStudentName } = window.SharedUtils;
+  const containerRef = React.useRef(null);
+  const [gridSize, setGridSize] = React.useState(80);
+
+  // Calculate grid size based on container
+  React.useEffect(() => {
+    const calculateGridSize = () => {
+      if (!containerRef.current) return;
+      
+      const container = containerRef.current.parentElement?.parentElement; // Go up two levels to get main container
+      if (!container) return;
+      
+      // Get available space more accurately
+      const containerRect = container.getBoundingClientRect();
+      const availableWidth = containerRect.width - 40; // Small padding
+      const availableHeight = window.innerHeight - containerRect.top - 100; // Use viewport height minus top position
+      
+      // Calculate optimal grid size to fit the layout
+      const gridSizeByWidth = Math.floor(availableWidth / layout.room_width);
+      const gridSizeByHeight = Math.floor(availableHeight / layout.room_height);
+      
+      // Use the smaller of the two to ensure it fits
+      const optimalGridSize = Math.min(gridSizeByWidth, gridSizeByHeight, 120); // Increased cap to 120px
+      const finalGridSize = Math.max(optimalGridSize, 50); // Increased min to 50px
+      
+      setGridSize(finalGridSize);
+    };
+    
+    // Add small delay to ensure DOM is ready
+    setTimeout(calculateGridSize, 100);
+    window.addEventListener('resize', calculateGridSize);
+    return () => window.removeEventListener('resize', calculateGridSize);
+  }, [layout.room_width, layout.room_height]);
 
   return React.createElement(
     "div",
     {
+      ref: containerRef,
       className: `seating-canvas ${draggedStudent ? "drag-active" : ""}`,
       style: {
-        width: `${layout.room_width * 80}px`,
-        height: `${layout.room_height * 80}px`,
+        width: `${layout.room_width * gridSize}px`,
+        height: `${layout.room_height * gridSize}px`,
         position: "relative",
-        backgroundColor: "#f8f9fa",
-        border: "1px solid #dee2e6",
+        backgroundColor: "#ffffff",
+        border: "2px solid #e5e7eb",
         borderRadius: "8px",
-        overflow: "hidden",
+        overflow: "visible",
+        boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
       },
     },
 
@@ -426,10 +460,10 @@ const SeatingViewerCanvas = ({
           className: "layout-obstacle",
           style: {
             position: "absolute",
-            left: `${obstacle.x_position * 80}px`,
-            top: `${obstacle.y_position * 80}px`,
-            width: `${obstacle.width * 80}px`,
-            height: `${obstacle.height * 80}px`,
+            left: `${obstacle.x_position * gridSize}px`,
+            top: `${obstacle.y_position * gridSize}px`,
+            width: `${obstacle.width * gridSize}px`,
+            height: `${obstacle.height * gridSize}px`,
             backgroundColor: obstacle.color || "#6c757d",
             opacity: 0.3,
             borderRadius: "4px",
@@ -449,12 +483,12 @@ const SeatingViewerCanvas = ({
           className: "classroom-table",
           style: {
             position: "absolute",
-            left: `${table.x_position * 80}px`,
-            top: `${table.y_position * 80}px`,
-            width: `${table.width * 80}px`,
-            height: `${table.height * 80}px`,
-            backgroundColor: "#e9ecef",
-            border: "2px solid #adb5bd",
+            left: `${table.x_position * gridSize}px`,
+            top: `${table.y_position * gridSize}px`,
+            width: `${table.width * gridSize}px`,
+            height: `${table.height * gridSize}px`,
+            backgroundColor: "#dbeafe",
+            border: "2px solid #60a5fa",
             borderRadius: table.table_shape === "round" ? "50%" : "8px",
             transform: `rotate(${table.rotation || 0}deg)`,
             display: "flex",
@@ -463,19 +497,24 @@ const SeatingViewerCanvas = ({
             justifyContent: "center",
           },
         },
+        // Table label - centered, just number, white text
         React.createElement(
           "div",
           {
-            className: "table-label",
             style: {
               position: "absolute",
-              top: "-20px",
-              fontSize: "12px",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              fontSize: "28px",
               fontWeight: "bold",
-              color: "#495057",
+              color: "#ffffff",
+              textShadow: "0 2px 4px rgba(0, 0, 0, 0.5)",
+              pointerEvents: "none",
+              zIndex: 5,
             },
           },
-          table.table_name || `T${table.table_number}`
+          String(table.table_number)
         ),
 
         // Render seats
@@ -486,30 +525,23 @@ const SeatingViewerCanvas = ({
             ? students.find((s) => s.id === assignedStudentId)
             : null;
 
+          // Use consistent seat size - 80% of grid
+          const seatStyle = LayoutStyles.getSeatStyle(seat, {
+            isOccupied: !!assignedStudent,
+            isSelected: false,
+            isAccessible: false,
+            gridSize: gridSize,
+            showName: !!assignedStudent
+          });
+          
           return React.createElement(
             "div",
             {
               key: seat.seat_number,
-              className: `seat ${assignedStudent ? "occupied" : "empty"} ${
-                seat.is_accessible ? "accessible" : ""
-              }`,
+              className: "",
               style: {
-                position: "absolute",
-                left: `${seat.relative_x * 80}px`,
-                top: `${seat.relative_y * 80}px`,
-                width: "65px",
-                height: "45px",
-                backgroundColor: assignedStudent ? "#007bff" : "#ffffff",
-                color: assignedStudent ? "#ffffff" : "#6c757d",
-                border: assignedStudent ? "2px solid #0056b3" : "2px solid #dee2e6",
-                borderRadius: "8px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "11px",
-                fontWeight: assignedStudent ? "500" : "normal",
+                ...seatStyle,
                 cursor: onSeatClick ? "pointer" : "default",
-                transition: "all 0.2s",
               },
               draggable: assignedStudent && onDragStart ? true : false,
               onDragStart:
@@ -537,19 +569,37 @@ const SeatingViewerCanvas = ({
                 : `Seat ${seat.seat_number}`,
             },
             assignedStudent
-              ? React.createElement(
-                  "div",
-                  {
-                    className: "seat-name",
-                    style: {
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                      maxWidth: "57px",
-                    },
-                  },
-                  formatStudentName(assignedStudent.first_name, assignedStudent.last_name)
-                )
+              ? (() => {
+                  const { line1, line2 } = LayoutStyles.formatSeatName(
+                    assignedStudent.first_name,
+                    assignedStudent.last_name
+                  );
+                  return React.createElement(
+                    React.Fragment,
+                    null,
+                    React.createElement(
+                      "div",
+                      {
+                        style: {
+                          fontSize: "11px",
+                          fontWeight: "bold",
+                          lineHeight: "1.1",
+                        },
+                      },
+                      line1
+                    ),
+                    React.createElement(
+                      "div",
+                      {
+                        style: {
+                          fontSize: "10px",
+                          lineHeight: "1.1",
+                        },
+                      },
+                      line2
+                    )
+                  );
+                })()
               : seat.seat_number
           );
         })

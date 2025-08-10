@@ -1,4 +1,4 @@
-// components/TableProperties.js - Improved Table Properties Panel Component
+// components/TableProperties.js - Table Properties Panel (No Tailwind)
 const TablePropertiesPanel = ({ selectedItem, layout, setLayout, setSelectedItem }) => {
   if (!selectedItem || selectedItem.type !== "table") return null;
 
@@ -55,21 +55,140 @@ const TablePropertiesPanel = ({ selectedItem, layout, setLayout, setSelectedItem
     updateTableProperty("seats", newSeats);
   };
 
+  // Styles
+  const containerStyle = {
+    backgroundColor: '#ffffff',
+    borderBottom: '1px solid #e5e7eb',
+    maxHeight: '384px',
+    overflowY: 'auto'
+  };
+
+  const headerStyle = {
+    padding: '16px',
+    position: 'sticky',
+    top: 0,
+    backgroundColor: '#ffffff',
+    borderBottom: '1px solid #f3f4f6',
+    zIndex: 10
+  };
+
+  const titleStyle = {
+    fontSize: '18px',
+    fontWeight: '600',
+    color: '#1f2937',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px'
+  };
+
+  const sectionStyle = {
+    padding: '16px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '16px'
+  };
+
+  const sectionTitleStyle = {
+    fontSize: '14px',
+    fontWeight: '600',
+    color: '#374151',
+    borderBottom: '1px solid #e5e7eb',
+    paddingBottom: '4px'
+  };
+
+  const labelStyle = {
+    display: 'block',
+    fontSize: '14px',
+    fontWeight: '500',
+    color: '#374151',
+    marginBottom: '4px'
+  };
+
+  const inputStyle = {
+    width: '100%',
+    padding: '8px 12px',
+    fontSize: '14px',
+    border: '1px solid #d1d5db',
+    borderRadius: '6px',
+    outline: 'none',
+    transition: 'border-color 0.2s',
+    boxSizing: 'border-box'
+  };
+
+  const selectStyle = {
+    ...inputStyle,
+    cursor: 'pointer'
+  };
+
+  const gridStyle = {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: '12px'
+  };
+
+  const buttonStyle = (variant) => {
+    const baseStyle = {
+      width: '100%',
+      padding: '8px 12px',
+      borderRadius: '6px',
+      border: 'none',
+      fontWeight: '500',
+      fontSize: '14px',
+      cursor: 'pointer',
+      transition: 'background-color 0.2s',
+      outline: 'none'
+    };
+
+    if (variant === 'primary') {
+      return {
+        ...baseStyle,
+        backgroundColor: '#dbeafe',
+        color: '#1e40af'
+      };
+    } else if (variant === 'danger') {
+      return {
+        ...baseStyle,
+        backgroundColor: '#fee2e2',
+        color: '#991b1b'
+      };
+    } else if (variant === 'success') {
+      return {
+        ...baseStyle,
+        backgroundColor: '#d1fae5',
+        color: '#065f46'
+      };
+    }
+    return baseStyle;
+  };
+
+  const seatItemStyle = {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '8px 12px',
+    backgroundColor: '#ffffff',
+    borderRadius: '6px',
+    border: '1px solid #f3f4f6'
+  };
+
+  const summaryBoxStyle = {
+    backgroundColor: '#eff6ff',
+    border: '1px solid #bfdbfe',
+    borderRadius: '8px',
+    padding: '12px'
+  };
+
   return React.createElement(
     "div",
-    {
-      className: "bg-white border-b border-gray-200 max-h-96 overflow-y-auto",
-    },
+    { style: containerStyle },
+    
+    // Header
     React.createElement(
       "div",
-      {
-        className: "p-4 sticky top-0 bg-white border-b border-gray-100 z-10",
-      },
+      { style: headerStyle },
       React.createElement(
         "h3",
-        {
-          className: "text-lg font-semibold text-gray-800 flex items-center gap-2",
-        },
+        { style: titleStyle },
         React.createElement("span", null, "🪑"),
         "Table Properties"
       )
@@ -77,21 +196,15 @@ const TablePropertiesPanel = ({ selectedItem, layout, setLayout, setSelectedItem
 
     React.createElement(
       "div",
-      {
-        className: "p-4 space-y-4",
-      },
+      { style: sectionStyle },
 
       // Basic Information Section
       React.createElement(
         "div",
-        {
-          className: "space-y-3",
-        },
+        { style: { display: 'flex', flexDirection: 'column', gap: '12px' } },
         React.createElement(
           "h4",
-          {
-            className: "text-sm font-semibold text-gray-700 border-b border-gray-200 pb-1",
-          },
+          { style: sectionTitleStyle },
           "Basic Information"
         ),
 
@@ -101,18 +214,17 @@ const TablePropertiesPanel = ({ selectedItem, layout, setLayout, setSelectedItem
           null,
           React.createElement(
             "label",
-            {
-              className: "block text-sm font-medium text-gray-700 mb-1",
-            },
+            { style: labelStyle },
             "Table Name"
           ),
           React.createElement("input", {
             type: "text",
             value: table.table_name,
             onChange: (e) => updateTableProperty("table_name", e.target.value),
-            className:
-              "w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500",
+            style: inputStyle,
             placeholder: "Enter table name",
+            onFocus: (e) => e.target.style.borderColor = '#3b82f6',
+            onBlur: (e) => e.target.style.borderColor = '#d1d5db'
           })
         ),
 
@@ -122,9 +234,7 @@ const TablePropertiesPanel = ({ selectedItem, layout, setLayout, setSelectedItem
           null,
           React.createElement(
             "label",
-            {
-              className: "block text-sm font-medium text-gray-700 mb-1",
-            },
+            { style: labelStyle },
             "Shape"
           ),
           React.createElement(
@@ -132,8 +242,9 @@ const TablePropertiesPanel = ({ selectedItem, layout, setLayout, setSelectedItem
             {
               value: table.table_shape,
               onChange: (e) => updateTableProperty("table_shape", e.target.value),
-              className:
-                "w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500",
+              style: selectStyle,
+              onFocus: (e) => e.target.style.borderColor = '#3b82f6',
+              onBlur: (e) => e.target.style.borderColor = '#d1d5db'
             },
             TABLE_SHAPES.map((shape) =>
               React.createElement(
@@ -154,9 +265,7 @@ const TablePropertiesPanel = ({ selectedItem, layout, setLayout, setSelectedItem
           null,
           React.createElement(
             "label",
-            {
-              className: "block text-sm font-medium text-gray-700 mb-1",
-            },
+            { style: labelStyle },
             "Maximum Seats"
           ),
           React.createElement("input", {
@@ -170,10 +279,11 @@ const TablePropertiesPanel = ({ selectedItem, layout, setLayout, setSelectedItem
               );
               updateTableProperty("max_seats", constrainedMaxSeats);
             },
-            className:
-              "w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500",
+            style: inputStyle,
             min: TABLE_CONSTRAINTS.MIN_SEATS,
             max: TABLE_CONSTRAINTS.MAX_SEATS,
+            onFocus: (e) => e.target.style.borderColor = '#3b82f6',
+            onBlur: (e) => e.target.style.borderColor = '#d1d5db'
           })
         )
       ),
@@ -181,31 +291,23 @@ const TablePropertiesPanel = ({ selectedItem, layout, setLayout, setSelectedItem
       // Size & Position Section
       React.createElement(
         "div",
-        {
-          className: "space-y-3",
-        },
+        { style: { display: 'flex', flexDirection: 'column', gap: '12px' } },
         React.createElement(
           "h4",
-          {
-            className: "text-sm font-semibold text-gray-700 border-b border-gray-200 pb-1",
-          },
+          { style: sectionTitleStyle },
           "Size & Position"
         ),
 
         // Dimensions
         React.createElement(
           "div",
-          {
-            className: "grid grid-cols-2 gap-3",
-          },
+          { style: gridStyle },
           React.createElement(
             "div",
             null,
             React.createElement(
               "label",
-              {
-                className: "block text-sm font-medium text-gray-700 mb-1",
-              },
+              { style: labelStyle },
               "Width (grid units)"
             ),
             React.createElement("input", {
@@ -219,10 +321,11 @@ const TablePropertiesPanel = ({ selectedItem, layout, setLayout, setSelectedItem
                 );
                 updateTableProperty("width", constrainedWidth);
               },
-              className:
-                "w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500",
+              style: inputStyle,
               min: TABLE_CONSTRAINTS.MIN_WIDTH,
               max: TABLE_CONSTRAINTS.MAX_WIDTH,
+              onFocus: (e) => e.target.style.borderColor = '#3b82f6',
+              onBlur: (e) => e.target.style.borderColor = '#d1d5db'
             })
           ),
           React.createElement(
@@ -230,9 +333,7 @@ const TablePropertiesPanel = ({ selectedItem, layout, setLayout, setSelectedItem
             null,
             React.createElement(
               "label",
-              {
-                className: "block text-sm font-medium text-gray-700 mb-1",
-              },
+              { style: labelStyle },
               "Height (grid units)"
             ),
             React.createElement("input", {
@@ -246,10 +347,11 @@ const TablePropertiesPanel = ({ selectedItem, layout, setLayout, setSelectedItem
                 );
                 updateTableProperty("height", constrainedHeight);
               },
-              className:
-                "w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500",
+              style: inputStyle,
               min: TABLE_CONSTRAINTS.MIN_HEIGHT,
               max: TABLE_CONSTRAINTS.MAX_HEIGHT,
+              onFocus: (e) => e.target.style.borderColor = '#3b82f6',
+              onBlur: (e) => e.target.style.borderColor = '#d1d5db'
             })
           )
         ),
@@ -257,17 +359,13 @@ const TablePropertiesPanel = ({ selectedItem, layout, setLayout, setSelectedItem
         // Position Controls
         React.createElement(
           "div",
-          {
-            className: "grid grid-cols-2 gap-3",
-          },
+          { style: gridStyle },
           React.createElement(
             "div",
             null,
             React.createElement(
               "label",
-              {
-                className: "block text-sm font-medium text-gray-700 mb-1",
-              },
+              { style: labelStyle },
               "X Position"
             ),
             React.createElement("input", {
@@ -278,10 +376,11 @@ const TablePropertiesPanel = ({ selectedItem, layout, setLayout, setSelectedItem
                 const constrainedX = Math.max(0, Math.min(newX, layout.room_width - table.width));
                 updateTableProperty("x_position", constrainedX);
               },
-              className:
-                "w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500",
+              style: inputStyle,
               min: "0",
               max: layout.room_width - table.width,
+              onFocus: (e) => e.target.style.borderColor = '#3b82f6',
+              onBlur: (e) => e.target.style.borderColor = '#d1d5db'
             })
           ),
           React.createElement(
@@ -289,9 +388,7 @@ const TablePropertiesPanel = ({ selectedItem, layout, setLayout, setSelectedItem
             null,
             React.createElement(
               "label",
-              {
-                className: "block text-sm font-medium text-gray-700 mb-1",
-              },
+              { style: labelStyle },
               "Y Position"
             ),
             React.createElement("input", {
@@ -302,10 +399,11 @@ const TablePropertiesPanel = ({ selectedItem, layout, setLayout, setSelectedItem
                 const constrainedY = Math.max(0, Math.min(newY, layout.room_height - table.height));
                 updateTableProperty("y_position", constrainedY);
               },
-              className:
-                "w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500",
+              style: inputStyle,
               min: "0",
               max: layout.room_height - table.height,
+              onFocus: (e) => e.target.style.borderColor = '#3b82f6',
+              onBlur: (e) => e.target.style.borderColor = '#d1d5db'
             })
           )
         ),
@@ -316,9 +414,7 @@ const TablePropertiesPanel = ({ selectedItem, layout, setLayout, setSelectedItem
           null,
           React.createElement(
             "label",
-            {
-              className: "block text-sm font-medium text-gray-700 mb-1",
-            },
+            { style: labelStyle },
             "Rotation"
           ),
           React.createElement(
@@ -326,8 +422,9 @@ const TablePropertiesPanel = ({ selectedItem, layout, setLayout, setSelectedItem
             {
               value: table.rotation || 0,
               onChange: (e) => updateTableProperty("rotation", parseInt(e.target.value)),
-              className:
-                "w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500",
+              style: selectStyle,
+              onFocus: (e) => e.target.style.borderColor = '#3b82f6',
+              onBlur: (e) => e.target.style.borderColor = '#d1d5db'
             },
             React.createElement("option", { value: 0 }, "0° (Normal)"),
             React.createElement("option", { value: 90 }, "90° (Clockwise)"),
@@ -342,20 +439,13 @@ const TablePropertiesPanel = ({ selectedItem, layout, setLayout, setSelectedItem
         table.seats.length > 0 &&
         React.createElement(
           "div",
-          {
-            className: "space-y-3",
-          },
+          { style: { display: 'flex', flexDirection: 'column', gap: '12px' } },
           React.createElement(
             "div",
-            {
-              className: "flex items-center justify-between",
-            },
+            { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' } },
             React.createElement(
               "h4",
-              {
-                className:
-                  "text-sm font-semibold text-gray-700 border-b border-gray-200 pb-1 flex-1",
-              },
+              { style: { ...sectionTitleStyle, flex: 1 } },
               `Seats Configuration (${table.seats.length})`
             ),
             React.createElement(
@@ -366,9 +456,21 @@ const TablePropertiesPanel = ({ selectedItem, layout, setLayout, setSelectedItem
                     "seats",
                     generateSeats(table.table_shape, table.max_seats, table.width, table.height)
                   ),
-                className:
-                  "ml-2 px-2 py-1 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200 transition-colors font-medium",
+                style: {
+                  marginLeft: '8px',
+                  padding: '4px 8px',
+                  fontSize: '12px',
+                  backgroundColor: '#d1fae5',
+                  color: '#065f46',
+                  borderRadius: '4px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontWeight: '500',
+                  transition: 'background-color 0.2s'
+                },
                 title: "Regenerate seat positions",
+                onMouseEnter: (e) => e.target.style.backgroundColor = '#a7f3d0',
+                onMouseLeave: (e) => e.target.style.backgroundColor = '#d1fae5'
               },
               "🔄 Regenerate"
             )
@@ -377,38 +479,44 @@ const TablePropertiesPanel = ({ selectedItem, layout, setLayout, setSelectedItem
           React.createElement(
             "div",
             {
-              className:
-                "bg-gray-50 border border-gray-200 rounded-lg p-3 max-h-48 overflow-y-auto",
+              style: {
+                backgroundColor: '#f9fafb',
+                border: '1px solid #e5e7eb',
+                borderRadius: '8px',
+                padding: '12px',
+                maxHeight: '192px',
+                overflowY: 'auto'
+              }
             },
             React.createElement(
               "div",
-              {
-                className: "space-y-2",
-              },
+              { style: { display: 'flex', flexDirection: 'column', gap: '8px' } },
               table.seats.map((seat) =>
                 React.createElement(
                   "div",
                   {
                     key: seat.seat_number,
-                    className:
-                      "flex items-center justify-between py-2 px-3 bg-white rounded border border-gray-100",
+                    style: seatItemStyle
                   },
                   React.createElement(
                     "div",
-                    {
-                      className: "flex items-center gap-3",
-                    },
+                    { style: { display: 'flex', alignItems: 'center', gap: '12px' } },
                     React.createElement(
                       "span",
-                      {
-                        className: "font-medium text-sm text-gray-700 min-w-[60px]",
-                      },
+                      { style: { fontWeight: '500', fontSize: '14px', color: '#374151', minWidth: '60px' } },
                       `Seat ${seat.seat_number}`
                     ),
                     React.createElement(
                       "span",
                       {
-                        className: "text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded font-mono",
+                        style: {
+                          fontSize: '12px',
+                          color: '#6b7280',
+                          backgroundColor: '#f3f4f6',
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                          fontFamily: 'monospace'
+                        }
                       },
                       `${table.table_number}-${seat.seat_number}`
                     )
@@ -417,14 +525,26 @@ const TablePropertiesPanel = ({ selectedItem, layout, setLayout, setSelectedItem
                     "button",
                     {
                       onClick: () => toggleSeatAccessibility(seat.seat_number),
-                      className: `text-sm px-3 py-1 rounded font-medium transition-colors ${
-                        seat.is_accessible
-                          ? "bg-green-100 text-green-700 hover:bg-green-200"
-                          : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                      }`,
+                      style: {
+                        fontSize: '14px',
+                        padding: '4px 12px',
+                        borderRadius: '4px',
+                        fontWeight: '500',
+                        transition: 'background-color 0.2s',
+                        backgroundColor: seat.is_accessible ? '#d1fae5' : '#f3f4f6',
+                        color: seat.is_accessible ? '#065f46' : '#6b7280',
+                        border: 'none',
+                        cursor: 'pointer'
+                      },
                       title: seat.is_accessible
                         ? "Click to make regular seat"
                         : "Click to make accessible seat",
+                      onMouseEnter: (e) => {
+                        e.target.style.backgroundColor = seat.is_accessible ? '#a7f3d0' : '#e5e7eb';
+                      },
+                      onMouseLeave: (e) => {
+                        e.target.style.backgroundColor = seat.is_accessible ? '#d1fae5' : '#f3f4f6';
+                      }
                     },
                     seat.is_accessible
                       ? React.createElement("span", null, "♿ Accessible")
@@ -439,91 +559,63 @@ const TablePropertiesPanel = ({ selectedItem, layout, setLayout, setSelectedItem
       // Table Summary Section
       React.createElement(
         "div",
-        {
-          className: "space-y-3",
-        },
+        { style: { display: 'flex', flexDirection: 'column', gap: '12px' } },
         React.createElement(
           "h4",
-          {
-            className: "text-sm font-semibold text-gray-700 border-b border-gray-200 pb-1",
-          },
+          { style: sectionTitleStyle },
           "Summary"
         ),
         React.createElement(
           "div",
-          {
-            className: "bg-blue-50 border border-blue-200 rounded-lg p-3",
-          },
+          { style: summaryBoxStyle },
           React.createElement(
             "div",
-            {
-              className: "grid grid-cols-2 gap-3 text-sm",
-            },
+            { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '14px' } },
             React.createElement(
               "div",
-              {
-                className: "space-y-1",
-              },
+              { style: { display: 'flex', flexDirection: 'column', gap: '4px' } },
               React.createElement(
                 "div",
-                {
-                  className: "text-blue-800 font-medium",
-                },
+                { style: { color: '#1e40af', fontWeight: '500' } },
                 "Physical"
               ),
               React.createElement(
                 "div",
-                {
-                  className: "text-blue-700",
-                },
+                { style: { color: '#1d4ed8' } },
                 `Size: ${table.width} × ${table.height}`
               ),
               React.createElement(
                 "div",
-                {
-                  className: "text-blue-700",
-                },
+                { style: { color: '#1d4ed8' } },
                 `Position: (${table.x_position}, ${table.y_position})`
               ),
               React.createElement(
                 "div",
-                {
-                  className: "text-blue-700",
-                },
+                { style: { color: '#1d4ed8' } },
                 `Rotation: ${table.rotation || 0}°`
               )
             ),
             React.createElement(
               "div",
-              {
-                className: "space-y-1",
-              },
+              { style: { display: 'flex', flexDirection: 'column', gap: '4px' } },
               React.createElement(
                 "div",
-                {
-                  className: "text-blue-800 font-medium",
-                },
+                { style: { color: '#1e40af', fontWeight: '500' } },
                 "Seating"
               ),
               React.createElement(
                 "div",
-                {
-                  className: "text-blue-700",
-                },
+                { style: { color: '#1d4ed8' } },
                 `Capacity: ${table.max_seats}`
               ),
               React.createElement(
                 "div",
-                {
-                  className: "text-blue-700",
-                },
+                { style: { color: '#1d4ed8' } },
                 `Shape: ${TABLE_SHAPES.find((s) => s.id === table.table_shape)?.name || "Unknown"}`
               ),
               React.createElement(
                 "div",
-                {
-                  className: "text-blue-700",
-                },
+                { style: { color: '#1d4ed8' } },
                 `Accessible: ${table.seats?.filter((s) => s.is_accessible).length || 0}`
               )
             )
@@ -534,9 +626,8 @@ const TablePropertiesPanel = ({ selectedItem, layout, setLayout, setSelectedItem
       // Action Buttons Section
       React.createElement(
         "div",
-        {
-          className: "space-y-2 pt-2 border-t border-gray-200",
-        },
+        { style: { display: 'flex', flexDirection: 'column', gap: '8px', paddingTop: '8px', borderTop: '1px solid #e5e7eb' } },
+        
         // Duplicate Button
         React.createElement(
           "button",
@@ -557,8 +648,9 @@ const TablePropertiesPanel = ({ selectedItem, layout, setLayout, setSelectedItem
               }));
               setSelectedItem({ type: "table", item: newTable });
             },
-            className:
-              "w-full px-3 py-2 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition-colors font-medium text-sm",
+            style: buttonStyle('primary'),
+            onMouseEnter: (e) => e.target.style.backgroundColor = '#bfdbfe',
+            onMouseLeave: (e) => e.target.style.backgroundColor = '#dbeafe'
           },
           "📋 Duplicate Table"
         ),
@@ -576,8 +668,9 @@ const TablePropertiesPanel = ({ selectedItem, layout, setLayout, setSelectedItem
                 setSelectedItem(null);
               }
             },
-            className:
-              "w-full px-3 py-2 bg-red-100 text-red-700 rounded-md hover:bg-red-200 transition-colors font-medium text-sm",
+            style: buttonStyle('danger'),
+            onMouseEnter: (e) => e.target.style.backgroundColor = '#fecaca',
+            onMouseLeave: (e) => e.target.style.backgroundColor = '#fee2e2'
           },
           "🗑️ Delete Table"
         )

@@ -1,7 +1,7 @@
 // constants.js - All constants and configuration
 
 // Grid and layout constants
-const GRID_SIZE = 40;
+const GRID_SIZE = 50;
 
 // API configuration
 const API_BASE_URL =

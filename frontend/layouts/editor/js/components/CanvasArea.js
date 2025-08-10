@@ -1,4 +1,7 @@
-// components/CanvasArea.js - Canvas Area Component
+// components/CanvasArea.js - Canvas Area Component (No Tailwind)
+// Get shared styles
+const { LayoutStyles } = window;
+
 const CanvasArea = ({
   layout,
   setLayout,
@@ -10,6 +13,7 @@ const CanvasArea = ({
   const canvasRef = useRef(null);
   const [draggedItem, setDraggedItem] = useState(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [selectedSeat, setSelectedSeat] = useState(null); // {tableId, seatNumber}
 
   const handleCanvasClick = (e) => {
     // Don't create new items if we're in the middle of a drag
@@ -84,6 +88,56 @@ const CanvasArea = ({
       y: startY - item.y_position * GRID_SIZE,
     });
     setSelectedItem({ item, type });
+    setSelectedSeat(null); // Clear seat selection when selecting table
+  };
+
+  const handleSeatClick = (e, tableId, seatNumber) => {
+    if (selectedTool !== TOOL_MODES.SELECT) return;
+    
+    e.stopPropagation();
+    setSelectedSeat({ tableId, seatNumber });
+    setSelectedItem(null); // Clear table/obstacle selection
+  };
+
+  const nudgeSeat = (direction) => {
+    if (!selectedSeat) return;
+
+    const table = layout.tables.find(t => t.id === selectedSeat.tableId);
+    if (!table) return;
+
+    const nudgeAmount = 0.02; // 2% movement per key press
+    
+    const updatedSeats = table.seats.map(seat => {
+      if (seat.seat_number === selectedSeat.seatNumber) {
+        let newX = seat.relative_x;
+        let newY = seat.relative_y;
+        
+        switch(direction) {
+          case 'ArrowUp':
+            newY = Math.max(0, newY - nudgeAmount);
+            break;
+          case 'ArrowDown':
+            newY = Math.min(1, newY + nudgeAmount);
+            break;
+          case 'ArrowLeft':
+            newX = Math.max(0, newX - nudgeAmount);
+            break;
+          case 'ArrowRight':
+            newX = Math.min(1, newX + nudgeAmount);
+            break;
+        }
+        
+        return { ...seat, relative_x: newX, relative_y: newY };
+      }
+      return seat;
+    });
+
+    const updatedTable = { ...table, seats: updatedSeats };
+    
+    setLayout(prev => ({
+      ...prev,
+      tables: prev.tables.map(t => t.id === table.id ? updatedTable : t)
+    }));
   };
 
   const handleMouseMove = useCallback(
@@ -145,46 +199,123 @@ const CanvasArea = ({
     }
   }, [draggedItem, handleMouseMove, handleMouseUp]);
 
+  // Handle keyboard events for nudging seats
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (!selectedSeat) return;
+      
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+        e.preventDefault();
+        nudgeSeat(e.key);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [selectedSeat, layout]);
+
+  // Container styles
+  const containerStyle = {
+    flex: 1,
+    position: 'relative',
+    backgroundColor: '#f8f9fa',
+    overflow: 'auto',
+    padding: '32px'
+  };
+
+  // Canvas wrapper styles - use shared styles
+  const canvasWrapperStyle = {
+    ...LayoutStyles.getCanvasContainerStyle(layout.room_width, layout.room_height, GRID_SIZE),
+    overflow: 'hidden',
+    maxWidth: 'fit-content',
+    maxHeight: 'fit-content'
+  };
+
+  // Canvas style
+  const canvasStyle = {
+    position: 'relative',
+    cursor: selectedTool === TOOL_MODES.SELECT ? 'default' : 'crosshair',
+    width: layout.room_width * GRID_SIZE,
+    height: layout.room_height * GRID_SIZE
+  };
+
+  // Grid background style - use shared styles
+  const gridStyle = LayoutStyles.getGridStyle(GRID_SIZE);
+
+  // Table styles - use shared styles and add cursor
+  const getTableStyle = (table, isSelected) => ({
+    ...LayoutStyles.getTableStyle(table, isSelected, draggedItem?.item?.id === table.id, GRID_SIZE),
+    cursor: selectedTool === TOOL_MODES.SELECT ? 'move' : 'pointer'
+  });
+
+  // Table label style - use shared styles
+  const tableLabelStyle = LayoutStyles.getTableLabelStyle();
+
+  // Seat styles - 80% of grid size (handled by shared styles)
+  const getSeatStyle = (seat, tableId, isSelected) => ({
+    ...LayoutStyles.getSeatStyle(seat, {
+      isOccupied: false,
+      isSelected: isSelected,
+      isAccessible: false,
+      gridSize: GRID_SIZE,
+      showName: false
+    }),
+    cursor: selectedTool === TOOL_MODES.SELECT ? 'pointer' : 'default',
+    pointerEvents: selectedTool === TOOL_MODES.SELECT ? 'auto' : 'none'
+  });
+
+  // Obstacle styles - use shared styles and add cursor
+  const getObstacleStyle = (obstacle, isSelected) => ({
+    ...LayoutStyles.getObstacleStyle(obstacle, isSelected, draggedItem?.item?.id === obstacle.id, GRID_SIZE),
+    cursor: selectedTool === TOOL_MODES.SELECT ? 'move' : 'pointer'
+  });
+
+  // Obstacle label style - use shared styles
+  const obstacleLabelStyle = LayoutStyles.getObstacleLabelStyle();
+
   return React.createElement(
     "div",
-    {
-      className: "flex-1 relative bg-gray-50 overflow-auto p-8",
-    },
+    { style: containerStyle },
     React.createElement(
       "div",
-      {
-        className: "bg-white border-2 border-gray-300 shadow-lg rounded-lg overflow-hidden",
-        style: {
-          width: layout.room_width * GRID_SIZE,
-          height: layout.room_height * GRID_SIZE,
-          maxWidth: "fit-content",
-          maxHeight: "fit-content",
-        },
-      },
+      { style: canvasWrapperStyle },
       React.createElement(
         "div",
         {
           ref: canvasRef,
-          className: "relative cursor-crosshair",
-          style: {
-            width: layout.room_width * GRID_SIZE,
-            height: layout.room_height * GRID_SIZE,
-          },
+          style: canvasStyle,
           onClick: handleCanvasClick,
         },
 
         // Grid background
-        showGrid &&
-          React.createElement("div", {
-            className: "absolute inset-0 pointer-events-none",
+        showGrid && React.createElement("div", { style: gridStyle }),
+
+        // Selected seat indicator
+        selectedSeat && React.createElement(
+          "div",
+          {
             style: {
-              backgroundImage: `
-                                linear-gradient(to right, #e5e7eb 1px, transparent 1px),
-                                linear-gradient(to bottom, #e5e7eb 1px, transparent 1px)
-                            `,
-              backgroundSize: `${GRID_SIZE}px ${GRID_SIZE}px`,
-            },
-          }),
+              position: 'absolute',
+              top: '10px',
+              right: '10px',
+              backgroundColor: '#fef3c7',
+              border: '2px solid #f59e0b',
+              borderRadius: '8px',
+              padding: '8px 12px',
+              fontSize: '14px',
+              fontWeight: 'bold',
+              color: '#92400e',
+              zIndex: 100,
+              boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
+            }
+          },
+          `Selected: Table ${layout.tables.find(t => t.id === selectedSeat.tableId)?.table_number} - Seat ${selectedSeat.seatNumber}`,
+          React.createElement(
+            "div",
+            { style: { fontSize: '12px', fontWeight: 'normal', marginTop: '4px' } },
+            "Use arrow keys to nudge"
+          )
+        ),
 
         // Tables
         layout.tables.map((table) =>
@@ -192,20 +323,7 @@ const CanvasArea = ({
             "div",
             {
               key: table.id,
-              className: `absolute border-2 bg-blue-100 transition-all duration-200 ${
-                table.table_shape === "round" ? "rounded-full" : "rounded-lg"
-              } ${
-                selectedItem?.item?.id === table.id
-                  ? "border-blue-500 shadow-lg ring-2 ring-blue-300 z-10"
-                  : "border-blue-400 hover:border-blue-500 hover:shadow-md"
-              } ${selectedTool === TOOL_MODES.SELECT ? "cursor-move" : "cursor-pointer"}`,
-              style: {
-                left: table.x_position * GRID_SIZE,
-                top: table.y_position * GRID_SIZE,
-                width: table.width * GRID_SIZE,
-                height: table.height * GRID_SIZE,
-                transform: draggedItem?.item?.id === table.id ? "scale(1.05)" : "scale(1)",
-              },
+              style: getTableStyle(table, selectedItem?.item?.id === table.id),
               onMouseDown: (e) => handleItemMouseDown(e, table, "table"),
               onClick: (e) => {
                 e.stopPropagation();
@@ -214,33 +332,27 @@ const CanvasArea = ({
                 }
               },
             },
-            // Table label
+            // Table label - centered, just number, white text
             React.createElement(
               "div",
-              {
-                className:
-                  "absolute -top-6 left-0 bg-blue-600 text-white px-2 py-1 rounded text-xs font-semibold pointer-events-none",
-              },
-              table.table_name
+              { style: tableLabelStyle },
+              String(table.table_number)
             ),
 
-            // Individual seat circles - RESTORED!
+            // Individual seats
             table.seats &&
               table.seats.map((seat) =>
                 React.createElement(
                   "div",
                   {
                     key: seat.seat_number,
-                    className: `absolute w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold pointer-events-none transition-colors ${
-                      seat.is_accessible
-                        ? "bg-green-400 border-2 border-green-600 text-green-800 hover:bg-green-500"
-                        : "bg-blue-300 border-2 border-blue-500 text-blue-800 hover:bg-blue-400"
-                    }`,
-                    style: {
-                      left: `calc(${seat.relative_x * 100}% - 12px)`, // Center the 24px circle
-                      top: `calc(${seat.relative_y * 100}% - 12px)`, // Center the 24px circle
-                    },
-                    title: `Seat ${seat.seat_number}${seat.is_accessible ? " (Accessible)" : ""}`,
+                    style: getSeatStyle(
+                      seat, 
+                      table.id,
+                      selectedSeat?.tableId === table.id && selectedSeat?.seatNumber === seat.seat_number
+                    ),
+                    title: `Seat ${seat.seat_number} (Click to select, then use arrow keys to nudge)`,
+                    onClick: (e) => handleSeatClick(e, table.id, seat.seat_number)
                   },
                   seat.seat_number
                 )
@@ -254,19 +366,7 @@ const CanvasArea = ({
             "div",
             {
               key: obstacle.id,
-              className: `absolute border-2 transition-all duration-200 ${
-                selectedItem?.item?.id === obstacle.id
-                  ? "border-orange-500 shadow-lg ring-2 ring-orange-300 z-10"
-                  : "border-gray-400 hover:border-gray-500 hover:shadow-md"
-              } ${selectedTool === TOOL_MODES.SELECT ? "cursor-move" : "cursor-pointer"}`,
-              style: {
-                left: obstacle.x_position * GRID_SIZE,
-                top: obstacle.y_position * GRID_SIZE,
-                width: obstacle.width * GRID_SIZE,
-                height: obstacle.height * GRID_SIZE,
-                backgroundColor: obstacle.color,
-                transform: draggedItem?.item?.id === obstacle.id ? "scale(1.05)" : "scale(1)",
-              },
+              style: getObstacleStyle(obstacle, selectedItem?.item?.id === obstacle.id),
               onMouseDown: (e) => handleItemMouseDown(e, obstacle, "obstacle"),
               onClick: (e) => {
                 e.stopPropagation();
@@ -277,11 +377,7 @@ const CanvasArea = ({
             },
             React.createElement(
               "div",
-              {
-                className:
-                  "absolute inset-0 flex items-center justify-center text-xs font-semibold text-white pointer-events-none",
-                style: { textShadow: "0 1px 2px rgba(0, 0, 0, 0.5)" },
-              },
+              { style: obstacleLabelStyle },
               obstacle.name
             )
           )

@@ -2,7 +2,7 @@
 
 /**
  * Format student name with truncation for display
- * Max 8 characters: "FirstName L." or truncated "First L."
+ * Max 7 characters: "FirstName L" or truncated "First L"
  * @param {string} firstName - Student's first name
  * @param {string} lastName - Student's last name
  * @returns {string} Formatted name
@@ -12,18 +12,18 @@ const formatStudentName = (firstName, lastName) => {
 
   // Get first name and last initial
   const lastInitial = lastName ? lastName[0] : "";
-  const baseName = `${firstName} ${lastInitial}.`;
+  const baseName = `${firstName} ${lastInitial}`;
 
-  // If already 8 chars or less, return as is
-  if (baseName.length <= 8) {
+  // If already 7 chars or less, return as is
+  if (baseName.length <= 7) {
     return baseName;
   }
 
-  // Otherwise, truncate first name to fit within 8 chars
-  // Account for space (1 char) + initial (1 char) + period (1 char) = 3 chars
-  const maxFirstNameLength = 5; // 8 - 3
+  // Otherwise, truncate first name to fit within 7 chars
+  // Account for space (1 char) + initial (1 char) = 2 chars
+  const maxFirstNameLength = 5; // 7 - 2
   const truncatedFirst = firstName.substring(0, maxFirstNameLength);
-  return `${truncatedFirst} ${lastInitial}.`;
+  return `${truncatedFirst} ${lastInitial}`;
 };
 
 /**

@@ -1,4 +1,4 @@
-// components/Sidebar.js - Sidebar Component
+// components/Sidebar.js - Sidebar Component (No Tailwind)
 const Sidebar = ({
   layout,
   setLayout,
@@ -10,62 +10,165 @@ const Sidebar = ({
   selectedItem,
   setSelectedItem,
 }) => {
+  // Sidebar container style
+  const sidebarStyle = {
+    width: '320px',
+    backgroundColor: '#ffffff',
+    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+    display: 'flex',
+    flexDirection: 'column',
+    height: '100%'
+  };
+
+  // Header section style
+  const headerStyle = {
+    padding: '16px',
+    borderBottom: '1px solid #e5e7eb'
+  };
+
+  // Title style
+  const titleStyle = {
+    fontSize: '20px',
+    fontWeight: 'bold',
+    color: '#1f2937',
+    marginBottom: '16px'
+  };
+
+  // Label style
+  const labelStyle = {
+    display: 'block',
+    fontSize: '14px',
+    fontWeight: '500',
+    color: '#374151',
+    marginBottom: '4px'
+  };
+
+  // Input style
+  const inputStyle = {
+    width: '100%',
+    padding: '8px 12px',
+    border: '1px solid #d1d5db',
+    borderRadius: '8px',
+    fontSize: '14px',
+    outline: 'none',
+    transition: 'border-color 0.2s',
+    boxSizing: 'border-box'
+  };
+
+  // Tool button styles
+  const getToolButtonStyle = (isActive) => ({
+    padding: '12px',
+    borderRadius: '8px',
+    transition: 'all 0.2s',
+    backgroundColor: isActive ? '#dbeafe' : '#f9fafb',
+    color: isActive ? '#2563eb' : '#6b7280',
+    border: isActive ? '2px solid #93c5fd' : '2px solid transparent',
+    cursor: 'pointer',
+    textAlign: 'center',
+    outline: 'none'
+  });
+
+  // Grid toggle button style
+  const gridButtonStyle = {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8px',
+    width: '100%',
+    padding: '8px 12px',
+    borderRadius: '8px',
+    transition: 'all 0.2s',
+    backgroundColor: showGrid ? '#d1fae5' : '#f3f4f6',
+    color: showGrid ? '#059669' : '#6b7280',
+    border: 'none',
+    cursor: 'pointer',
+    marginTop: '12px',
+    outline: 'none'
+  };
+
+  // Save button style
+  const saveButtonStyle = {
+    width: '100%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8px',
+    padding: '12px 16px',
+    backgroundColor: '#2563eb',
+    color: '#ffffff',
+    borderRadius: '8px',
+    border: 'none',
+    cursor: 'pointer',
+    fontWeight: '500',
+    fontSize: '16px',
+    transition: 'background-color 0.2s',
+    outline: 'none'
+  };
+
+  // Section style
+  const sectionStyle = {
+    padding: '16px',
+    borderBottom: '1px solid #e5e7eb'
+  };
+
+  // Grid container style
+  const gridContainerStyle = {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: '12px'
+  };
+
+  // Tool grid style
+  const toolGridStyle = {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(3, 1fr)',
+    gap: '8px'
+  };
+
   return React.createElement(
     "div",
-    {
-      className: "w-80 bg-white shadow-lg flex flex-col",
-    },
+    { style: sidebarStyle },
+    
     // Header
     React.createElement(
       "div",
-      {
-        className: "p-4 border-b border-gray-200",
-      },
+      { style: headerStyle },
       React.createElement(
         "h2",
-        {
-          className: "text-xl font-bold text-gray-800 mb-4",
-        },
+        { style: titleStyle },
         "Layout Editor"
       ),
 
       // Layout Info
       React.createElement(
         "div",
-        {
-          className: "space-y-3",
-        },
+        { style: { display: 'flex', flexDirection: 'column', gap: '12px' } },
         React.createElement(
           "div",
           null,
           React.createElement(
             "label",
-            {
-              className: "block text-sm font-medium text-gray-700 mb-1",
-            },
+            { style: labelStyle },
             "Layout Name"
           ),
           React.createElement("input", {
             type: "text",
             value: layout.name,
             onChange: (e) => setLayout((prev) => ({ ...prev, name: e.target.value })),
-            className:
-              "w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500",
+            style: inputStyle,
+            onFocus: (e) => e.target.style.borderColor = '#3b82f6',
+            onBlur: (e) => e.target.style.borderColor = '#d1d5db'
           })
         ),
         React.createElement(
           "div",
-          {
-            className: "grid grid-cols-2 gap-3",
-          },
+          { style: gridContainerStyle },
           React.createElement(
             "div",
             null,
             React.createElement(
               "label",
-              {
-                className: "block text-sm font-medium text-gray-700 mb-1",
-              },
+              { style: labelStyle },
               "Width"
             ),
             React.createElement("input", {
@@ -76,9 +179,11 @@ const Sidebar = ({
                   ...prev,
                   room_width: parseInt(e.target.value) || 15,
                 })),
-              className: "w-full px-3 py-2 border border-gray-300 rounded-lg",
+              style: inputStyle,
               min: ROOM_CONSTRAINTS.MIN_WIDTH,
               max: ROOM_CONSTRAINTS.MAX_WIDTH,
+              onFocus: (e) => e.target.style.borderColor = '#3b82f6',
+              onBlur: (e) => e.target.style.borderColor = '#d1d5db'
             })
           ),
           React.createElement(
@@ -86,9 +191,7 @@ const Sidebar = ({
             null,
             React.createElement(
               "label",
-              {
-                className: "block text-sm font-medium text-gray-700 mb-1",
-              },
+              { style: labelStyle },
               "Height"
             ),
             React.createElement("input", {
@@ -99,9 +202,11 @@ const Sidebar = ({
                   ...prev,
                   room_height: parseInt(e.target.value) || 10,
                 })),
-              className: "w-full px-3 py-2 border border-gray-300 rounded-lg",
+              style: inputStyle,
               min: ROOM_CONSTRAINTS.MIN_HEIGHT,
               max: ROOM_CONSTRAINTS.MAX_HEIGHT,
+              onFocus: (e) => e.target.style.borderColor = '#3b82f6',
+              onBlur: (e) => e.target.style.borderColor = '#d1d5db'
             })
           )
         )
@@ -111,48 +216,42 @@ const Sidebar = ({
     // Tools
     React.createElement(
       "div",
-      {
-        className: "p-4 border-b border-gray-200",
-      },
+      { style: sectionStyle },
       React.createElement(
         "h3",
-        {
-          className: "text-lg font-semibold text-gray-800 mb-3",
-        },
+        { style: { fontSize: '18px', fontWeight: '600', color: '#1f2937', marginBottom: '12px' } },
         "Tools"
       ),
       React.createElement(
         "div",
-        {
-          className: "grid grid-cols-3 gap-2",
-        },
+        { style: toolGridStyle },
         React.createElement(
           "button",
           {
             onClick: () => setSelectedTool(TOOL_MODES.SELECT),
-            className: `p-3 rounded-lg transition-colors ${
-              selectedTool === TOOL_MODES.SELECT
-                ? "bg-blue-100 text-blue-600 border-2 border-blue-300"
-                : "bg-gray-50 text-gray-600 hover:bg-gray-100 border-2 border-transparent"
-            }`,
+            style: getToolButtonStyle(selectedTool === TOOL_MODES.SELECT),
+            onMouseEnter: (e) => {
+              if (selectedTool !== TOOL_MODES.SELECT) {
+                e.target.style.backgroundColor = '#e5e7eb';
+              }
+            },
+            onMouseLeave: (e) => {
+              if (selectedTool !== TOOL_MODES.SELECT) {
+                e.target.style.backgroundColor = '#f9fafb';
+              }
+            }
           },
           React.createElement(
             "div",
-            {
-              className: "text-center",
-            },
+            null,
             React.createElement(
               "div",
-              {
-                className: "text-xl mb-1",
-              },
+              { style: { fontSize: '20px', marginBottom: '4px' } },
               "👆"
             ),
             React.createElement(
               "div",
-              {
-                className: "text-xs",
-              },
+              { style: { fontSize: '12px' } },
               "Select"
             )
           )
@@ -161,29 +260,29 @@ const Sidebar = ({
           "button",
           {
             onClick: () => setSelectedTool(TOOL_MODES.TABLE),
-            className: `p-3 rounded-lg transition-colors ${
-              selectedTool === TOOL_MODES.TABLE
-                ? "bg-green-100 text-green-600 border-2 border-green-300"
-                : "bg-gray-50 text-gray-600 hover:bg-gray-100 border-2 border-transparent"
-            }`,
+            style: getToolButtonStyle(selectedTool === TOOL_MODES.TABLE),
+            onMouseEnter: (e) => {
+              if (selectedTool !== TOOL_MODES.TABLE) {
+                e.target.style.backgroundColor = '#e5e7eb';
+              }
+            },
+            onMouseLeave: (e) => {
+              if (selectedTool !== TOOL_MODES.TABLE) {
+                e.target.style.backgroundColor = '#f9fafb';
+              }
+            }
           },
           React.createElement(
             "div",
-            {
-              className: "text-center",
-            },
+            null,
             React.createElement(
               "div",
-              {
-                className: "text-xl mb-1",
-              },
+              { style: { fontSize: '20px', marginBottom: '4px' } },
               "🪑"
             ),
             React.createElement(
               "div",
-              {
-                className: "text-xs",
-              },
+              { style: { fontSize: '12px' } },
               "Table"
             )
           )
@@ -192,29 +291,29 @@ const Sidebar = ({
           "button",
           {
             onClick: () => setSelectedTool(TOOL_MODES.OBSTACLE),
-            className: `p-3 rounded-lg transition-colors ${
-              selectedTool === TOOL_MODES.OBSTACLE
-                ? "bg-orange-100 text-orange-600 border-2 border-orange-300"
-                : "bg-gray-50 text-gray-600 hover:bg-gray-100 border-2 border-transparent"
-            }`,
+            style: getToolButtonStyle(selectedTool === TOOL_MODES.OBSTACLE),
+            onMouseEnter: (e) => {
+              if (selectedTool !== TOOL_MODES.OBSTACLE) {
+                e.target.style.backgroundColor = '#e5e7eb';
+              }
+            },
+            onMouseLeave: (e) => {
+              if (selectedTool !== TOOL_MODES.OBSTACLE) {
+                e.target.style.backgroundColor = '#f9fafb';
+              }
+            }
           },
           React.createElement(
             "div",
-            {
-              className: "text-center",
-            },
+            null,
             React.createElement(
               "div",
-              {
-                className: "text-xl mb-1",
-              },
+              { style: { fontSize: '20px', marginBottom: '4px' } },
               "📦"
             ),
             React.createElement(
               "div",
-              {
-                className: "text-xs",
-              },
+              { style: { fontSize: '12px' } },
               "Object"
             )
           )
@@ -223,28 +322,22 @@ const Sidebar = ({
 
       // Grid toggle
       React.createElement(
-        "div",
+        "button",
         {
-          className: "mt-3",
-        },
-        React.createElement(
-          "button",
-          {
-            onClick: () => setShowGrid(!showGrid),
-            className: `flex items-center justify-center gap-2 w-full px-3 py-2 rounded-lg transition-colors ${
-              showGrid
-                ? "bg-green-100 text-green-600"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-            }`,
+          onClick: () => setShowGrid(!showGrid),
+          style: gridButtonStyle,
+          onMouseEnter: (e) => {
+            e.target.style.backgroundColor = showGrid ? '#a7f3d0' : '#e5e7eb';
           },
-          React.createElement(Grid, { size: 16 }),
-          React.createElement(
-            "span",
-            {
-              className: "text-sm",
-            },
-            showGrid ? "Hide Grid" : "Show Grid"
-          )
+          onMouseLeave: (e) => {
+            e.target.style.backgroundColor = showGrid ? '#d1fae5' : '#f3f4f6';
+          }
+        },
+        React.createElement(Grid, { size: 16 }),
+        React.createElement(
+          "span",
+          { style: { fontSize: '14px' } },
+          showGrid ? "Hide Grid" : "Show Grid"
         )
       )
     ),
@@ -260,20 +353,23 @@ const Sidebar = ({
       }),
 
     // Spacer to push save button to bottom
-    React.createElement("div", { className: "flex-1" }),
+    React.createElement("div", { style: { flex: 1 } }),
 
     // Save Button
     React.createElement(
       "div",
-      {
-        className: "p-4 border-t border-gray-200",
-      },
+      { style: { padding: '16px', borderTop: '1px solid #e5e7eb' } },
       React.createElement(
         "button",
         {
           onClick: onSave,
-          className:
-            "w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium",
+          style: saveButtonStyle,
+          onMouseEnter: (e) => {
+            e.target.style.backgroundColor = '#1d4ed8';
+          },
+          onMouseLeave: (e) => {
+            e.target.style.backgroundColor = '#2563eb';
+          }
         },
         React.createElement(Save, { size: 18 }),
         layout.id ? "Update Layout" : "Save Layout"
