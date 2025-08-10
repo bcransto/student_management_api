@@ -16,9 +16,9 @@ const LayoutStyles = {
     // Seat colors
     seat: {
       empty: {
-        background: '#86efac',
-        border: '#16a34a',
-        text: '#15803d'
+        background: '#e0f2fe',  // Very light blue
+        border: '#7dd3fc',      // Light blue border
+        text: '#0284c7'         // Blue text
       },
       occupied: {
         background: '#3b82f6',
@@ -143,7 +143,7 @@ const LayoutStyles = {
       height: `${seatSize}px`,
       backgroundColor: colorSet.background,
       border: isSelected ? `3px solid ${colorSet.border}` : `2px solid ${colorSet.border}`,
-      borderRadius: '8px',
+      borderRadius: '50%',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',

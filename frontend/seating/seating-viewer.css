@@ -2,11 +2,11 @@
 
 .seating-viewer-container {
   /* Standard floating card styling will be applied by shared CSS */
-  padding: 20px;
+  padding: 1.5rem; /* Match sidebar padding exactly */
 }
 
 /* Use the same toolbar styling as editor */
-.canvas-toolbar {
+.seating-viewer-container .canvas-toolbar {
   height: 60px;
   background: white;
   padding: 0 1.5rem;
@@ -91,20 +91,9 @@
   border-color: #0056b3 !important;
 }
 
-.seating-canvas .seat.empty {
-  background-color: white !important;
-  color: #6c757d !important;
-  border-color: #dee2e6 !important;
-}
+/* Removed - empty seats now use colors from shared styles */
 
-.seating-canvas .seat.accessible::after {
-  content: "♿";
-  position: absolute;
-  bottom: 2px;
-  right: 2px;
-  font-size: 10px;
-  opacity: 0.7;
-}
+/* Removed accessibility icon - no longer needed */
 
 /* Loading state */
 .seating-viewer-container .loading {

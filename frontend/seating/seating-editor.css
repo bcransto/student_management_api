@@ -105,8 +105,9 @@ body.seating-editor-page .main-container {
 }
 
 /* Canvas Area */
-.canvas-toolbar {
+.seating-editor-integrated .canvas-toolbar {
   height: 60px;
+  min-height: 60px;
   background: white;
   padding: 0 1.5rem;
   border-bottom: 1px solid #e5e7eb;
@@ -232,14 +233,7 @@ body.seating-editor-page .main-container {
   transition: all 0.2s;
 }
 
-.seat:hover {
-  transform: translate(-50%, -50%) scale(1.05) !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-}
-
-.seat.empty:hover {
-  background-color: #d1d5db !important;
-}
+/* Removed hover animations for seats - no movement on hover */
 
 .seat.accessible {
   box-shadow: 0 0 0 2px #10b981;
@@ -413,9 +407,10 @@ body.seating-editor-page .main-container {
 }
 
 .seat.drag-over {
-  transform: translate(-50%, -50%) scale(1.1) !important;
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.5);
 }
+
+/* Empty seats now use light blue from shared styles */
 
 .seat.empty.drag-over {
   background-color: #c7d2fe !important;
@@ -431,32 +426,14 @@ body.seating-editor-page .main-container {
 @keyframes shake {
   0%,
   100% {
-    transform: translate(-50%, -50%) scale(1.15) rotate(0deg);
-  }
-  25% {
-    transform: translate(-50%, -50%) scale(1.15) rotate(-5deg);
-  }
-  75% {
-    transform: translate(-50%, -50%) scale(1.15) rotate(5deg);
-  }
-}
-
-/* Visual indicator that seats can accept drops */
-.seating-canvas.drag-active .seat.empty {
-  animation: gentle-pulse 2s infinite;
-}
-
-@keyframes gentle-pulse {
-  0%,
-  100% {
     opacity: 1;
-    box-shadow: 0 0 0 0 rgba(99, 102, 241, 0);
   }
   50% {
-    opacity: 0.8;
-    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.3);
+    opacity: 0.7;
   }
 }
+
+/* Removed pulsing animation - seats stay static */
 
 /* Enhance student pool during drag */
 .student-pool {
@@ -510,41 +487,13 @@ body.seating-editor-page .main-container {
 
 /* When specifically dragging from a seat */
 .student-pool.can-accept-drop {
-  animation: pulse-border 2s infinite;
+  border-top-color: #3b82f6;
 }
 
-@keyframes pulse-border {
-  0% {
-    border-top-color: #e5e7eb;
-  }
-  50% {
-    border-top-color: #3b82f6;
-  }
-  100% {
-    border-top-color: #e5e7eb;
-  }
-}
-
-/* Swap target styling */
+/* Swap target styling - no animation */
 .seat.occupied.swap-target {
   background-color: #818cf8 !important;
   border-color: #6366f1 !important;
-  animation: pulse-swap 1s infinite;
-}
-
-@keyframes pulse-swap {
-  0% {
-    transform: translate(-50%, -50%) scale(1.15);
-    box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.7);
-  }
-  70% {
-    transform: translate(-50%, -50%) scale(1.2);
-    box-shadow: 0 0 0 6px rgba(99, 102, 241, 0);
-  }
-  100% {
-    transform: translate(-50%, -50%) scale(1.15);
-    box-shadow: 0 0 0 0 rgba(99, 102, 241, 0);
-  }
 }
 
 /* Different cursor for swap operations */

@@ -1010,20 +1010,36 @@ const SeatingCanvas = ({
   onDragStart,
   onDragEnd,
 }) => {
+  // Get shared styles
+  const { LayoutStyles } = window;
+  const gridSize = 80; // Grid size for editor
+  
   // This will render the layout with students assigned to seats
   return React.createElement(
     "div",
     {
       className: `seating-canvas ${draggedStudent ? "drag-active" : ""}`,
-      style: {
-        width: layout.room_width * 80,
-        height: layout.room_height * 80,
-        position: "relative",
-        backgroundColor: "white",
-        border: "2px solid #e5e7eb",
-        margin: "0 auto",
-      },
+      style: LayoutStyles.getCanvasContainerStyle(layout.room_width, layout.room_height, gridSize),
     },
+
+    // Grid background (optional)
+    React.createElement("div", { style: LayoutStyles.getGridStyle(gridSize) }),
+
+    // Render obstacles
+    layout.obstacles?.map((obstacle) =>
+      React.createElement(
+        "div",
+        {
+          key: obstacle.id,
+          style: LayoutStyles.getObstacleStyle(obstacle, false, false, gridSize),
+        },
+        React.createElement(
+          "div",
+          { style: LayoutStyles.getObstacleLabelStyle() },
+          obstacle.name
+        )
+      )
+    ),
 
     // Render tables with seats
     layout.tables?.map((table) =>
@@ -1032,47 +1048,16 @@ const SeatingCanvas = ({
         {
           key: table.id,
           className: "seating-table",
-          style: {
-            position: "absolute",
-            left: table.x_position * 80,
-            top: table.y_position * 80,
-            width: table.width * 80,
-            height: table.height * 80,
-          },
+          style: LayoutStyles.getTableStyle(table, false, false, gridSize),
         },
 
-        // Table background
+        // Table label - using shared style
         React.createElement(
           "div",
-          {
-            className: "table-shape",
-            style: {
-              width: "100%",
-              height: "100%",
-              backgroundColor: "#e0e7ff",
-              border: "2px solid #6366f1",
-              borderRadius: table.table_shape === "round" ? "50%" : "8px",
-              position: "relative",
-            },
-          },
-
-          // Table label
-          React.createElement(
-            "div",
-            {
-              style: {
-                position: "absolute",
-                top: "50%",
-                left: "50%",
-                transform: "translate(-50%, -50%)",
-                fontSize: "14px",
-                fontWeight: "bold",
-                color: "#4c1d95",
-              },
-            },
-            table.table_name || `T${table.table_number}`
-          )
-        ),
+          { style: LayoutStyles.getTableLabelStyle() },
+          String(table.table_number)
+        )
+        ,
 
         // Render seats
         table.seats?.map((seat) => {
@@ -1089,7 +1074,32 @@ const SeatingCanvas = ({
             );
           }
 
-          // In SeatingCanvas component, replace the seat rendering with this:
+          // Use shared seat styles
+          const seatStyle = LayoutStyles.getSeatStyle(seat, {
+            isOccupied: !!assignedStudent,
+            isSelected: false,
+            isAccessible: seat.is_accessible,
+            gridSize: gridSize,
+            showName: !!assignedStudent
+          });
+
+          // Force empty seat colors from shared styles
+          if (!assignedStudent) {
+            seatStyle.backgroundColor = '#e0f2fe';  // Very light blue
+            seatStyle.borderColor = '#7dd3fc';      // Light blue border
+            seatStyle.color = '#0284c7';            // Blue text
+          }
+
+          // Override background color for gender highlighting if needed
+          if (assignedStudent && highlightMode === "gender") {
+            seatStyle.backgroundColor = assignedStudent.gender === "F" 
+              ? "#fbbf24"  // Yellow for female
+              : "#60a5fa"; // Blue for male
+            seatStyle.borderColor = assignedStudent.gender === "F"
+              ? "#f59e0b"
+              : "#3b82f6";
+          }
+
           return React.createElement(
             "div",
             {
@@ -1098,32 +1108,8 @@ const SeatingCanvas = ({
                 seat.is_accessible ? "accessible" : ""
               }`,
               style: {
-                position: "absolute",
-                left: `${seat.relative_x * 100}%`,
-                top: `${seat.relative_y * 100}%`,
-                transform: "translate(-50%, -50%)",
-                width: "65px",
-                height: "45px",
-                borderRadius: "8px",
-                backgroundColor: assignedStudent
-                  ? assignedStudent.gender === "F"
-                    ? "#fbbf24"
-                    : "#60a5fa"
-                  : "#e5e7eb",
-                border: "2px solid",
-                borderColor: assignedStudent
-                  ? assignedStudent.gender === "F"
-                    ? "#f59e0b"
-                    : "#3b82f6"
-                  : "#d1d5db",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "11px",
-                fontWeight: "500",
-                color: "#333",
+                ...seatStyle,
                 cursor: "pointer",
-                transition: "all 0.2s",
               },
               onClick: () => onSeatClick(table.id, seat.seat_number),
 
@@ -1257,21 +1243,37 @@ const SeatingCanvas = ({
                 : `Seat ${seat.seat_number}`,
             },
             assignedStudent
-              ? React.createElement(
-                  "div",
-                  {
-                    className: "seat-name",
-                    style: {
-                      fontSize: "11px",
-                      fontWeight: "500",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                      maxWidth: "57px",
-                    },
-                  },
-                  formatStudentName(assignedStudent.first_name, assignedStudent.last_name)
-                )
+              ? (() => {
+                  const { line1, line2 } = LayoutStyles.formatSeatName(
+                    assignedStudent.first_name,
+                    assignedStudent.last_name
+                  );
+                  return React.createElement(
+                    React.Fragment,
+                    null,
+                    React.createElement(
+                      "div",
+                      {
+                        style: {
+                          fontSize: "11px",
+                          fontWeight: "bold",
+                          lineHeight: "1.1",
+                        },
+                      },
+                      line1
+                    ),
+                    React.createElement(
+                      "div",
+                      {
+                        style: {
+                          fontSize: "10px",
+                          lineHeight: "1.1",
+                        },
+                      },
+                      line2
+                    )
+                  );
+                })()
               : seat.seat_number
           );
         })
