@@ -6,8 +6,8 @@ const Students = ({ data, navigateTo, apiModule }) => {
 
   // Handle student row click - navigate to edit view
   const handleStudentClick = (studentId) => {
-    console.log('Navigating to edit student:', studentId);
-    navigateTo('student-edit', { studentId });
+    console.log("Navigating to edit student:", studentId);
+    navigateTo("student-edit", { studentId });
   };
 
   if (!students) {
@@ -64,12 +64,12 @@ const Students = ({ data, navigateTo, apiModule }) => {
           students.map((student) =>
             React.createElement(
               "tr",
-              { 
+              {
                 key: student.id,
                 className: "student-row",
                 onClick: () => handleStudentClick(student.id),
-                style: { cursor: 'pointer' },
-                title: 'Click to edit'
+                style: { cursor: "pointer" },
+                title: "Click to edit",
               },
               React.createElement(
                 "td",

@@ -10,7 +10,10 @@
     "lint:js": "eslint \"frontend/**/*.js\"",
     "lint:fix": "eslint \"frontend/**/*.js\" --fix",
     "format": "prettier --write \"frontend/**/*.{html,js,css}\"",
-    "format:check": "prettier --check \"frontend/**/*.{html,js,css}\""
+    "format:check": "prettier --check \"frontend/**/*.{html,js,css}\"",
+    "lint:python": "bash lint-backend.sh",
+    "format:python": "black students student_project manage.py && isort students student_project manage.py",
+    "lint:all": "npm run lint && npm run lint:python"
   },
   "repository": {
     "type": "git",

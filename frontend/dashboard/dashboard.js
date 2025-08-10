@@ -1,6 +1,9 @@
 // frontend/dashboard/dashboard.js
 
 const Dashboard = ({ data, navigateTo }) => {
+  // Get formatDateLong from shared utils for dashboard date display
+  const formatDate = window.SharedUtils.formatDateLong;
+
   console.log("Dashboard rendering with data:", data);
 
   const { classes, students, layouts } = data;
@@ -17,15 +20,6 @@ const Dashboard = ({ data, navigateTo }) => {
   const recentClasses = [...classesArray]
     .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))
     .slice(0, 5);
-
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-  };
 
   return React.createElement(
     "div",

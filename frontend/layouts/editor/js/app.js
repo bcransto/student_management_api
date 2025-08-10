@@ -19,7 +19,9 @@ const LayoutEditor = () => {
   const loadLayout = async (layoutId) => {
     try {
       setLoading(true);
+      console.log("Loading layout with ID:", layoutId);
       const layoutData = await ApiHelper.request(`/layouts/${layoutId}/`);
+      console.log("Layout data received:", layoutData);
 
       setLayout({
         id: layoutData.id,
@@ -52,17 +54,17 @@ const LayoutEditor = () => {
         })),
       });
 
+      console.log("Layout state set successfully");
       document.title = `Edit Layout: ${layoutData.name}`;
     } catch (error) {
       console.error("Error loading layout:", error);
-      alert("Failed to load layout. Please check console for details.");
+      alert(`Failed to load layout: ${error.message}`);
     } finally {
       setLoading(false);
     }
   };
 
   const handleSave = async () => {
-    console.log("Save button clicked!"); // Add this
     try {
       setLoading(true);
 
@@ -152,6 +154,10 @@ const LayoutEditor = () => {
   }
 
   // Main layout editor render
+  console.log("Rendering with layout:", layout);
+  console.log("Tables count:", layout.tables.length);
+  console.log("Loading state:", loading);
+  
   return React.createElement(
     "div",
     {

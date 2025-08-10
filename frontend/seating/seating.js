@@ -101,7 +101,7 @@ const Seating = ({ data, navigateTo }) => {
     } else {
       document.body.classList.remove("seating-editor-page");
     }
-    
+
     return () => {
       document.body.classList.remove("seating-editor-page");
     };
@@ -110,7 +110,7 @@ const Seating = ({ data, navigateTo }) => {
   // Show viewer view
   if (currentView === "viewer") {
     console.log("Showing viewer for class:", selectedClassId);
-    
+
     if (window.SeatingViewer) {
       return React.createElement(window.SeatingViewer, {
         classId: selectedClassId,
@@ -127,7 +127,7 @@ const Seating = ({ data, navigateTo }) => {
         setCurrentView("viewer");
       };
       document.body.appendChild(script);
-      
+
       return React.createElement(
         "div",
         { className: "loading" },
@@ -238,7 +238,7 @@ const Seating = ({ data, navigateTo }) => {
                     handleNewChart(classItem.id, classItem.name);
                   }
                 },
-                style: { cursor: classItem.classroom_layout ? 'pointer' : 'not-allowed' }
+                style: { cursor: classItem.classroom_layout ? "pointer" : "not-allowed" },
               },
 
               // Class info

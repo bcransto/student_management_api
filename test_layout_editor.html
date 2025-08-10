@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Layout Editor</title>
+</head>
+<body>
+    <h1>Layout Editor Debugging</h1>
+    <div id="output"></div>
+    
+    <script>
+        // Check what's in localStorage
+        const token = localStorage.getItem('token');
+        const accessToken = localStorage.getItem('access_token');
+        const refreshToken = localStorage.getItem('refresh_token');
+        
+        const output = document.getElementById('output');
+        output.innerHTML = `
+            <h2>Token Storage Check:</h2>
+            <p><strong>token:</strong> ${token ? token.substring(0, 50) + '...' : 'NOT FOUND'}</p>
+            <p><strong>access_token:</strong> ${accessToken ? accessToken.substring(0, 50) + '...' : 'NOT FOUND'}</p>
+            <p><strong>refresh_token:</strong> ${refreshToken ? refreshToken.substring(0, 50) + '...' : 'NOT FOUND'}</p>
+            
+            <h2>Test Layout API:</h2>
+            <button onclick="testLayoutAPI()">Test Layout API</button>
+            <div id="apiResult"></div>
+        `;
+        
+        async function testLayoutAPI() {
+            const resultDiv = document.getElementById('apiResult');
+            const authToken = localStorage.getItem('token') || localStorage.getItem('access_token');
+            
+            if (!authToken) {
+                resultDiv.innerHTML = '<p style="color:red;">No auth token found!</p>';
+                return;
+            }
+            
+            try {
+                const response = await fetch('http://127.0.0.1:8000/api/layouts/1/', {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    resultDiv.innerHTML = `
+                        <p style="color:green;">Success!</p>
+                        <pre>${JSON.stringify(data, null, 2).substring(0, 500)}...</pre>
+                    `;
+                } else {
+                    const error = await response.text();
+                    resultDiv.innerHTML = `
+                        <p style="color:red;">Error ${response.status}</p>
+                        <pre>${error}</pre>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p style="color:red;">Network error: ${error.message}</p>`;
+            }
+        }
+        
+        // Also log to console
+        console.log('Token check:', {
+            token: token ? 'Found' : 'Not found',
+            access_token: accessToken ? 'Found' : 'Not found',
+            refresh_token: refreshToken ? 'Found' : 'Not found'
+        });
+    </script>
+</body>
+</html>

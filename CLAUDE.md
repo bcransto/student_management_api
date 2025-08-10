@@ -24,6 +24,10 @@ python manage.py shell
 
 # Create superuser for admin access
 python manage.py createsuperuser
+
+# Run backend linting and formatting
+npm run lint:python         # Run all backend linters
+npm run format:python       # Format Python code with Black/isort
 ```
 
 ### Frontend
@@ -32,6 +36,17 @@ The frontend is pure React without build tools. Files are served directly throug
 # No build process needed - just edit files and refresh browser
 # Access the app at http://127.0.0.1:8000/
 # Admin panel at http://127.0.0.1:8000/admin/
+
+# Frontend linting and formatting
+npm run lint               # Run ESLint and HTMLHint
+npm run lint:fix          # Auto-fix linting issues
+npm run format            # Format with Prettier
+npm run format:check      # Check formatting without changes
+```
+
+### Full Project Linting
+```bash
+npm run lint:all          # Run both frontend and backend linters
 ```
 
 ## Architecture Overview
@@ -72,9 +87,11 @@ SeatingAssignment → roster_entry (FK to ClassRoster)
 
 **Single Page Application Structure**:
 - `index.html`: Main entry point with all script/style imports
-- `app.js`: Main app controller with hash routing
-- `core.js`: AuthModule and ApiModule for API communication
-- Components use pure React.createElement (no JSX)
+- `frontend/app.js`: Main app controller with hash routing
+- `frontend/shared/core.js`: AuthModule and ApiModule for API communication
+- `frontend/shared/utils.js`: Shared utilities (formatStudentName, formatDate)
+- Components use pure React.createElement (no JSX, no build process)
+- All React components loaded via CDN
 
 **Key Components**:
 
@@ -97,6 +114,12 @@ SeatingAssignment → roster_entry (FK to ClassRoster)
    - Form validation for required fields
    - Soft delete sets `is_active = false`
    - Shows enrolled classes with details
+
+4. **Layout Editor** (`frontend/layouts/editor/`):
+   - Modular React-based layout designer
+   - Drag-and-drop table/obstacle placement
+   - Real-time seat management
+   - Served at `/frontend/layouts/editor/`
 
 ### API Patterns
 
@@ -170,6 +193,11 @@ seat_id = "1-2"  // "tableNumber-seatNumber"
    - Check `CORS_ALLOWED_ORIGINS` includes localhost
    - Frontend auto-handles token refresh on 401
 
+7. **Token Storage**:
+   - Main app stores as `token` in localStorage
+   - Layout editor looks for both `token` and `access_token`
+   - JWT auth uses `email` field, not `username`
+
 ### Deployment to PythonAnywhere
 
 1. Push code to GitHub
@@ -187,10 +215,27 @@ No automated tests currently. Manual testing via:
 - Django shell for backend queries
 - Test scripts: `test_seating_api.py`, `test_periods.py`
 
-### Recent Major Changes
+### URL Routing
 
-1. **Seating Viewer/Editor Toggle**: Separate components for view (standard CSS) vs edit (custom CSS) modes
-2. **New Period Button**: Creates new period, ends current, copies layout, starts with empty seats
-3. **Period-Specific Layouts**: Each SeatingPeriod has its own layout FK (migration completed)
-4. **API Filtering Fix**: SeatingAssignmentViewSet now properly filters by period
-5. **Navigation Improvements**: Previous/Next buttons switch between periods without data loss
+**Django URL Patterns**:
+- `/` - Main SPA (index.html)
+- `/api/` - REST API endpoints
+- `/admin/` - Django admin panel
+- `/frontend/<path>` - Static frontend files
+- `/frontend/layouts/editor/` - Layout editor app
+
+**Frontend Hash Routes**:
+- `#dashboard` - Main dashboard
+- `#students` - Student list
+- `#students/edit/{id}` - Edit student
+- `#classes` - Class list
+- `#seating` - Seating management
+- `#layouts` - Layout management
+
+### File Serving Strategy
+
+Frontend files are served through Django's `serve_frontend_file` function in `urls.py`, which:
+- Reads files from `frontend/` directory
+- Sets appropriate content-type headers
+- Handles production URL replacements
+- No webpack/build process needed

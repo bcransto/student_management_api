@@ -1,0 +1,30 @@
+[flake8]
+# Django-friendly flake8 configuration
+max-line-length = 120
+exclude = 
+    .git,
+    __pycache__,
+    migrations,
+    myenv,
+    venv,
+    .venv,
+    staticfiles,
+    node_modules,
+    build,
+    dist,
+    *.egg-info,
+    .pytest_cache,
+    htmlcov,
+    .coverage
+ignore = 
+    E203,
+    E501,
+    W503,
+    W504,
+    E231
+per-file-ignores =
+    # Allow imports at bottom of settings files
+    */settings.py:E402
+    */settings/*.py:E402
+    # Allow long lines in migrations
+    */migrations/*.py:E501

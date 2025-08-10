@@ -22,12 +22,12 @@ const App = () => {
   // Navigation state - initialize from URL hash
   const getInitialView = () => {
     const hash = window.location.hash.slice(1); // Remove the #
-    
+
     // Check for student edit pattern
-    if (hash.startsWith('students/edit/')) {
-      return 'student-edit';
+    if (hash.startsWith("students/edit/")) {
+      return "student-edit";
     }
-    
+
     const validViews = ["dashboard", "students", "classes", "seating", "layouts"];
     return validViews.includes(hash) ? hash : "dashboard";
   };
@@ -53,7 +53,33 @@ const App = () => {
     const token = window.AuthModule?.getToken();
     if (token) {
       setIsLoggedIn(true);
-      setCurrentUser("Teacher"); // In real app, decode from token
+
+      // Get user info from the token
+      const userInfo = window.AuthModule.getUserInfo();
+      console.log("User info from token:", userInfo); // Debug logging
+
+      if (userInfo) {
+        // Prefer full name if available
+        if (userInfo.firstName || userInfo.lastName) {
+          const fullName = [userInfo.firstName, userInfo.lastName].filter(Boolean).join(" ");
+          setCurrentUser(fullName || "Teacher");
+        } else if (userInfo.email) {
+          // Fallback to email-based name
+          const emailName = userInfo.email.split("@")[0];
+          // Capitalize first letter and replace dots/underscores with spaces
+          const displayName = emailName
+            .replace(/[._]/g, " ")
+            .split(" ")
+            .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(" ");
+          setCurrentUser(displayName);
+        } else {
+          setCurrentUser("Teacher");
+        }
+      } else {
+        setCurrentUser("Teacher");
+      }
+
       fetchData();
     }
   }, []);
@@ -61,8 +87,8 @@ const App = () => {
   // Parse student ID from hash on initial load
   useEffect(() => {
     const hash = window.location.hash.slice(1);
-    if (hash.startsWith('students/edit/')) {
-      const id = hash.replace('students/edit/', '');
+    if (hash.startsWith("students/edit/")) {
+      const id = hash.replace("students/edit/", "");
       setEditingStudentId(id);
     }
   }, []);
@@ -71,18 +97,18 @@ const App = () => {
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.slice(1);
-      
+
       // Check for student edit pattern
-      if (hash.startsWith('students/edit/')) {
-        const id = hash.replace('students/edit/', '');
+      if (hash.startsWith("students/edit/")) {
+        const id = hash.replace("students/edit/", "");
         setEditingStudentId(id);
-        setCurrentView('student-edit');
+        setCurrentView("student-edit");
         return;
       }
-      
+
       // Clear editing state if navigating away
       setEditingStudentId(null);
-      
+
       const validViews = ["dashboard", "students", "classes", "seating", "layouts"];
       if (validViews.includes(hash)) {
         setCurrentView(hash);
@@ -131,7 +157,23 @@ const App = () => {
   const handleLogin = (token) => {
     window.AuthModule.setToken(token);
     setIsLoggedIn(true);
-    setCurrentUser("Teacher"); // In real app, decode from token
+
+    // Get user info from the token
+    const userInfo = window.AuthModule.getUserInfo();
+    if (userInfo && userInfo.email) {
+      // Extract name from email (part before @)
+      const emailName = userInfo.email.split("@")[0];
+      // Capitalize first letter and replace dots/underscores with spaces
+      const displayName = emailName
+        .replace(/[._]/g, " ")
+        .split(" ")
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ");
+      setCurrentUser(displayName);
+    } else {
+      setCurrentUser("Teacher");
+    }
+
     // Clear hash on login to go to dashboard
     window.location.hash = "dashboard";
     fetchData();
@@ -158,15 +200,15 @@ const App = () => {
   // Handle navigation
   const handleNavigate = (view, params = {}) => {
     console.log("Navigating to:", view, params);
-    
+
     // Handle student edit navigation
-    if (view === 'student-edit' && params.studentId) {
-      setCurrentView('student-edit');
+    if (view === "student-edit" && params.studentId) {
+      setCurrentView("student-edit");
       setEditingStudentId(params.studentId);
       window.location.hash = `students/edit/${params.studentId}`;
       return;
     }
-    
+
     // Regular navigation
     setCurrentView(view);
     setEditingStudentId(null);

@@ -2,6 +2,9 @@
 // Now with hash-based routing for the editor
 
 const Layouts = ({ data, navigateTo }) => {
+  // Get formatDateLong from shared utils for layouts date display
+  const formatDate = window.SharedUtils.formatDateLong;
+
   const [layouts, setLayouts] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
@@ -109,16 +112,6 @@ const Layouts = ({ data, navigateTo }) => {
         alert("Failed to delete layout. Please try again.");
       }
     }
-  };
-
-  const formatDate = (dateString) => {
-    if (!dateString) return "Never";
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
   };
 
   if (loading) {

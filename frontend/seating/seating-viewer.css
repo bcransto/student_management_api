@@ -98,7 +98,7 @@
 }
 
 .seating-canvas .seat.accessible::after {
-  content: '♿';
+  content: "♿";
   position: absolute;
   bottom: 2px;
   right: 2px;
@@ -125,8 +125,12 @@
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 /* Error message */
@@ -151,12 +155,12 @@
     gap: 15px;
     align-items: flex-start;
   }
-  
+
   .viewer-controls {
     width: 100%;
     justify-content: flex-start;
   }
-  
+
   .seating-canvas-wrapper {
     padding: 10px;
   }

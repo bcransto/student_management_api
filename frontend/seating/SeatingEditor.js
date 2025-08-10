@@ -3,28 +3,9 @@
 
 const { useState, useEffect } = React;
 
-// Name truncation function - max 8 characters
-const formatStudentName = (firstName, lastName) => {
-  if (!firstName) return '';
-  
-  // Get first name and last initial
-  const lastInitial = lastName ? lastName[0] : '';
-  const baseName = `${firstName} ${lastInitial}.`;
-  
-  // If already 8 chars or less, return as is
-  if (baseName.length <= 8) {
-    return baseName;
-  }
-  
-  // Otherwise, truncate first name to fit within 8 chars
-  // Account for space (1 char) + initial (1 char) + period (1 char) = 3 chars
-  const maxFirstNameLength = 5; // 8 - 3
-  const truncatedFirst = firstName.substring(0, maxFirstNameLength);
-  
-  return `${truncatedFirst} ${lastInitial}.`;
-};
-
 const SeatingEditor = ({ classId, onBack, onView }) => {
+  // Get utility functions from shared module
+  const { formatStudentName, formatDate } = window.SharedUtils;
   // Core state
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -55,13 +36,13 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
     const handleBeforeUnload = (e) => {
       if (hasUnsavedChanges) {
         e.preventDefault();
-        e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
-        return 'You have unsaved changes. Are you sure you want to leave?';
+        e.returnValue = "You have unsaved changes. Are you sure you want to leave?";
+        return "You have unsaved changes. Are you sure you want to leave?";
       }
     };
 
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [hasUnsavedChanges]);
 
   // Add this inside your SeatingEditor component for debugging:
@@ -97,7 +78,10 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
       let currentLayout = null;
       if (classData.current_seating_period && classData.current_seating_period.layout_details) {
         // Use layout from the seating period (new approach)
-        console.log("Layout found in seating period:", classData.current_seating_period.layout_details);
+        console.log(
+          "Layout found in seating period:",
+          classData.current_seating_period.layout_details
+        );
         currentLayout = classData.current_seating_period.layout_details;
         setLayout(currentLayout);
       } else if (classData.classroom_layout) {
@@ -124,7 +108,7 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
       if (
         classData.current_seating_period?.seating_assignments &&
         classData.current_seating_period.seating_assignments.length > 0 &&
-        currentLayout  // Make sure we have a layout
+        currentLayout // Make sure we have a layout
       ) {
         console.log(
           "Loading seating assignments:",
@@ -139,7 +123,7 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
             console.warn("No tables in layout");
             return;
           }
-          
+
           const table = currentLayout.tables.find(
             (t) => t.table_number === assignment.table_number
           );
@@ -199,12 +183,16 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
   };
 
   const handleSeatSwap = (studentA, tableA, seatA, studentB, tableB, seatB) => {
-    console.log('handleSeatSwap called:', {
-      studentA, tableA, seatA,
-      studentB, tableB, seatB
+    console.log("handleSeatSwap called:", {
+      studentA,
+      tableA,
+      seatA,
+      studentB,
+      tableB,
+      seatB,
     });
     setAssignments((prev) => {
-      console.log('Previous assignments:', JSON.parse(JSON.stringify(prev)));
+      console.log("Previous assignments:", JSON.parse(JSON.stringify(prev)));
       const newAssignments = { ...prev };
 
       // Special case: if swapping within the same table, handle it differently
@@ -215,7 +203,7 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
           newAssignments[tableA][seatA] = newAssignments[tableA][seatB];
           newAssignments[tableA][seatB] = tempStudent;
         }
-        console.log('Same table swap result:', JSON.parse(JSON.stringify(newAssignments)));
+        console.log("Same table swap result:", JSON.parse(JSON.stringify(newAssignments)));
         return newAssignments;
       }
 
@@ -233,7 +221,7 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
         }
       }
 
-      console.log('After removal:', JSON.parse(JSON.stringify(newAssignments)));
+      console.log("After removal:", JSON.parse(JSON.stringify(newAssignments)));
 
       // Assign students to their new seats (swapped)
       const result = {
@@ -247,8 +235,8 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
           [seatB]: studentA,
         },
       };
-      
-      console.log('Final result:', JSON.parse(JSON.stringify(result)));
+
+      console.log("Final result:", JSON.parse(JSON.stringify(result)));
       return result;
     });
     setHasUnsavedChanges(true);
@@ -283,37 +271,31 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
     return students.filter((student) => !assigned.has(student.id));
   };
 
-  // Format date for display (MM/DD/YY)
-  const formatDate = (dateString) => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    const month = date.getMonth() + 1;
-    const day = date.getDate();
-    const year = date.getFullYear().toString().slice(-2);
-    return `${month}/${day}/${year}`;
-  };
-
   // Build the title string
   const getEditorTitle = () => {
     if (!classInfo) return "Loading...";
-    
+
     const className = classInfo.name || "Unknown Class";
-    
+
     if (classInfo.current_seating_period) {
       const period = classInfo.current_seating_period;
       const periodName = period.name || "Untitled Period";
       const startDate = formatDate(period.start_date);
-      const endDate = formatDate(period.end_date) || 'Present';
+      const endDate = formatDate(period.end_date) || "Present";
       return `${className}: ${periodName} (${startDate} - ${endDate})`;
     }
-    
+
     // No current period yet
     return `${className}: New Seating Chart`;
   };
 
   // Reset function - moves all students back to pool
   const handleReset = () => {
-    if (window.confirm("Are you sure you want to reset? This will move all students back to the pool.")) {
+    if (
+      window.confirm(
+        "Are you sure you want to reset? This will move all students back to the pool."
+      )
+    ) {
       setAssignments({});
       setSelectedStudent(null);
       setHasUnsavedChanges(true);
@@ -334,15 +316,15 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
       const response = await window.ApiModule.request(
         `/seating-periods/?class_assigned=${classId}`
       );
-      
+
       const periods = response.results || [];
       console.log(`Found ${periods.length} periods for class ${classId}:`, periods);
-      
+
       if (periods.length === 0) {
         alert("No seating periods found for this class");
         return;
       }
-      
+
       if (periods.length === 1) {
         alert("This class only has one seating period");
         return;
@@ -350,39 +332,41 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
 
       // Sort by start date
       periods.sort((a, b) => new Date(a.start_date) - new Date(b.start_date));
-      console.log('Sorted periods:', periods.map(p => ({id: p.id, name: p.name, active: p.is_active})));
+      console.log(
+        "Sorted periods:",
+        periods.map((p) => ({ id: p.id, name: p.name, active: p.is_active }))
+      );
 
       // Find current period index
       const currentPeriodId = classInfo.current_seating_period?.id;
-      const currentIndex = periods.findIndex(p => p.id === currentPeriodId);
-      
+      const currentIndex = periods.findIndex((p) => p.id === currentPeriodId);
+
       let targetIndex;
-      if (direction === 'previous') {
+      if (direction === "previous") {
         targetIndex = currentIndex > 0 ? currentIndex - 1 : periods.length - 1;
       } else {
         targetIndex = currentIndex < periods.length - 1 ? currentIndex + 1 : 0;
       }
 
       const targetPeriod = periods[targetIndex];
-      
+
       console.log(`Navigating from period ${currentPeriodId} to ${targetPeriod.id}`);
-      console.log('Target period:', targetPeriod);
-      
+      console.log("Target period:", targetPeriod);
+
       // Set the target period as active (this will deactivate others automatically in the backend)
       await window.ApiModule.request(`/seating-periods/${targetPeriod.id}/`, {
         method: "PATCH",
         body: JSON.stringify({
-          is_active: true
+          is_active: true,
         }),
       });
 
       // Small delay to ensure backend has updated
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
       // Reload the data with the new period
       await loadClassData();
       setHasUnsavedChanges(false);
-      
     } catch (error) {
       console.error("Failed to navigate periods:", error);
       alert("Failed to navigate to " + direction + " period");
@@ -396,7 +380,7 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
 
       console.log("Starting to save seating assignments...");
       console.log("Current assignments:", assignments);
-      
+
       // Debug: Check all periods for this class
       try {
         const allPeriods = await window.ApiModule.request(
@@ -405,11 +389,17 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
         console.log("All periods for this class:", allPeriods);
         if (allPeriods?.results) {
           console.log("Period count:", allPeriods.results.length);
-          allPeriods.results.forEach(period => {
-            console.log(`Period ${period.id}: "${period.name}" - Active: ${period.is_active}, Start: ${period.start_date}`);
+          allPeriods.results.forEach((period) => {
+            console.log(
+              `Period ${period.id}: "${period.name}" - Active: ${period.is_active}, Start: ${period.start_date}`
+            );
           });
         }
-        console.log("Currently saving to period:", classInfo.current_seating_period?.id, classInfo.current_seating_period?.name);
+        console.log(
+          "Currently saving to period:",
+          classInfo.current_seating_period?.id,
+          classInfo.current_seating_period?.name
+        );
       } catch (debugError) {
         console.error("Debug fetch failed:", debugError);
       }
@@ -423,53 +413,55 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
           id: classInfo.current_seating_period.id,
           name: classInfo.current_seating_period.name,
           start_date: classInfo.current_seating_period.start_date,
-          is_active: classInfo.current_seating_period.is_active
+          is_active: classInfo.current_seating_period.is_active,
         });
       } else {
         console.log("Creating new seating period...");
-        
+
         // If no layout from class, need to select one
         if (!layout || !layout.id) {
           // Load available layouts if not already loaded
           if (availableLayouts.length === 0) {
             const layoutsResponse = await window.ApiModule.request("/classroom-layouts/");
             const layouts = layoutsResponse.results || [];
-            
+
             if (layouts.length === 0) {
               alert("No classroom layouts available. Please create a layout first.");
               setSaving(false);
               return;
             }
-            
+
             // Show layout selection dialog
-            const layoutNames = layouts.map((l, i) => `${i + 1}. ${l.name} (${l.room_width}x${l.room_height})`).join('\n');
+            const layoutNames = layouts
+              .map((l, i) => `${i + 1}. ${l.name} (${l.room_width}x${l.room_height})`)
+              .join("\n");
             const selectedIndex = prompt(
               `Select a classroom layout for the new seating period:\n\n${layoutNames}\n\nEnter the number:`,
               "1"
             );
-            
+
             if (!selectedIndex) {
               setSaving(false);
               return;
             }
-            
+
             const selectedLayout = layouts[parseInt(selectedIndex) - 1];
             if (!selectedLayout) {
               alert("Invalid selection");
               setSaving(false);
               return;
             }
-            
+
             setLayout(selectedLayout);
             layout = selectedLayout;
           }
         }
-        
+
         const newPeriod = await window.ApiModule.request("/seating-periods/", {
           method: "POST",
           body: JSON.stringify({
             class_assigned: classId,
-            layout: layout.id,  // Now required!
+            layout: layout.id, // Now required!
             name: `Seating Chart - ${new Date().toLocaleDateString()}`,
             start_date: new Date().toISOString().split("T")[0],
             is_active: true,
@@ -485,22 +477,29 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
       const currentAssignments = await window.ApiModule.request(
         `/seating-assignments/?seating_period=${seatingPeriodId}`
       );
-      
+
       console.log("Current assignments response:", currentAssignments);
 
       if (currentAssignments.results && currentAssignments.results.length > 0) {
-        console.log(`Found ${currentAssignments.results.length} assignments to clear for period ${seatingPeriodId}`);
-        console.log("Assignments to delete:", currentAssignments.results.map(a => ({
-          id: a.id,
-          seating_period: a.seating_period,
-          seat_id: a.seat_id,
-          roster_entry: a.roster_entry
-        })));
-        
+        console.log(
+          `Found ${currentAssignments.results.length} assignments to clear for period ${seatingPeriodId}`
+        );
+        console.log(
+          "Assignments to delete:",
+          currentAssignments.results.map((a) => ({
+            id: a.id,
+            seating_period: a.seating_period,
+            seat_id: a.seat_id,
+            roster_entry: a.roster_entry,
+          }))
+        );
+
         // Verify each assignment belongs to the correct period before deleting
         for (const assignment of currentAssignments.results) {
           if (assignment.seating_period !== seatingPeriodId) {
-            console.error(`WARNING: Assignment ${assignment.id} belongs to period ${assignment.seating_period}, not ${seatingPeriodId}!`);
+            console.error(
+              `WARNING: Assignment ${assignment.id} belongs to period ${assignment.seating_period}, not ${seatingPeriodId}!`
+            );
             console.error("Skipping deletion of wrong period assignment");
             continue;
           }
@@ -549,7 +548,7 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
 
       console.log(`Successfully created ${createdAssignments.length} seating assignments`);
       alert(`✅ Seating chart saved successfully! ${createdAssignments.length} students assigned.`);
-      
+
       // Mark as saved
       setHasUnsavedChanges(false);
       setInitialAssignments(assignments);
@@ -562,110 +561,6 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
       setSaving(false);
     }
   };
-
-  // Add this temporary debug function to your SeatingEditor component
-  // to help diagnose the API issues:
-
-  const debugAPIEndpoint = async () => {
-    console.group("API Endpoint Debug");
-
-    // Check if we can list seating assignments
-    try {
-      const response = await fetch(`${window.AuthModule.getApiBaseUrl()}/seating-assignments/`, {
-        headers: window.AuthModule.getAuthHeaders(),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log("Current seating assignments:", data);
-
-        // If there are existing assignments, show their structure
-        if (data.length > 0) {
-          console.log("Example assignment structure:", data[0]);
-        }
-      } else {
-        console.error("Failed to list assignments:", response.status);
-      }
-    } catch (error) {
-      console.error("Error listing assignments:", error);
-    }
-
-    // Check the expected format by looking at the serializer
-    console.log("Expected assignment format based on your code:");
-    console.log({
-      seating_period: "number (period ID)",
-      roster_entry: "number (roster entry ID)",
-      seat_id: "string (format: 'tableNumber-seatNumber')",
-      group_number: "number or null",
-      group_role: "string (one of: leader, secretary, presenter, researcher, member, or empty)",
-      assignment_notes: "string",
-    });
-
-    // Check current state
-    console.log("Current classInfo:", classInfo);
-    console.log("Current period:", classInfo?.current_seating_period);
-    console.log("Current roster:", classInfo?.roster);
-    console.log("Current assignments state:", assignments);
-
-    console.groupEnd();
-  };
-
-  // Add this test function to your SeatingEditor component:
-
-  const testAPIEndpoint = async () => {
-    console.group("Testing Seating Assignment API");
-
-    try {
-      // First, let's see what seating assignments exist
-      const listResponse = await fetch(
-        `${window.AuthModule.getApiBaseUrl()}/seating-assignments/`,
-        {
-          headers: window.AuthModule.getAuthHeaders(),
-        }
-      );
-
-      if (listResponse.ok) {
-        const assignments = await listResponse.json();
-        console.log("Existing assignments:", assignments);
-
-        // Look at the structure of an existing assignment
-        if (assignments.results && assignments.results.length > 0) {
-          console.log("Example assignment structure:", assignments.results[0]);
-        }
-      }
-
-      // Now let's check what the OPTIONS endpoint says about required fields
-      const optionsResponse = await fetch(
-        `${window.AuthModule.getApiBaseUrl()}/seating-assignments/`,
-        {
-          method: "OPTIONS",
-          headers: window.AuthModule.getAuthHeaders(),
-        }
-      );
-
-      if (optionsResponse.ok) {
-        const options = await optionsResponse.json();
-        console.log("API endpoint options:", options);
-        if (options.actions && options.actions.POST) {
-          console.log("Required fields for POST:", options.actions.POST);
-        }
-      }
-    } catch (error) {
-      console.error("Test failed:", error);
-    }
-
-    console.groupEnd();
-  };
-
-  // Make it available in the console
-  useEffect(() => {
-    window.testAPI = testAPIEndpoint;
-  }, []);
-
-  // Add a button or call this in console to debug
-  useEffect(() => {
-    window.debugAPI = debugAPIEndpoint;
-  }, [classInfo, assignments]);
 
   // Function to validate all assignments before saving
   const validateAssignments = () => {
@@ -720,7 +615,9 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
   const handleNewPeriod = async () => {
     // Check for unsaved changes
     if (hasUnsavedChanges) {
-      const saveFirst = confirm("You have unsaved changes. Save them before creating a new period?");
+      const saveFirst = confirm(
+        "You have unsaved changes. Save them before creating a new period?"
+      );
       if (saveFirst) {
         await handleSave();
       } else if (!confirm("Discard unsaved changes and create new period?")) {
@@ -729,75 +626,72 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
     }
 
     // Confirmation dialog
-    const confirmMessage = classInfo?.current_seating_period 
+    const confirmMessage = classInfo?.current_seating_period
       ? "Create a new seating period? This will end the current period as of today."
       : "Create a new seating period?";
-    
+
     if (!confirm(confirmMessage)) {
       return;
     }
 
     setIsCreatingPeriod(true);
-    
+
     try {
       // If there's a current period, update its end date to today
       if (classInfo?.current_seating_period) {
-        const today = new Date().toISOString().split('T')[0];
-        await window.ApiModule.request(
-          `/seating-periods/${classInfo.current_seating_period.id}/`,
-          {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              end_date: today,
-              is_active: false
-            })
-          }
-        );
+        const today = new Date().toISOString().split("T")[0];
+        await window.ApiModule.request(`/seating-periods/${classInfo.current_seating_period.id}/`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            end_date: today,
+            is_active: false,
+          }),
+        });
       }
 
       // Calculate dates
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
-      const startDate = tomorrow.toISOString().split('T')[0];
-      
+      const startDate = tomorrow.toISOString().split("T")[0];
+
       // Auto-generate period name
-      const periodName = `Period starting ${tomorrow.toLocaleDateString('en-US', { 
-        month: 'numeric', 
-        day: 'numeric', 
-        year: '2-digit' 
+      const periodName = `Period starting ${tomorrow.toLocaleDateString("en-US", {
+        month: "numeric",
+        day: "numeric",
+        year: "2-digit",
       })}`;
 
       // Create new period with layout from previous period or class
-      const layoutId = classInfo?.current_seating_period?.layout || layout?.id || classInfo?.classroom_layout?.id;
+      const layoutId =
+        classInfo?.current_seating_period?.layout || layout?.id || classInfo?.classroom_layout?.id;
       if (!layoutId) {
         alert("No layout available to create a new period");
         return;
       }
 
-      const newPeriod = await window.ApiModule.request('/seating-periods/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const newPeriod = await window.ApiModule.request("/seating-periods/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           class_assigned: classId,
           layout: layoutId,
           name: periodName,
           start_date: startDate,
           end_date: null,
-          is_active: true
-        })
+          is_active: true,
+        }),
       });
 
       console.log("New period created:", newPeriod);
-      
+
       // Reload data to show new period (will be empty seats)
       await loadClassData();
-      
+
       // Clear any existing assignments for fresh start
       setAssignments({});
       setNewAssignments({});
       setHasUnsavedChanges(false);
-      
     } catch (error) {
       console.error("Error creating new period:", error);
       alert("Failed to create new seating period. Please try again.");
@@ -826,25 +720,6 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
     if (window.confirm(message)) {
       await handleSave();
     }
-  };
-
-  // Debug helper - log current state
-  const debugAssignments = () => {
-    console.group("Current Seating Assignments");
-    console.log("Raw assignments:", assignments);
-    console.log("Class info:", classInfo);
-    console.log("Layout:", layout);
-    console.log("Students:", students);
-
-    const summary = getAssignmentSummary();
-    console.log("Summary:", summary);
-
-    const errors = validateAssignments();
-    if (errors.length > 0) {
-      console.warn("Validation errors:", errors);
-    }
-
-    console.groupEnd();
   };
 
   if (loading) {
@@ -883,28 +758,27 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
         React.createElement("i", { className: "fas fa-arrow-left" }),
         " Back"
       ),
-      React.createElement(
-        "h2",
-        { className: "editor-title" },
-        getEditorTitle()
-      ),
+      React.createElement("h2", { className: "editor-title" }, getEditorTitle()),
       // Student count status badge
       React.createElement(
         "div",
         { className: "status-badge", style: { marginLeft: "auto" } },
         `${getAssignedStudentIds().size} / ${students.length} seated`
       ),
-      
+
       // Period navigation buttons (right-justified)
       React.createElement(
         "div",
-        { className: "period-navigation", style: { display: "flex", gap: "0.5rem", marginLeft: "1rem" } },
+        {
+          className: "period-navigation",
+          style: { display: "flex", gap: "0.5rem", marginLeft: "1rem" },
+        },
         React.createElement(
           "button",
           {
             className: "btn btn-sm btn-secondary",
-            onClick: () => handlePeriodNavigation('previous'),
-            title: "View previous seating period"
+            onClick: () => handlePeriodNavigation("previous"),
+            title: "View previous seating period",
           },
           React.createElement("i", { className: "fas fa-chevron-left" }),
           " Previous"
@@ -913,23 +787,24 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
           "button",
           {
             className: "btn btn-sm btn-secondary",
-            onClick: () => handlePeriodNavigation('next'),
-            title: "View next seating period"
+            onClick: () => handlePeriodNavigation("next"),
+            title: "View next seating period",
           },
           "Next ",
           React.createElement("i", { className: "fas fa-chevron-right" })
         ),
         // Add View button if onView prop is provided
-        onView && React.createElement(
-          "button",
-          {
-            className: "btn btn-sm btn-secondary",
-            onClick: onView,
-            title: "Switch to view mode"
-          },
-          React.createElement("i", { className: "fas fa-eye" }),
-          " View"
-        ),
+        onView &&
+          React.createElement(
+            "button",
+            {
+              className: "btn btn-sm btn-secondary",
+              onClick: onView,
+              title: "Switch to view mode",
+            },
+            React.createElement("i", { className: "fas fa-eye" }),
+            " View"
+          ),
         // New Period button
         React.createElement(
           "button",
@@ -937,7 +812,7 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
             className: "btn btn-sm btn-secondary",
             onClick: handleNewPeriod,
             disabled: isCreatingPeriod || !layout,
-            title: layout ? "Start a new seating period" : "No layout available"
+            title: layout ? "Start a new seating period" : "No layout available",
           },
           React.createElement("i", { className: "fas fa-calendar-plus" }),
           " New Period"
@@ -949,7 +824,7 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
     React.createElement(
       "div",
       { className: "secondary-toolbar" },
-      
+
       // Auto-fill section
       React.createElement(
         "div",
@@ -1077,11 +952,11 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
     React.createElement(
       "div",
       { className: "editor-main-area" },
-      
+
       React.createElement(
         "div",
         { className: "editor-content-wrapper" },
-        
+
         // Canvas section (left)
         React.createElement(
           "div",
@@ -1206,10 +1081,12 @@ const SeatingCanvas = ({
           const assignedStudent = assignedStudentId
             ? students.find((s) => s.id === assignedStudentId)
             : null;
-          
+
           // Debug: Check if we have a student ID but can't find the student
           if (assignedStudentId && !assignedStudent) {
-            console.warn(`Student ${assignedStudentId} assigned to seat ${table.id}-${seatKey} but not found in students array`);
+            console.warn(
+              `Student ${assignedStudentId} assigned to seat ${table.id}-${seatKey} but not found in students array`
+            );
           }
 
           // In SeatingCanvas component, replace the seat rendering with this:
@@ -1295,25 +1172,25 @@ const SeatingCanvas = ({
 
                 const studentId = parseInt(e.dataTransfer.getData("studentId"));
                 const sourceType = e.dataTransfer.getData("sourceType");
-                
-                console.log('onDrop:', {
+
+                console.log("onDrop:", {
                   studentId,
                   sourceType,
                   sourceTypeIsString: typeof sourceType,
                   assignedStudent: assignedStudent ? assignedStudent.id : null,
                   assignedStudentTruthy: !!assignedStudent,
                   targetSeat: `${table.id}-${seat.seat_number}`,
-                  willSwap: sourceType === "seat" && assignedStudent
+                  willSwap: sourceType === "seat" && assignedStudent,
                 });
 
                 if (!studentId) {
-                  console.log('No studentId - returning');
+                  console.log("No studentId - returning");
                   return;
                 }
 
                 // If dropping on an empty seat
                 if (!assignedStudent) {
-                  console.log('Branch: Empty seat');
+                  console.log("Branch: Empty seat");
                   // If the student is being moved from another seat, remove them first
                   if (sourceType === "seat") {
                     const sourceTableId = parseInt(e.dataTransfer.getData("sourceTableId"));
@@ -1328,27 +1205,30 @@ const SeatingCanvas = ({
                 }
                 // If dropping on an occupied seat AND coming from another seat = SWAP!
                 else if (sourceType === "seat" && assignedStudent) {
-                  console.log('Branch: Seat-to-seat SWAP');
+                  console.log("Branch: Seat-to-seat SWAP");
                   const sourceTableId = parseInt(e.dataTransfer.getData("sourceTableId"));
                   const sourceSeatNumber = e.dataTransfer.getData("sourceSeatNumber"); // Keep as string!
 
-                  console.log('Swap scenario detected:', {
+                  console.log("Swap scenario detected:", {
                     sourceTableId,
                     sourceSeatNumber,
                     sourceSeatNumberType: typeof sourceSeatNumber,
                     targetTableId: table.id,
                     targetSeatNumber: seat.seat_number,
-                    targetSeatNumberType: typeof seat.seat_number
+                    targetSeatNumberType: typeof seat.seat_number,
                   });
 
                   // Don't swap with self (compare as strings to handle type differences)
-                  if (sourceTableId === table.id && String(sourceSeatNumber) === String(seat.seat_number)) {
-                    console.log('Attempting to swap with self - canceling');
+                  if (
+                    sourceTableId === table.id &&
+                    String(sourceSeatNumber) === String(seat.seat_number)
+                  ) {
+                    console.log("Attempting to swap with self - canceling");
                     return;
                   }
 
                   // Perform the swap (ensure seat numbers are strings)
-                  console.log('Calling onStudentSwap');
+                  console.log("Calling onStudentSwap");
                   onStudentSwap(
                     studentId, // Student A (being dragged)
                     sourceTableId, // Student A's original table
@@ -1360,7 +1240,7 @@ const SeatingCanvas = ({
                 }
                 // If dropping from pool onto occupied seat - bump the seated student back to pool
                 else if (sourceType === "pool" && assignedStudent) {
-                  console.log('Branch: Pool-to-occupied-seat (bump)');
+                  console.log("Branch: Pool-to-occupied-seat (bump)");
                   // First unassign the current student (send them back to pool)
                   onStudentUnassign(table.id, String(seat.seat_number));
 
@@ -1379,7 +1259,7 @@ const SeatingCanvas = ({
             assignedStudent
               ? React.createElement(
                   "div",
-                  { 
+                  {
                     className: "seat-name",
                     style: {
                       fontSize: "11px",
@@ -1387,8 +1267,8 @@ const SeatingCanvas = ({
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                       whiteSpace: "nowrap",
-                      maxWidth: "57px"
-                    }
+                      maxWidth: "57px",
+                    },
                   },
                   formatStudentName(assignedStudent.first_name, assignedStudent.last_name)
                 )

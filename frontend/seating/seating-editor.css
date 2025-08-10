@@ -379,7 +379,7 @@ body.seating-editor-page .main-container {
   .student-pool {
     width: 240px;
   }
-  
+
   .student-grid {
     grid-template-columns: repeat(3, 1fr);
     gap: 0.5rem;

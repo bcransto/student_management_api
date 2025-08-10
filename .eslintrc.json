@@ -83,5 +83,5 @@
       }
     }
   ],
-  "ignorePatterns": ["*.html", "node_modules/", "build/", "dist/"]
+  "ignorePatterns": ["*.html", "node_modules/", "build/", "dist/", "myenv/", "*.min.js", "staticfiles/"]
 }

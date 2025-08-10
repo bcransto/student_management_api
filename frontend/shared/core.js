@@ -39,6 +39,51 @@ const AuthModule = {
     return !!this.getToken();
   },
 
+  // Helper function to decode JWT token
+  decodeToken(token) {
+    try {
+      // JWT tokens have 3 parts separated by dots
+      const parts = token.split(".");
+      if (parts.length !== 3) return null;
+
+      // The payload is the second part (base64 encoded)
+      const payload = parts[1];
+
+      // Decode base64 (handle URL-safe base64)
+      const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+      const jsonPayload = decodeURIComponent(
+        atob(base64)
+          .split("")
+          .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+          .join("")
+      );
+
+      return JSON.parse(jsonPayload);
+    } catch (error) {
+      console.error("Error decoding token:", error);
+      return null;
+    }
+  },
+
+  // Get user info from stored token
+  getUserInfo() {
+    const token = this.getToken();
+    if (!token) return null;
+
+    const decoded = this.decodeToken(token);
+    console.log("Decoded token:", decoded); // Debug logging
+    if (!decoded) return null;
+
+    // Return user info with all available fields
+    return {
+      email: decoded.email || decoded.user_email || decoded.sub || null,
+      firstName: decoded.first_name || null,
+      lastName: decoded.last_name || null,
+      userId: decoded.user_id || null,
+      isTeacher: decoded.is_teacher || true,
+    };
+  },
+
   // Login function
   async login(email, password) {
     try {
@@ -57,7 +102,11 @@ const AuthModule = {
         const data = await response.json();
         this.setToken(data.access);
         this.setRefreshToken(data.refresh);
-        return { success: true, data };
+
+        // Get user info from the token
+        const userInfo = this.getUserInfo();
+
+        return { success: true, data, userInfo };
       } else {
         const errorData = await response.json().catch(() => ({}));
         return {

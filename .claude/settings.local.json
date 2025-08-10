@@ -6,7 +6,15 @@
       "Bash(python manage.py makemigrations:*)",
       "Bash(source:*)",
       "Bash(python manage.py migrate:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(python manage.py:*)",
+      "Bash(npm run lint:*)",
+      "Bash(npx eslint:*)",
+      "Bash(chmod:*)",
+      "Bash(bash:*)",
+      "Bash(npm run format:python:*)",
+      "Bash(open /Users/bcransto/Documents/student_management_api/test_layout_editor_debug.html)",
+      "Bash(touch:*)"
     ],
     "deny": []
   }

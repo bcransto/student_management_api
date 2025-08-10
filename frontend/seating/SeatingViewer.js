@@ -1,5 +1,8 @@
 // SeatingViewer.js - Read-only seating chart viewer using standard app layout
 const SeatingViewer = ({ classId, onEdit, onBack }) => {
+  // Get utility functions from shared module
+  const { formatStudentName, formatDate } = window.SharedUtils;
+
   const [loading, setLoading] = React.useState(true);
   const [classInfo, setClassInfo] = React.useState(null);
   const [layout, setLayout] = React.useState(null);
@@ -21,7 +24,10 @@ const SeatingViewer = ({ classId, onEdit, onBack }) => {
       // Load the layout from the current seating period (if exists) or class
       let currentLayout = null;
       if (classData.current_seating_period && classData.current_seating_period.layout_details) {
-        console.log("Layout found in seating period:", classData.current_seating_period.layout_details);
+        console.log(
+          "Layout found in seating period:",
+          classData.current_seating_period.layout_details
+        );
         currentLayout = classData.current_seating_period.layout_details;
         setLayout(currentLayout);
       } else if (classData.classroom_layout) {
@@ -55,7 +61,7 @@ const SeatingViewer = ({ classId, onEdit, onBack }) => {
             console.warn("No tables in layout");
             return;
           }
-          
+
           const table = currentLayout.tables.find(
             (t) => t.table_number === assignment.table_number
           );
@@ -100,15 +106,15 @@ const SeatingViewer = ({ classId, onEdit, onBack }) => {
       const response = await window.ApiModule.request(
         `/seating-periods/?class_assigned=${classId}`
       );
-      
+
       const periods = response.results || [];
       console.log(`Found ${periods.length} periods for class ${classId}`);
-      
+
       if (periods.length === 0) {
         alert("No seating periods found for this class");
         return;
       }
-      
+
       if (periods.length === 1) {
         alert("This class only has one seating period");
         return;
@@ -119,74 +125,52 @@ const SeatingViewer = ({ classId, onEdit, onBack }) => {
 
       // Find current period index
       const currentPeriodId = classInfo.current_seating_period?.id;
-      const currentIndex = periods.findIndex(p => p.id === currentPeriodId);
-      
+      const currentIndex = periods.findIndex((p) => p.id === currentPeriodId);
+
       let targetIndex;
-      if (direction === 'previous') {
+      if (direction === "previous") {
         targetIndex = currentIndex > 0 ? currentIndex - 1 : periods.length - 1;
       } else {
         targetIndex = currentIndex < periods.length - 1 ? currentIndex + 1 : 0;
       }
 
       const targetPeriod = periods[targetIndex];
-      
+
       console.log(`Navigating from period ${currentPeriodId} to ${targetPeriod.id}`);
-      
+
       // Set the target period as active
       await window.ApiModule.request(`/seating-periods/${targetPeriod.id}/`, {
         method: "PATCH",
         body: JSON.stringify({
-          is_active: true
+          is_active: true,
         }),
       });
 
       // Small delay to ensure backend has updated
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
       // Reload the data with the new period
       await loadClassData();
-      
     } catch (error) {
       console.error("Failed to navigate periods:", error);
       alert("Failed to navigate to " + direction + " period");
     }
   };
 
-  // Format student name with truncation
-  const formatStudentName = (firstName, lastName) => {
-    if (!firstName) return '';
-    const lastInitial = lastName ? lastName[0] : '';
-    const baseName = `${firstName} ${lastInitial}.`;
-    if (baseName.length <= 8) return baseName;
-    const maxFirstNameLength = 5;
-    const truncatedFirst = firstName.substring(0, maxFirstNameLength);
-    return `${truncatedFirst} ${lastInitial}.`;
-  };
-
-  // Format date for display
-  const formatDate = (dateString) => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    const month = date.getMonth() + 1;
-    const day = date.getDate();
-    const year = date.getFullYear().toString().slice(-2);
-    return `${month}/${day}/${year}`;
-  };
-
   // Build the title string
   const getTitle = () => {
     if (!classInfo) return "Loading...";
-    
+
     const className = classInfo.name || "Unknown Class";
-    
+
     if (classInfo.current_seating_period) {
       const period = classInfo.current_seating_period;
       const periodName = period.name || "Untitled Period";
       const startDate = formatDate(period.start_date);
-      const endDate = formatDate(period.end_date) || 'Present';
+      const endDate = formatDate(period.end_date) || "Present";
       return `${className}: ${periodName} (${startDate} - ${endDate})`;
     }
-    
+
     return `${className}: No Seating Period`;
   };
 
@@ -195,33 +179,38 @@ const SeatingViewer = ({ classId, onEdit, onBack }) => {
     console.log("handleNewPeriod called");
     console.log("Current classInfo:", classInfo);
     console.log("Current layout:", layout);
-    
+
     // Confirmation dialog
-    const confirmMessage = classInfo?.current_seating_period 
+    const confirmMessage = classInfo?.current_seating_period
       ? "Create a new seating period? This will end the current period as of today."
       : "Create a new seating period?";
-    
+
     if (!confirm(confirmMessage)) {
       return;
     }
 
     setIsCreatingPeriod(true);
-    
+
     try {
       // If there's a current period, update its end date to today
       if (classInfo?.current_seating_period) {
-        const today = new Date().toISOString().split('T')[0];
-        console.log("Ending current period:", classInfo.current_seating_period.id, "with date:", today);
-        
+        const today = new Date().toISOString().split("T")[0];
+        console.log(
+          "Ending current period:",
+          classInfo.current_seating_period.id,
+          "with date:",
+          today
+        );
+
         const endResponse = await window.ApiModule.request(
           `/seating-periods/${classInfo.current_seating_period.id}/`,
           {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
               end_date: today,
-              is_active: false
-            })
+              is_active: false,
+            }),
           }
         );
         console.log("End period response:", endResponse);
@@ -230,41 +219,40 @@ const SeatingViewer = ({ classId, onEdit, onBack }) => {
       // Calculate dates
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
-      const startDate = tomorrow.toISOString().split('T')[0];
-      
+      const startDate = tomorrow.toISOString().split("T")[0];
+
       // Auto-generate period name
-      const periodName = `Period starting ${tomorrow.toLocaleDateString('en-US', { 
-        month: 'numeric', 
-        day: 'numeric', 
-        year: '2-digit' 
+      const periodName = `Period starting ${tomorrow.toLocaleDateString("en-US", {
+        month: "numeric",
+        day: "numeric",
+        year: "2-digit",
       })}`;
 
       // Create new period with layout from previous period or class
       const requestBody = {
         class_assigned: classId,
-        layout: layout.id,  // Use current layout (from previous period or class)
+        layout: layout.id, // Use current layout (from previous period or class)
         name: periodName,
         start_date: startDate,
         end_date: null,
-        is_active: true
+        is_active: true,
       };
-      
+
       console.log("Creating new period with data:", requestBody);
-      
-      const newPeriod = await window.ApiModule.request('/seating-periods/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody)
+
+      const newPeriod = await window.ApiModule.request("/seating-periods/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestBody),
       });
 
       console.log("New period created:", newPeriod);
-      
+
       // Switch to edit mode for the new period
       onEdit();
-      
+
       // Reload data to show new period
       await loadClassData();
-      
     } catch (error) {
       console.error("Error creating new period:", error);
       console.error("Error details:", error.message);
@@ -301,36 +289,32 @@ const SeatingViewer = ({ classId, onEdit, onBack }) => {
   return React.createElement(
     "div",
     { className: "content" },
-    
+
     // Viewer container
     React.createElement(
       "div",
       { className: "seating-viewer-container floating-card" },
-      
+
       // Top toolbar with navigation (matching editor style)
       React.createElement(
         "div",
         { className: "canvas-toolbar" },
-        
+
         // Back button on the left
         React.createElement(
           "button",
           {
             className: "btn btn-secondary btn-sm",
             onClick: onBack,
-            title: "Back to class list"
+            title: "Back to class list",
           },
           React.createElement("i", { className: "fas fa-arrow-left" }),
           " Back"
         ),
-        
+
         // Title in the center
-        React.createElement(
-          "div",
-          { className: "toolbar-title" },
-          getTitle()
-        ),
-        
+        React.createElement("div", { className: "toolbar-title" }, getTitle()),
+
         // Navigation and edit buttons on the right
         React.createElement(
           "div",
@@ -339,8 +323,8 @@ const SeatingViewer = ({ classId, onEdit, onBack }) => {
             "button",
             {
               className: "btn btn-secondary btn-sm",
-              onClick: () => handlePeriodNavigation('previous'),
-              title: "View previous seating period"
+              onClick: () => handlePeriodNavigation("previous"),
+              title: "View previous seating period",
             },
             React.createElement("i", { className: "fas fa-chevron-left" }),
             " Previous"
@@ -349,8 +333,8 @@ const SeatingViewer = ({ classId, onEdit, onBack }) => {
             "button",
             {
               className: "btn btn-secondary btn-sm",
-              onClick: () => handlePeriodNavigation('next'),
-              title: "View next seating period"
+              onClick: () => handlePeriodNavigation("next"),
+              title: "View next seating period",
             },
             "Next ",
             React.createElement("i", { className: "fas fa-chevron-right" })
@@ -360,7 +344,7 @@ const SeatingViewer = ({ classId, onEdit, onBack }) => {
             {
               className: "btn btn-secondary btn-sm",
               onClick: onEdit,
-              title: "Switch to edit mode"
+              title: "Switch to edit mode",
             },
             React.createElement("i", { className: "fas fa-edit" }),
             " Edit"
@@ -371,34 +355,34 @@ const SeatingViewer = ({ classId, onEdit, onBack }) => {
               className: "btn btn-secondary btn-sm",
               onClick: handleNewPeriod,
               disabled: isCreatingPeriod || !layout,
-              title: layout ? "Start a new seating period" : "No layout available"
+              title: layout ? "Start a new seating period" : "No layout available",
             },
             React.createElement("i", { className: "fas fa-calendar-plus" }),
             " New Period"
           )
         )
       ),
-    
-    // Canvas container
-    React.createElement(
-      "div",
-      { className: "seating-canvas-wrapper" },
-      React.createElement(SeatingViewerCanvas, {
-        layout: layout,
-        assignments: assignments,
-        students: students,
-        highlightMode: "none",
-        onSeatClick: () => {}, // No-op for viewer
-        onStudentDrop: () => {}, // No-op for viewer
-        onStudentUnassign: () => {}, // No-op for viewer
-        onStudentSwap: () => {}, // No-op for viewer
-        draggedStudent: null,
-        onDragStart: () => {}, // No-op for viewer
-        onDragEnd: () => {}, // No-op for viewer
-      })
-    )
-    )  // Close seating-viewer-container
-  );  // Close content div
+
+      // Canvas container
+      React.createElement(
+        "div",
+        { className: "seating-canvas-wrapper" },
+        React.createElement(SeatingViewerCanvas, {
+          layout: layout,
+          assignments: assignments,
+          students: students,
+          highlightMode: "none",
+          onSeatClick: () => {}, // No-op for viewer
+          onStudentDrop: () => {}, // No-op for viewer
+          onStudentUnassign: () => {}, // No-op for viewer
+          onStudentSwap: () => {}, // No-op for viewer
+          draggedStudent: null,
+          onDragStart: () => {}, // No-op for viewer
+          onDragEnd: () => {}, // No-op for viewer
+        })
+      )
+    ) // Close seating-viewer-container
+  ); // Close content div
 };
 
 // Canvas component (shared between viewer and editor)
@@ -415,16 +399,8 @@ const SeatingViewerCanvas = ({
   onDragStart,
   onDragEnd,
 }) => {
-  // Format student name helper
-  const formatStudentName = (firstName, lastName) => {
-    if (!firstName) return '';
-    const lastInitial = lastName ? lastName[0] : '';
-    const baseName = `${firstName} ${lastInitial}.`;
-    if (baseName.length <= 8) return baseName;
-    const maxFirstNameLength = 5;
-    const truncatedFirst = firstName.substring(0, maxFirstNameLength);
-    return `${truncatedFirst} ${lastInitial}.`;
-  };
+  // Get format function from shared utils
+  const { formatStudentName } = window.SharedUtils;
 
   return React.createElement(
     "div",
@@ -536,23 +512,25 @@ const SeatingViewerCanvas = ({
                 transition: "all 0.2s",
               },
               draggable: assignedStudent && onDragStart ? true : false,
-              onDragStart: assignedStudent && onDragStart
-                ? (e) => {
-                    e.dataTransfer.effectAllowed = "move";
-                    e.dataTransfer.setData("studentId", assignedStudent.id.toString());
-                    e.dataTransfer.setData("sourceType", "seat");
-                    e.dataTransfer.setData("sourceTableId", table.id.toString());
-                    e.dataTransfer.setData("sourceSeatNumber", seat.seat_number.toString());
-                    e.currentTarget.classList.add("dragging");
-                    if (onDragStart) onDragStart(assignedStudent);
-                  }
-                : undefined,
-              onDragEnd: assignedStudent && onDragEnd
-                ? (e) => {
-                    e.currentTarget.classList.remove("dragging");
-                    if (onDragEnd) onDragEnd();
-                  }
-                : undefined,
+              onDragStart:
+                assignedStudent && onDragStart
+                  ? (e) => {
+                      e.dataTransfer.effectAllowed = "move";
+                      e.dataTransfer.setData("studentId", assignedStudent.id.toString());
+                      e.dataTransfer.setData("sourceType", "seat");
+                      e.dataTransfer.setData("sourceTableId", table.id.toString());
+                      e.dataTransfer.setData("sourceSeatNumber", seat.seat_number.toString());
+                      e.currentTarget.classList.add("dragging");
+                      if (onDragStart) onDragStart(assignedStudent);
+                    }
+                  : undefined,
+              onDragEnd:
+                assignedStudent && onDragEnd
+                  ? (e) => {
+                      e.currentTarget.classList.remove("dragging");
+                      if (onDragEnd) onDragEnd();
+                    }
+                  : undefined,
               onClick: onSeatClick ? () => onSeatClick(table.id, seat.seat_number) : undefined,
               title: assignedStudent
                 ? `${assignedStudent.first_name} ${assignedStudent.last_name}`
@@ -561,14 +539,14 @@ const SeatingViewerCanvas = ({
             assignedStudent
               ? React.createElement(
                   "div",
-                  { 
+                  {
                     className: "seat-name",
                     style: {
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                       whiteSpace: "nowrap",
-                      maxWidth: "57px"
-                    }
+                      maxWidth: "57px",
+                    },
                   },
                   formatStudentName(assignedStudent.first_name, assignedStudent.last_name)
                 )

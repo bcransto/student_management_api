@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Layout Editor Debug</title>
+</head>
+<body>
+    <h1>Layout Editor Debug</h1>
+    <button onclick="testLayoutEditor()">Test Layout Editor</button>
+    <div id="output"></div>
+    
+    <script>
+        async function testLayoutEditor() {
+            const output = document.getElementById('output');
+            let html = '<h2>Testing Layout Editor...</h2>';
+            
+            // 1. Check token
+            const token = localStorage.getItem('token');
+            html += `<p><strong>Token in localStorage:</strong> ${token ? 'Found' : 'NOT FOUND'}</p>`;
+            
+            if (!token) {
+                // Try to login and get token
+                try {
+                    const loginResponse = await fetch('http://127.0.0.1:8000/api/token/', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            email: 'bcranston@carlisle.k12.ma.us',
+                            password: 'test1234'
+                        })
+                    });
+                    
+                    if (loginResponse.ok) {
+                        const data = await loginResponse.json();
+                        localStorage.setItem('token', data.access);
+                        localStorage.setItem('refresh_token', data.refresh);
+                        html += '<p style="color:green;">✓ Logged in and stored token</p>';
+                    }
+                } catch (error) {
+                    html += `<p style="color:red;">Login failed: ${error.message}</p>`;
+                }
+            }
+            
+            // 2. Test layout API
+            const authToken = localStorage.getItem('token');
+            if (authToken) {
+                try {
+                    const response = await fetch('http://127.0.0.1:8000/api/layouts/1/', {
+                        headers: {
+                            'Authorization': `Bearer ${authToken}`
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        html += '<p style="color:green;">✓ Layout API works</p>';
+                        html += `<p>Layout name: ${data.name}</p>`;
+                        html += `<p>Tables: ${data.tables.length}</p>`;
+                        html += `<p>Room size: ${data.room_width}x${data.room_height}</p>`;
+                    } else {
+                        html += `<p style="color:red;">API error: ${response.status}</p>`;
+                    }
+                } catch (error) {
+                    html += `<p style="color:red;">Network error: ${error.message}</p>`;
+                }
+            }
+            
+            // 3. Open layout editor
+            html += '<h3>Opening Layout Editor...</h3>';
+            html += '<p>The layout editor should now open in a new tab with the layout loaded.</p>';
+            
+            output.innerHTML = html;
+            
+            // Open the editor
+            window.open('http://127.0.0.1:8000/frontend/layouts/editor/?layout=1', '_blank');
+        }
+    </script>
+</body>
+</html>
