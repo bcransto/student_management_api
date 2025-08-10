@@ -259,82 +259,8 @@ const Sidebar = ({
         setSelectedItem: setSelectedItem,
       }),
 
-    // Statistics
-    React.createElement(
-      "div",
-      {
-        className: "p-4 flex-1",
-      },
-      React.createElement(
-        "h3",
-        {
-          className: "text-lg font-semibold text-gray-800 mb-3",
-        },
-        "Statistics"
-      ),
-      React.createElement(
-        "div",
-        {
-          className: "space-y-2 text-sm text-gray-600",
-        },
-        React.createElement(
-          "div",
-          {
-            className: "flex justify-between",
-          },
-          React.createElement("span", null, "Tables:"),
-          React.createElement(
-            "span",
-            {
-              className: "font-medium",
-            },
-            layout.tables.length
-          )
-        ),
-        React.createElement(
-          "div",
-          {
-            className: "flex justify-between",
-          },
-          React.createElement("span", null, "Total Seats:"),
-          React.createElement(
-            "span",
-            {
-              className: "font-medium",
-            },
-            layout.tables.reduce((sum, t) => sum + (t.max_seats || 0), 0)
-          )
-        ),
-        React.createElement(
-          "div",
-          {
-            className: "flex justify-between",
-          },
-          React.createElement("span", null, "Obstacles:"),
-          React.createElement(
-            "span",
-            {
-              className: "font-medium",
-            },
-            layout.obstacles.length
-          )
-        ),
-        React.createElement(
-          "div",
-          {
-            className: "flex justify-between",
-          },
-          React.createElement("span", null, "Room Size:"),
-          React.createElement(
-            "span",
-            {
-              className: "font-medium",
-            },
-            `${layout.room_width} × ${layout.room_height}`
-          )
-        )
-      )
-    ),
+    // Spacer to push save button to bottom
+    React.createElement("div", { className: "flex-1" }),
 
     // Save Button
     React.createElement(
