@@ -270,9 +270,9 @@ const SeatingViewer = ({ classId, onEdit, onBack }) => {
     );
   }
 
-  // Build subtitle text
-  const getSubtitle = () => {
-    if (!classInfo) return "";
+  // Build title string for toolbar
+  const getTitle = () => {
+    if (!classInfo) return "Loading...";
     
     const className = classInfo.name || "Unknown Class";
     
@@ -282,181 +282,124 @@ const SeatingViewer = ({ classId, onEdit, onBack }) => {
       const startDate = formatDate(period.start_date);
       const endDate = formatDate(period.end_date) || "Present";
       
-      return `${className} • ${periodName} • ${startDate} - ${endDate}`;
+      return `${className}: ${periodName} (${startDate} - ${endDate})`;
     }
     
-    return `${className} • No Active Period`;
+    return `${className}: No Seating Period`;
   };
 
   return React.createElement(
     "div",
-    { className: "content-area" },
+    { className: "seating-viewer-integrated" },
 
-    // Header row with title and buttons
+    // Top toolbar (matching editor style)
     React.createElement(
       "div",
-      {
-        style: {
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-          marginBottom: "1rem"
-        }
-      },
+      { className: "canvas-toolbar" },
       
-      // Title and subtitle section
+      // Back button
       React.createElement(
-        "div",
-        null,
-        // Main heading
-        React.createElement(
-          "h3",
-          {
-            style: {
-              marginBottom: "0.5rem",
-              color: "#1f2937",
-              fontSize: "1.25rem",
-              fontWeight: "700"
-            }
-          },
-          "Seating Period"
-        ),
-        // Subtitle
-        React.createElement(
-          "p",
-          {
-            style: {
-              color: "#6b7280",
-              fontSize: "0.875rem",
-              margin: 0
-            }
-          },
-          getSubtitle()
-        )
+        "button",
+        {
+          onClick: onBack,
+          className: "btn btn-secondary btn-sm",
+        },
+        React.createElement("i", { className: "fas fa-arrow-left" }),
+        " Back"
       ),
       
-      // Button group
+      // Title
+      React.createElement("h2", { className: "viewer-title" }, getTitle()),
+      
+      // Student count status badge (for consistency with editor)
+      React.createElement(
+        "div",
+        { className: "status-badge", style: { marginLeft: "auto" } },
+        `${Object.keys(assignments).reduce((count, tableId) => 
+          count + Object.keys(assignments[tableId] || {}).length, 0)} / ${students.length} seated`
+      ),
+
+      // Period navigation buttons (right-justified)
       React.createElement(
         "div",
         {
-          style: {
-            display: "flex",
-            gap: "0.5rem"
-          }
+          className: "period-navigation",
+          style: { display: "flex", gap: "0.5rem", marginLeft: "1rem" },
         },
-        // Previous button
         React.createElement(
           "button",
           {
-            className: "btn btn-secondary",
+            className: "btn btn-sm btn-secondary",
             onClick: () => handlePeriodNavigation("previous"),
             title: "View previous seating period",
-            style: {
-              padding: "0.25rem 0.75rem",
-              borderRadius: "6px",
-              border: "none",
-              fontSize: "0.8125rem",
-              fontWeight: "500",
-              cursor: "pointer",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "0.375rem",
-              background: "#f3f4f6",
-              color: "#374151"
-            }
           },
           React.createElement("i", { className: "fas fa-chevron-left" }),
-          "Previous"
+          " Previous"
         ),
-        
-        // Next button
         React.createElement(
           "button",
           {
-            className: "btn btn-secondary",
+            className: "btn btn-sm btn-secondary",
             onClick: () => handlePeriodNavigation("next"),
             title: "View next seating period",
-            style: {
-              padding: "0.25rem 0.75rem",
-              borderRadius: "6px",
-              border: "none",
-              fontSize: "0.8125rem",
-              fontWeight: "500",
-              cursor: "pointer",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "0.375rem",
-              background: "#f3f4f6",
-              color: "#374151"
-            }
           },
-          "Next",
+          "Next ",
           React.createElement("i", { className: "fas fa-chevron-right" })
         ),
-        
         // Edit button
         React.createElement(
           "button",
           {
-            className: "btn btn-secondary",
+            className: "btn btn-sm btn-secondary",
             onClick: onEdit,
             title: "Switch to edit mode",
-            style: {
-              padding: "0.25rem 0.75rem",
-              borderRadius: "6px",
-              border: "none",
-              fontSize: "0.8125rem",
-              fontWeight: "500",
-              cursor: "pointer",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "0.375rem",
-              background: "#f3f4f6",
-              color: "#374151"
-            }
           },
           React.createElement("i", { className: "fas fa-edit" }),
-          "Edit"
+          " Edit"
         ),
-        
-        // New Period button (primary style)
+        // New Period button
         React.createElement(
           "button",
           {
-            className: "btn btn-primary",
+            className: "btn btn-sm btn-secondary",
             onClick: handleNewPeriod,
             disabled: isCreatingPeriod || !layout,
             title: layout ? "Start a new seating period" : "No layout available",
-            style: {
-              padding: "0.25rem 0.75rem",
-              borderRadius: "6px",
-              border: "none",
-              fontSize: "0.8125rem",
-              fontWeight: "500",
-              cursor: isCreatingPeriod || !layout ? "not-allowed" : "pointer",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "0.375rem",
-              background: isCreatingPeriod || !layout 
-                ? "#9ca3af" 
-                : "linear-gradient(135deg, #667eea, #764ba2)",
-              color: "white",
-              opacity: isCreatingPeriod || !layout ? 0.6 : 1
-            }
           },
           React.createElement("i", { className: "fas fa-calendar-plus" }),
-          "New Period"
+          " New Period"
         )
       )
     ),
 
-    // Canvas container (at same level as h3 and buttons)
+    // Main content area
     React.createElement(
       "div",
       { 
-        className: "seating-canvas-wrapper"
+        className: "canvas-container",
+        style: {
+          flex: 1,
+          display: "flex",
+          overflow: "hidden",
+          position: "relative"
+        }
       },
-      React.createElement(SeatingViewerCanvas, {
+      
+      // Canvas wrapper
+      React.createElement(
+        "div",
+        { 
+          className: "seating-canvas-wrapper",
+          style: {
+            flex: 1,
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "flex-start",
+            padding: "20px",
+            overflow: "auto"
+          }
+        },
+        React.createElement(SeatingViewerCanvas, {
         layout: layout,
         assignments: assignments,
         students: students,
@@ -469,8 +412,9 @@ const SeatingViewer = ({ classId, onEdit, onBack }) => {
         onDragStart: () => {}, // No-op for viewer
         onDragEnd: () => {}, // No-op for viewer
       })
+      )
     )
-  ); // Close content div
+  ); // Close main div
 };
 
 // Canvas component (shared between viewer and editor)

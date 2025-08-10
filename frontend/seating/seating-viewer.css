@@ -5,23 +5,49 @@
   padding: 1.5rem; /* Match sidebar padding exactly */
 }
 
+/* Main integrated layout (matching editor) */
+.seating-viewer-integrated {
+  height: 800px;
+  display: flex;
+  flex-direction: column;
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
 /* Use the same toolbar styling as editor */
-.seating-viewer-container .canvas-toolbar {
+.seating-viewer-integrated .canvas-toolbar {
   height: 60px;
+  min-height: 60px;
   background: white;
   padding: 0 1.5rem;
   border-bottom: 1px solid #e5e7eb;
   display: flex;
   align-items: center;
   gap: 1rem;
-  margin: -20px -20px 20px -20px; /* Offset container padding */
+  flex-shrink: 0;
+  width: 100%;
 }
 
-.toolbar-title {
+.viewer-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #374151;
   flex: 1;
   text-align: center;
-  font-size: 1.125rem;
-  font-weight: 600;
+}
+
+/* Status Badge */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  background: #f3f4f6;
   color: #374151;
 }
 
