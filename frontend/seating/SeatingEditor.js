@@ -148,7 +148,7 @@ const SeatingEditor = ({ classId, onBack }) => {
           }
 
           const tableId = table.id;
-          const seatNumber = assignment.seat_number;
+          const seatNumber = String(assignment.seat_number); // Ensure it's a string
 
           // Find the student ID from the roster
           const rosterEntry = classData.roster.find((r) => r.id === assignment.roster_entry);
@@ -198,10 +198,27 @@ const SeatingEditor = ({ classId, onBack }) => {
   };
 
   const handleSeatSwap = (studentA, tableA, seatA, studentB, tableB, seatB) => {
+    console.log('handleSeatSwap called:', {
+      studentA, tableA, seatA,
+      studentB, tableB, seatB
+    });
     setAssignments((prev) => {
+      console.log('Previous assignments:', JSON.parse(JSON.stringify(prev)));
       const newAssignments = { ...prev };
 
-      // Remove both students from their current seats
+      // Special case: if swapping within the same table, handle it differently
+      if (tableA === tableB) {
+        // Just swap the values directly without deleting the table
+        if (newAssignments[tableA]) {
+          const tempStudent = newAssignments[tableA][seatA];
+          newAssignments[tableA][seatA] = newAssignments[tableA][seatB];
+          newAssignments[tableA][seatB] = tempStudent;
+        }
+        console.log('Same table swap result:', JSON.parse(JSON.stringify(newAssignments)));
+        return newAssignments;
+      }
+
+      // Different tables: Remove both students from their current seats
       if (newAssignments[tableA]) {
         delete newAssignments[tableA][seatA];
         if (Object.keys(newAssignments[tableA]).length === 0) {
@@ -215,18 +232,23 @@ const SeatingEditor = ({ classId, onBack }) => {
         }
       }
 
+      console.log('After removal:', JSON.parse(JSON.stringify(newAssignments)));
+
       // Assign students to their new seats (swapped)
-      return {
+      const result = {
         ...newAssignments,
         [tableA]: {
-          ...newAssignments[tableA],
+          ...(newAssignments[tableA] || {}),
           [seatA]: studentB,
         },
         [tableB]: {
-          ...newAssignments[tableB],
+          ...(newAssignments[tableB] || {}),
           [seatB]: studentA,
         },
       };
+      
+      console.log('Final result:', JSON.parse(JSON.stringify(result)));
+      return result;
     });
     setHasUnsavedChanges(true);
   };
@@ -1025,10 +1047,16 @@ const SeatingCanvas = ({
 
         // Render seats
         table.seats?.map((seat) => {
-          const assignedStudentId = assignments[table.id]?.[seat.seat_number];
+          const seatKey = String(seat.seat_number);
+          const assignedStudentId = assignments[table.id]?.[seatKey];
           const assignedStudent = assignedStudentId
             ? students.find((s) => s.id === assignedStudentId)
             : null;
+          
+          // Debug: Check if we have a student ID but can't find the student
+          if (assignedStudentId && !assignedStudent) {
+            console.warn(`Student ${assignedStudentId} assigned to seat ${table.id}-${seatKey} but not found in students array`);
+          }
 
           // In SeatingCanvas component, replace the seat rendering with this:
           return React.createElement(
@@ -1107,59 +1135,83 @@ const SeatingCanvas = ({
               onDragLeave: (e) => {
                 e.currentTarget.classList.remove("drag-over", "swap-target");
               },
-              onDragLeave: (e) => {
-                e.currentTarget.classList.remove("drag-over");
-              },
               onDrop: (e) => {
                 e.preventDefault();
                 e.currentTarget.classList.remove("drag-over");
 
                 const studentId = parseInt(e.dataTransfer.getData("studentId"));
                 const sourceType = e.dataTransfer.getData("sourceType");
+                
+                console.log('onDrop:', {
+                  studentId,
+                  sourceType,
+                  sourceTypeIsString: typeof sourceType,
+                  assignedStudent: assignedStudent ? assignedStudent.id : null,
+                  assignedStudentTruthy: !!assignedStudent,
+                  targetSeat: `${table.id}-${seat.seat_number}`,
+                  willSwap: sourceType === "seat" && assignedStudent
+                });
 
-                if (!studentId) return;
+                if (!studentId) {
+                  console.log('No studentId - returning');
+                  return;
+                }
 
                 // If dropping on an empty seat
                 if (!assignedStudent) {
+                  console.log('Branch: Empty seat');
                   // If the student is being moved from another seat, remove them first
                   if (sourceType === "seat") {
                     const sourceTableId = parseInt(e.dataTransfer.getData("sourceTableId"));
-                    const sourceSeatNumber = parseInt(e.dataTransfer.getData("sourceSeatNumber"));
+                    const sourceSeatNumber = e.dataTransfer.getData("sourceSeatNumber"); // Keep as string!
 
                     // First unassign from the original seat
                     onStudentUnassign(sourceTableId, sourceSeatNumber);
                   }
 
-                  // Then assign to the new seat
-                  onStudentDrop(studentId, table.id, seat.seat_number);
+                  // Then assign to the new seat (ensure seat number is a string)
+                  onStudentDrop(studentId, table.id, String(seat.seat_number));
                 }
                 // If dropping on an occupied seat AND coming from another seat = SWAP!
-                else if (sourceType === "seat") {
+                else if (sourceType === "seat" && assignedStudent) {
+                  console.log('Branch: Seat-to-seat SWAP');
                   const sourceTableId = parseInt(e.dataTransfer.getData("sourceTableId"));
-                  const sourceSeatNumber = parseInt(e.dataTransfer.getData("sourceSeatNumber"));
+                  const sourceSeatNumber = e.dataTransfer.getData("sourceSeatNumber"); // Keep as string!
 
-                  // Don't swap with self
-                  if (sourceTableId === table.id && sourceSeatNumber === seat.seat_number) {
+                  console.log('Swap scenario detected:', {
+                    sourceTableId,
+                    sourceSeatNumber,
+                    sourceSeatNumberType: typeof sourceSeatNumber,
+                    targetTableId: table.id,
+                    targetSeatNumber: seat.seat_number,
+                    targetSeatNumberType: typeof seat.seat_number
+                  });
+
+                  // Don't swap with self (compare as strings to handle type differences)
+                  if (sourceTableId === table.id && String(sourceSeatNumber) === String(seat.seat_number)) {
+                    console.log('Attempting to swap with self - canceling');
                     return;
                   }
 
-                  // Perform the swap
+                  // Perform the swap (ensure seat numbers are strings)
+                  console.log('Calling onStudentSwap');
                   onStudentSwap(
                     studentId, // Student A (being dragged)
                     sourceTableId, // Student A's original table
-                    sourceSeatNumber, // Student A's original seat
+                    sourceSeatNumber, // Student A's original seat (already string)
                     assignedStudent.id, // Student B (in target seat)
                     table.id, // Student B's table
-                    seat.seat_number // Student B's seat
+                    String(seat.seat_number) // Student B's seat (convert to string)
                   );
                 }
                 // If dropping from pool onto occupied seat - bump the seated student back to pool
                 else if (sourceType === "pool" && assignedStudent) {
+                  console.log('Branch: Pool-to-occupied-seat (bump)');
                   // First unassign the current student (send them back to pool)
-                  onStudentUnassign(table.id, seat.seat_number);
+                  onStudentUnassign(table.id, String(seat.seat_number));
 
-                  // Then assign the new student to this seat
-                  onStudentDrop(studentId, table.id, seat.seat_number);
+                  // Then assign the new student to this seat (ensure seat number is a string)
+                  onStudentDrop(studentId, table.id, String(seat.seat_number));
                 }
                 // Any other case (shouldn't happen with our current logic)
                 else {
