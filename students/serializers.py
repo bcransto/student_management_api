@@ -115,7 +115,7 @@ class SeatingPeriodSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = SeatingPeriod
-        fields = ['id', 'name', 'start_date', 'end_date', 'is_active', 'notes',
+        fields = ['id', 'class_assigned', 'name', 'start_date', 'end_date', 'is_active', 'notes',
                   'layout', 'layout_details', 'seating_assignments', 'groups', 
                   'created_at', 'updated_at']
         read_only_fields = ['created_at', 'updated_at']
@@ -146,14 +146,27 @@ class ClassRosterSerializer(serializers.ModelSerializer):
     student_id = serializers.CharField(
         source='student.student_id', read_only=True)
     current_seating_assignment = serializers.SerializerMethodField()
+    class_assigned_details = serializers.SerializerMethodField()
 
     class Meta:
         model = ClassRoster
-        fields = ['id', 'student', 'student_name', 'student_id', 'is_active',
-                  'notes', 'attendance_notes', 'enrollment_date', 'current_seating_assignment',
+        fields = ['id', 'student', 'student_name', 'student_id', 'class_assigned',
+                  'class_assigned_details', 'is_active', 'notes', 'attendance_notes', 
+                  'enrollment_date', 'current_seating_assignment',
                   'created_at', 'updated_at']
         read_only_fields = ['enrollment_date', 'created_at', 'updated_at']
 
+    def get_class_assigned_details(self, obj):
+        """Get class details for this roster entry"""
+        if obj.class_assigned:
+            return {
+                'class_name': obj.class_assigned.name,
+                'grade_level': obj.class_assigned.grade_level,
+                'teacher_name': obj.class_assigned.teacher.get_full_name() if obj.class_assigned.teacher else None,
+                'subject': obj.class_assigned.subject
+            }
+        return None
+    
     def get_current_seating_assignment(self, obj):
         """Get current seating assignment for this student"""
         assignment = obj.current_seating_assignment
@@ -355,7 +368,7 @@ class SeatingPeriodSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = SeatingPeriod
-        fields = ['id', 'name', 'start_date', 'end_date', 'is_active', 'notes',
+        fields = ['id', 'class_assigned', 'name', 'start_date', 'end_date', 'is_active', 'notes',
                   'layout', 'layout_details', 'seating_assignments', 'groups', 
                   'created_at', 'updated_at']
         read_only_fields = ['created_at', 'updated_at']
@@ -386,14 +399,27 @@ class ClassRosterSerializer(serializers.ModelSerializer):
     student_id = serializers.CharField(
         source='student.student_id', read_only=True)
     current_seating_assignment = serializers.SerializerMethodField()
+    class_assigned_details = serializers.SerializerMethodField()
 
     class Meta:
         model = ClassRoster
-        fields = ['id', 'student', 'student_name', 'student_id', 'is_active',
-                  'notes', 'attendance_notes', 'enrollment_date', 'current_seating_assignment',
+        fields = ['id', 'student', 'student_name', 'student_id', 'class_assigned',
+                  'class_assigned_details', 'is_active', 'notes', 'attendance_notes', 
+                  'enrollment_date', 'current_seating_assignment',
                   'created_at', 'updated_at']
         read_only_fields = ['enrollment_date', 'created_at', 'updated_at']
 
+    def get_class_assigned_details(self, obj):
+        """Get class details for this roster entry"""
+        if obj.class_assigned:
+            return {
+                'class_name': obj.class_assigned.name,
+                'grade_level': obj.class_assigned.grade_level,
+                'teacher_name': obj.class_assigned.teacher.get_full_name() if obj.class_assigned.teacher else None,
+                'subject': obj.class_assigned.subject
+            }
+        return None
+    
     def get_current_seating_assignment(self, obj):
         """Get current seating assignment for this student"""
         assignment = obj.current_seating_assignment

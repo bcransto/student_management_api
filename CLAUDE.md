@@ -2,180 +2,195 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project Overview
-
-Student Management API - A Django REST API with vanilla JavaScript frontend for managing students, classes, and classroom seating arrangements.
-
 ## Essential Commands
 
 ### Backend (Django)
 ```bash
-# Start development server
+# Activate virtual environment (always do this first)
+source myenv/bin/activate  # Note: NOT 'venv', but 'myenv'
+
+# Run development server
 python manage.py runserver
 
-# Run migrations
+# Kill existing server if port in use
+lsof -ti:8000 | xargs kill -9 2>/dev/null
+
+# Database migrations
+python manage.py makemigrations
 python manage.py migrate
-
-# Create superuser
-python manage.py createsuperuser
-
-# Run tests
-python manage.py test
 
 # Django shell for debugging
 python manage.py shell
 
-# Create new migrations after model changes
-python manage.py makemigrations
+# Create superuser for admin access
+python manage.py createsuperuser
 ```
 
-### Frontend Linting & Formatting
+### Frontend
+The frontend is pure React without build tools. Files are served directly through Django.
 ```bash
-# Run all linters
-npm run lint
-
-# Lint JavaScript files
-npm run lint:js
-
-# Fix JavaScript lint issues
-npm run lint:fix
-
-# Format all frontend files
-npm run format
-
-# Check formatting without changes
-npm run format:check
-
-# Lint HTML files
-npm run lint:html
+# No build process needed - just edit files and refresh browser
+# Access the app at http://127.0.0.1:8000/
+# Admin panel at http://127.0.0.1:8000/admin/
 ```
 
 ## Architecture Overview
 
-### Backend Architecture (Django REST Framework)
+### Tech Stack
+- **Backend**: Django 5.2.3 with Django REST Framework
+- **Frontend**: React 18 (CDN, no JSX, uses React.createElement)
+- **Database**: SQLite (local), MySQL (production on PythonAnywhere)
+- **Auth**: JWT with email-based login (not username)
+- **Routing**: Hash-based SPA routing (#dashboard, #students, etc.)
 
-**Core Django App Structure:**
-- `student_project/` - Main Django project settings and configuration
-- `students/` - Primary Django app containing all models, views, and API logic
+### Backend Structure
 
-**Key Models & Relationships:**
-1. **User** (Custom AbstractUser) - Teachers who manage classes
-2. **Student** - Student records with enrollment tracking
-3. **Class** - Courses taught by teachers, linked to classroom layouts
-4. **ClassRoster** - Junction table managing student enrollments in classes
-5. **ClassroomLayout** - Physical classroom configurations (room dimensions, template layouts)
-6. **ClassroomTable** - Individual tables/desks within layouts (position, shape, rotation)
-7. **TableSeat** - Specific seats at each table
-8. **SeatingPeriod** - Time-bound seating arrangements for classes
-9. **SeatingAssignment** - Maps students to specific seats during a period
+**Core Models** (`students/models.py`):
+- `User`: Custom user with email auth and `is_teacher` flag
+- `Class`: Classes taught by teachers with `classroom_layout` FK
+- `Student`: Student records with soft delete (`is_active`)
+- `ClassRoster`: M2M relationship between students and classes
+- `ClassroomLayout`: Physical room layouts (can be templates)
+- `SeatingPeriod`: Time-bounded seating with its own layout FK
+- `SeatingAssignment`: Maps roster entries to specific seats
 
-**Critical Model Relationships:**
-- **Class → Layout**: Currently direct link via `layout_id` (planned change: move to SeatingPeriod)
-- **SeatingPeriod → Class**: Each period belongs to one class
-- **SeatingAssignment → SeatingPeriod → Roster**: Tracks which student sits where
+**Critical Model Relationships**:
+```python
+Class → classroom_layout (FK to ClassroomLayout)
+SeatingPeriod → layout (FK to ClassroomLayout, PROTECT on delete)
+SeatingPeriod → class_assigned (FK to Class)
+SeatingAssignment → seating_period (FK to SeatingPeriod)
+SeatingAssignment → roster_entry (FK to ClassRoster)
+```
 
-**API Structure:**
-- JWT authentication via `/api/token/` and `/api/token/refresh/`
-- RESTful endpoints using Django REST Framework ViewSets
-- All API routes defined in `students/urls.py`
-- Custom serializers handle complex nested relationships
-- Permissions: Teachers can only access their own classes
+**SeatingPeriod Behavior**:
+- Only one active period per class (enforced in `save()` method)
+- Deactivating other periods does NOT modify their `end_date`
+- New periods should copy layout from previous period or class
 
-### Frontend Architecture (Vanilla JavaScript + React Components)
+### Frontend Architecture
 
-**Core Module System:**
-- `frontend/shared/core.js` - Central authentication and API module
-  - `AuthModule` - Token management, login/logout, localStorage handling
-  - `ApiModule` - HTTP methods, error handling, automatic token refresh on 401
+**Single Page Application Structure**:
+- `index.html`: Main entry point with all script/style imports
+- `app.js`: Main app controller with hash routing
+- `core.js`: AuthModule and ApiModule for API communication
+- Components use pure React.createElement (no JSX)
 
-**Component Structure:**
-- Each page has its own directory with HTML, CSS, and JS files
-- Shared components in `frontend/editors/shared/`:
-  - `EditorCanvas.js` - Canvas rendering for layout/seating editors
-  - `Table.js` - Table object management
-  - `constants.js` - Shared configuration values
+**Key Components**:
 
-**Key Frontend Features:**
-1. **Dashboard** (`frontend/dashboard/`) - Main navigation hub
-2. **Student Management** (`frontend/students/`) - CRUD operations for students
-3. **Class Management** (`frontend/classes/`) - Class creation and roster management
-4. **Layout Editor** (`frontend/layouts/`) - Visual classroom layout designer
-5. **Seating Editor** (`frontend/seating/`) - Drag-and-drop seating chart management
-   - `SeatingEditor.js` - Main React component without JSX
-   - Uses `formatStudentName()` for 8-character name truncation
-   - Tracks unsaved changes with `hasUnsavedChanges` state
-   - 2x scaling factor (80px) for canvas and table rendering
+1. **SeatingEditor.js** (Complex drag-and-drop editor):
+   - State: `assignments = {tableId: {seatNumber: studentId}}`
+   - Seat IDs format: "tableNumber-seatNumber" (e.g., "1-2")
+   - Name truncation: "FirstName L." (max 8 chars + initial)
+   - Special handling for same-table swaps vs cross-table
+   - Period navigation with Previous/Next buttons
+   - New Period button creates fresh period with empty seats
 
-**Frontend Patterns:**
-- React components written without JSX (using `React.createElement`)
-- Event-driven architecture with custom event dispatching
-- Canvas-based visual editors with grid positioning (40px → 80px scaling)
-- Modular JavaScript with IIFE pattern for encapsulation
-- API calls use async/await with centralized error handling
-- Dynamic API URL switching based on environment
+2. **SeatingViewer.js** (Read-only viewer):
+   - Uses standard app CSS (not custom editor styles)
+   - Toggle between view/edit modes
+   - Shares canvas rendering with editor
+   - No drag-drop or pool functionality
 
-### Visual Editor System
+3. **StudentEditor.js** (Full student CRUD):
+   - Route: `#students/edit/{studentId}`
+   - Form validation for required fields
+   - Soft delete sets `is_active = false`
+   - Shows enrolled classes with details
 
-**Seating Editor Specifics:**
-- HTML5 Canvas with 2x scaling (80px multiplier for dimensions)
-- Student cards: 65×45px rounded rectangles
-- Student pool: 3-column grid, 250px wide
-- Name truncation: "FirstName L." format (max 8 chars)
-- Drag-and-drop between pool and seats, seat swapping
-- Unsaved changes tracking with visual feedback (green Save button)
-- Body class `seating-editor-page` for CSS overrides
+### API Patterns
 
-**Layout Editor:**
-- Grid-based positioning system
-- Table objects with configurable seats
-- Real-time visual feedback during interactions
+**ApiModule.request() Usage**:
+```javascript
+// Correct format - options object as second parameter
+await ApiModule.request('/endpoint/', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(data)
+});
 
-## Current Work & Known Issues
+// NOT separate parameters like: request(url, method, body)
+```
 
-### Planned Model Change: Layout-SeatingPeriod Relationship
-**Problem:** Layouts are currently linked to Classes, not SeatingPeriods
-**Solution:** Each SeatingPeriod should have its own layout reference
-**Migration Strategy:**
-1. Add `layout` field to SeatingPeriod model (nullable)
-2. Backfill existing periods with their class's layout
-3. Make field required
-4. Update frontend to require layout selection
-5. Eventually remove `layout_id` from Class model
+**Query Parameter Filtering**:
+- SeatingPeriodViewSet: `?class_assigned={classId}`
+- SeatingAssignmentViewSet: `?seating_period={periodId}`
+- Both viewsets filter by teacher ownership automatically
 
-### Recent UI Updates (Seating Editor)
-- Toolbar height: 60px for both primary and secondary
-- Save/Reset/Cancel buttons with consistent styling
-- Previous/Next navigation buttons (not yet wired)
-- Title format: "Class Name: Period Name (Start Date - End Date)"
-- Hidden sidebar with full-width container for editor
-- 800px fixed height for editor container
+**Serializer Fields**:
+- SeatingPeriod includes: `class_assigned` (was missing, now added)
+- ClassRoster includes: `class_assigned_details` with nested info
+- SeatingAssignment expects: `roster_entry` ID, not student ID
 
-## Development Workflow
+### Data Type Consistency Issues
 
-### Database Management
-- SQLite for local development (`db.sqlite3`)
-- Migrations track all schema changes
-- Custom management commands in `students/management/commands/`
+**Always Handle as Strings**:
+- Seat numbers (even if API returns numbers)
+- Table IDs when used as object keys
+- Student IDs in assignment maps
 
-### Authentication Flow
-1. Frontend sends credentials to `/api/token/`
-2. JWT tokens stored in localStorage
-3. Access token included in Authorization header
-4. Automatic token refresh on 401 responses
-5. Token expiry handling with refresh mechanism
+**Format Examples**:
+```javascript
+// Correct assignment structure
+assignments = {
+  "106": {  // tableId as string key
+    "1": 5,   // seatNumber as string key, studentId as number
+    "2": 8
+  }
+}
 
-### API Response Format
-Standard Django REST Framework conventions:
-- Paginated lists: `{count, next, previous, results}`
-- Detail views: Direct object representation
-- Errors: `{detail: "error message"}` or field-specific errors
+// Seat ID format
+seat_id = "1-2"  // "tableNumber-seatNumber"
+```
 
-## Important Considerations
+### Common Pitfalls and Solutions
 
-- Frontend uses vanilla JavaScript with React for complex components (no JSX)
-- Canvas rendering requires browser HTML5 Canvas API support
-- Seating assignments enforce unique seat constraints per period
-- Frontend dynamically switches API URL based on environment
-- Git: `node_modules/` excluded from tracking
-- CSS uses floating card design with purple gradient background
-- Global styles in `frontend/shared/styles.css` can be overridden per component
+1. **Save Function Deleting Wrong Periods**:
+   - Issue: SeatingAssignmentViewSet wasn't filtering by period
+   - Fix: Added `filterset_fields` and query param filtering
+
+2. **Period Navigation Clearing Assignments**:
+   - Issue: Setting `is_active` triggers model save() side effects
+   - Solution: Only update `is_active`, never touch `end_date`
+
+3. **Layout Not Loading**:
+   - Always check `period.layout_details` first
+   - Fallback to `class.classroom_layout`
+   - Never assume layout exists
+
+4. **Drag & Drop Same Table**:
+   - Don't delete/recreate table object for same-table swaps
+   - Swap values directly in the assignments object
+
+5. **Virtual Environment**:
+   - MUST use `myenv/` not `venv/`
+   - Activate before any Python commands
+
+6. **CORS in Development**:
+   - Check `CORS_ALLOWED_ORIGINS` includes localhost
+   - Frontend auto-handles token refresh on 401
+
+### Deployment to PythonAnywhere
+
+1. Push code to GitHub
+2. SSH to PythonAnywhere console
+3. Pull latest changes in `/home/bcranston/student_management_api/`
+4. Run migrations if model changes
+5. Reload web app from PythonAnywhere dashboard
+6. Frontend URLs auto-switch based on hostname detection
+
+### Testing Approach
+
+No automated tests currently. Manual testing via:
+- Django admin panel for data verification
+- Browser console for frontend debugging
+- Django shell for backend queries
+- Test scripts: `test_seating_api.py`, `test_periods.py`
+
+### Recent Major Changes
+
+1. **Seating Viewer/Editor Toggle**: Separate components for view (standard CSS) vs edit (custom CSS) modes
+2. **New Period Button**: Creates new period, ends current, copies layout, starts with empty seats
+3. **Period-Specific Layouts**: Each SeatingPeriod has its own layout FK (migration completed)
+4. **API Filtering Fix**: SeatingAssignmentViewSet now properly filters by period
+5. **Navigation Improvements**: Previous/Next buttons switch between periods without data loss

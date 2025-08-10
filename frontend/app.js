@@ -22,11 +22,18 @@ const App = () => {
   // Navigation state - initialize from URL hash
   const getInitialView = () => {
     const hash = window.location.hash.slice(1); // Remove the #
+    
+    // Check for student edit pattern
+    if (hash.startsWith('students/edit/')) {
+      return 'student-edit';
+    }
+    
     const validViews = ["dashboard", "students", "classes", "seating", "layouts"];
     return validViews.includes(hash) ? hash : "dashboard";
   };
 
   const [currentView, setCurrentView] = useState(getInitialView());
+  const [editingStudentId, setEditingStudentId] = useState(null);
 
   // Application data
   const [appData, setAppData] = useState({
@@ -51,10 +58,31 @@ const App = () => {
     }
   }, []);
 
+  // Parse student ID from hash on initial load
+  useEffect(() => {
+    const hash = window.location.hash.slice(1);
+    if (hash.startsWith('students/edit/')) {
+      const id = hash.replace('students/edit/', '');
+      setEditingStudentId(id);
+    }
+  }, []);
+
   // Handle hash changes (browser back/forward)
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.slice(1);
+      
+      // Check for student edit pattern
+      if (hash.startsWith('students/edit/')) {
+        const id = hash.replace('students/edit/', '');
+        setEditingStudentId(id);
+        setCurrentView('student-edit');
+        return;
+      }
+      
+      // Clear editing state if navigating away
+      setEditingStudentId(null);
+      
       const validViews = ["dashboard", "students", "classes", "seating", "layouts"];
       if (validViews.includes(hash)) {
         setCurrentView(hash);
@@ -128,10 +156,20 @@ const App = () => {
   };
 
   // Handle navigation
-  const handleNavigate = (view) => {
-    console.log("Navigating to:", view);
+  const handleNavigate = (view, params = {}) => {
+    console.log("Navigating to:", view, params);
+    
+    // Handle student edit navigation
+    if (view === 'student-edit' && params.studentId) {
+      setCurrentView('student-edit');
+      setEditingStudentId(params.studentId);
+      window.location.hash = `students/edit/${params.studentId}`;
+      return;
+    }
+    
+    // Regular navigation
     setCurrentView(view);
-    // Update URL hash
+    setEditingStudentId(null);
     window.location.hash = view;
   };
 
@@ -149,10 +187,19 @@ const App = () => {
     console.log("Rendering view:", currentView);
 
     switch (currentView) {
+      case "student-edit":
+        return React.createElement(window.StudentEditor, {
+          studentId: editingStudentId,
+          navigateTo: handleNavigate,
+          apiModule: window.ApiModule,
+        });
+
       case "students":
         return React.createElement(Components.Students, {
           data: appData,
           refreshData: fetchData,
+          navigateTo: handleNavigate,
+          apiModule: window.ApiModule,
         });
 
       case "classes":

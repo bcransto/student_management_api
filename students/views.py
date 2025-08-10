@@ -277,13 +277,23 @@ class SeatingAssignmentViewSet(viewsets.ModelViewSet):
     queryset = SeatingAssignment.objects.all()
     serializer_class = SeatingAssignmentSerializer
     permission_classes = [IsAuthenticated]
+    filterset_fields = ['seating_period']  # Enable filtering by seating_period
 
     def get_queryset(self):
-        if self.request.user.is_superuser:
-            return SeatingAssignment.objects.all()
-        return SeatingAssignment.objects.filter(
-            seating_period__class_assigned__teacher=self.request.user
-        )
+        queryset = SeatingAssignment.objects.all()
+        
+        # Filter by user's permissions
+        if not self.request.user.is_superuser:
+            queryset = queryset.filter(
+                seating_period__class_assigned__teacher=self.request.user
+            )
+        
+        # Filter by seating_period if provided in query params
+        seating_period = self.request.query_params.get('seating_period', None)
+        if seating_period is not None:
+            queryset = queryset.filter(seating_period_id=seating_period)
+        
+        return queryset
 
 
 def frontend_view(request):
@@ -453,6 +463,8 @@ def create_from_editor(self, request):
 
     except Exception as e:
         return Response({'error': str(e)}, status=400)
+
+
 
 
 def modular_layout_editor_view(request):

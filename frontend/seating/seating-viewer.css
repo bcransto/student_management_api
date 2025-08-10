@@ -1,0 +1,163 @@
+/* Seating Viewer CSS - Uses standard app layout */
+
+.seating-viewer-container {
+  /* Standard floating card styling will be applied by shared CSS */
+  padding: 20px;
+}
+
+/* Use the same toolbar styling as editor */
+.canvas-toolbar {
+  height: 60px;
+  background: white;
+  padding: 0 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: -20px -20px 20px -20px; /* Offset container padding */
+}
+
+.toolbar-title {
+  flex: 1;
+  text-align: center;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.toolbar-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-left: auto;
+  align-items: center;
+}
+
+.viewer-controls .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.viewer-controls .btn i {
+  font-size: 0.875rem;
+}
+
+/* Canvas wrapper for centering */
+.seating-canvas-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 20px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  overflow: auto;
+  max-height: 600px;
+}
+
+/* Seating canvas styles (shared with editor) */
+.seating-canvas {
+  position: relative;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.seating-canvas .layout-obstacle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: #495057;
+  font-weight: 500;
+}
+
+.seating-canvas .classroom-table {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.seating-canvas .table-label {
+  background-color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.seating-canvas .seat {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  user-select: none;
+}
+
+.seating-canvas .seat.occupied {
+  background-color: #007bff !important;
+  color: white !important;
+  border-color: #0056b3 !important;
+}
+
+.seating-canvas .seat.empty {
+  background-color: white !important;
+  color: #6c757d !important;
+  border-color: #dee2e6 !important;
+}
+
+.seating-canvas .seat.accessible::after {
+  content: '♿';
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  font-size: 10px;
+  opacity: 0.7;
+}
+
+/* Loading state */
+.seating-viewer-container .loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+}
+
+.seating-viewer-container .spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #007bff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Error message */
+.seating-viewer-container .error-message {
+  text-align: center;
+  padding: 40px;
+  color: #721c24;
+  background-color: #f8d7da;
+  border: 1px solid #f5c6cb;
+  border-radius: 8px;
+}
+
+.seating-viewer-container .error-message h3 {
+  margin-top: 0;
+  color: #721c24;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .viewer-toolbar {
+    flex-direction: column;
+    gap: 15px;
+    align-items: flex-start;
+  }
+  
+  .viewer-controls {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  
+  .seating-canvas-wrapper {
+    padding: 10px;
+  }
+}

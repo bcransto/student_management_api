@@ -85,6 +85,7 @@ urlpatterns = [
     path('layout-editor/', layout_editor_view, name='layout_editor'),
     path('layout-editor-new/', modular_layout_editor_view,
          name='modular_layout_editor'),
+    
 
     # Serve layout editor static files
     path('frontend/layouts/editor/', layout_editor_view,

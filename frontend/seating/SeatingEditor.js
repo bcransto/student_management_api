@@ -24,11 +24,12 @@ const formatStudentName = (firstName, lastName) => {
   return `${truncatedFirst} ${lastInitial}.`;
 };
 
-const SeatingEditor = ({ classId, onBack }) => {
+const SeatingEditor = ({ classId, onBack, onView }) => {
   // Core state
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [isCreatingPeriod, setIsCreatingPeriod] = useState(false);
 
   // Data state
   const [classInfo, setClassInfo] = useState(null);
@@ -395,12 +396,35 @@ const SeatingEditor = ({ classId, onBack }) => {
 
       console.log("Starting to save seating assignments...");
       console.log("Current assignments:", assignments);
+      
+      // Debug: Check all periods for this class
+      try {
+        const allPeriods = await window.ApiModule.request(
+          `/seating-periods/?class_assigned=${classId}`
+        );
+        console.log("All periods for this class:", allPeriods);
+        if (allPeriods?.results) {
+          console.log("Period count:", allPeriods.results.length);
+          allPeriods.results.forEach(period => {
+            console.log(`Period ${period.id}: "${period.name}" - Active: ${period.is_active}, Start: ${period.start_date}`);
+          });
+        }
+        console.log("Currently saving to period:", classInfo.current_seating_period?.id, classInfo.current_seating_period?.name);
+      } catch (debugError) {
+        console.error("Debug fetch failed:", debugError);
+      }
 
       // Get or create seating period
       let seatingPeriodId;
       if (classInfo.current_seating_period) {
         seatingPeriodId = classInfo.current_seating_period.id;
         console.log("Using existing seating period:", seatingPeriodId);
+        console.log("Period details:", {
+          id: classInfo.current_seating_period.id,
+          name: classInfo.current_seating_period.name,
+          start_date: classInfo.current_seating_period.start_date,
+          is_active: classInfo.current_seating_period.is_active
+        });
       } else {
         console.log("Creating new seating period...");
         
@@ -456,13 +480,30 @@ const SeatingEditor = ({ classId, onBack }) => {
         console.log("Created new seating period:", seatingPeriodId);
       }
 
-      // Clear existing assignments
+      // Clear existing assignments ONLY for the current period
+      console.log(`Fetching assignments for period ${seatingPeriodId}...`);
       const currentAssignments = await window.ApiModule.request(
         `/seating-assignments/?seating_period=${seatingPeriodId}`
       );
+      
+      console.log("Current assignments response:", currentAssignments);
 
       if (currentAssignments.results && currentAssignments.results.length > 0) {
+        console.log(`Found ${currentAssignments.results.length} assignments to clear for period ${seatingPeriodId}`);
+        console.log("Assignments to delete:", currentAssignments.results.map(a => ({
+          id: a.id,
+          seating_period: a.seating_period,
+          seat_id: a.seat_id,
+          roster_entry: a.roster_entry
+        })));
+        
+        // Verify each assignment belongs to the correct period before deleting
         for (const assignment of currentAssignments.results) {
+          if (assignment.seating_period !== seatingPeriodId) {
+            console.error(`WARNING: Assignment ${assignment.id} belongs to period ${assignment.seating_period}, not ${seatingPeriodId}!`);
+            console.error("Skipping deletion of wrong period assignment");
+            continue;
+          }
           await window.ApiModule.request(`/seating-assignments/${assignment.id}/`, {
             method: "DELETE",
           });
@@ -675,6 +716,96 @@ const SeatingEditor = ({ classId, onBack }) => {
     };
   };
 
+  // Handle creating a new seating period
+  const handleNewPeriod = async () => {
+    // Check for unsaved changes
+    if (hasUnsavedChanges) {
+      const saveFirst = confirm("You have unsaved changes. Save them before creating a new period?");
+      if (saveFirst) {
+        await handleSave();
+      } else if (!confirm("Discard unsaved changes and create new period?")) {
+        return;
+      }
+    }
+
+    // Confirmation dialog
+    const confirmMessage = classInfo?.current_seating_period 
+      ? "Create a new seating period? This will end the current period as of today."
+      : "Create a new seating period?";
+    
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+
+    setIsCreatingPeriod(true);
+    
+    try {
+      // If there's a current period, update its end date to today
+      if (classInfo?.current_seating_period) {
+        const today = new Date().toISOString().split('T')[0];
+        await window.ApiModule.request(
+          `/seating-periods/${classInfo.current_seating_period.id}/`,
+          {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              end_date: today,
+              is_active: false
+            })
+          }
+        );
+      }
+
+      // Calculate dates
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const startDate = tomorrow.toISOString().split('T')[0];
+      
+      // Auto-generate period name
+      const periodName = `Period starting ${tomorrow.toLocaleDateString('en-US', { 
+        month: 'numeric', 
+        day: 'numeric', 
+        year: '2-digit' 
+      })}`;
+
+      // Create new period with layout from previous period or class
+      const layoutId = classInfo?.current_seating_period?.layout || layout?.id || classInfo?.classroom_layout?.id;
+      if (!layoutId) {
+        alert("No layout available to create a new period");
+        return;
+      }
+
+      const newPeriod = await window.ApiModule.request('/seating-periods/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          class_assigned: classId,
+          layout: layoutId,
+          name: periodName,
+          start_date: startDate,
+          end_date: null,
+          is_active: true
+        })
+      });
+
+      console.log("New period created:", newPeriod);
+      
+      // Reload data to show new period (will be empty seats)
+      await loadClassData();
+      
+      // Clear any existing assignments for fresh start
+      setAssignments({});
+      setNewAssignments({});
+      setHasUnsavedChanges(false);
+      
+    } catch (error) {
+      console.error("Error creating new period:", error);
+      alert("Failed to create new seating period. Please try again.");
+    } finally {
+      setIsCreatingPeriod(false);
+    }
+  };
+
   // Optional: Add a confirmation dialog before saving
   const handleSaveWithConfirmation = async () => {
     const errors = validateAssignments();
@@ -787,6 +918,29 @@ const SeatingEditor = ({ classId, onBack }) => {
           },
           "Next ",
           React.createElement("i", { className: "fas fa-chevron-right" })
+        ),
+        // Add View button if onView prop is provided
+        onView && React.createElement(
+          "button",
+          {
+            className: "btn btn-sm btn-secondary",
+            onClick: onView,
+            title: "Switch to view mode"
+          },
+          React.createElement("i", { className: "fas fa-eye" }),
+          " View"
+        ),
+        // New Period button
+        React.createElement(
+          "button",
+          {
+            className: "btn btn-sm btn-secondary",
+            onClick: handleNewPeriod,
+            disabled: isCreatingPeriod || !layout,
+            title: layout ? "Start a new seating period" : "No layout available"
+          },
+          React.createElement("i", { className: "fas fa-calendar-plus" }),
+          " New Period"
         )
       )
     ),

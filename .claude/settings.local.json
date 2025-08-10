@@ -2,7 +2,11 @@
   "permissions": {
     "allow": [
       "Bash(git add:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(python manage.py makemigrations:*)",
+      "Bash(source:*)",
+      "Bash(python manage.py migrate:*)",
+      "Bash(grep:*)"
     ],
     "deny": []
   }

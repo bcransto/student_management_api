@@ -1,8 +1,14 @@
 // frontend/students/students.js
 // Students Component - Extracted from frontend.html
 
-const Students = ({ data, navigateTo }) => {
+const Students = ({ data, navigateTo, apiModule }) => {
   const { students } = data;
+
+  // Handle student row click - navigate to edit view
+  const handleStudentClick = (studentId) => {
+    console.log('Navigating to edit student:', studentId);
+    navigateTo('student-edit', { studentId });
+  };
 
   if (!students) {
     return React.createElement(
@@ -58,7 +64,13 @@ const Students = ({ data, navigateTo }) => {
           students.map((student) =>
             React.createElement(
               "tr",
-              { key: student.id },
+              { 
+                key: student.id,
+                className: "student-row",
+                onClick: () => handleStudentClick(student.id),
+                style: { cursor: 'pointer' },
+                title: 'Click to edit'
+              },
               React.createElement(
                 "td",
                 null,

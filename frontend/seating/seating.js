@@ -4,7 +4,7 @@ const Seating = ({ data, navigateTo }) => {
   const [classes, setClasses] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
-  const [currentView, setCurrentView] = React.useState("list"); // 'list' or 'editor'
+  const [currentView, setCurrentView] = React.useState("list"); // 'list', 'viewer', or 'editor'
   const [selectedClassId, setSelectedClassId] = React.useState(null);
 
   React.useEffect(() => {
@@ -69,18 +69,21 @@ const Seating = ({ data, navigateTo }) => {
 
   const handleViewChart = (classId, className) => {
     console.log("View chart for class:", classId, className);
+    // Show viewer within the app
     setSelectedClassId(classId);
-    setCurrentView("editor");
+    setCurrentView("viewer");
   };
 
   const handleEditChart = (classId, className) => {
     console.log("Edit chart for class:", classId, className);
+    // Show editor within the app
     setSelectedClassId(classId);
     setCurrentView("editor");
   };
 
   const handleNewChart = (classId, className) => {
     console.log("Create new chart for class:", classId, className);
+    // Show editor for new chart within the app
     setSelectedClassId(classId);
     setCurrentView("editor");
   };
@@ -104,6 +107,36 @@ const Seating = ({ data, navigateTo }) => {
     };
   }, [currentView]);
 
+  // Show viewer view
+  if (currentView === "viewer") {
+    console.log("Showing viewer for class:", selectedClassId);
+    
+    if (window.SeatingViewer) {
+      return React.createElement(window.SeatingViewer, {
+        classId: selectedClassId,
+        onEdit: () => setCurrentView("editor"),
+        onBack: handleBackToList,
+      });
+    } else {
+      // Load SeatingViewer if not available
+      const script = document.createElement("script");
+      script.src = "/frontend/seating/SeatingViewer.js";
+      script.onload = () => {
+        console.log("SeatingViewer loaded");
+        setCurrentView("list"); // Force re-render
+        setCurrentView("viewer");
+      };
+      document.body.appendChild(script);
+      
+      return React.createElement(
+        "div",
+        { className: "loading" },
+        React.createElement("div", { className: "spinner" }),
+        "Loading seating viewer..."
+      );
+    }
+  }
+
   // Show editor view
   if (currentView === "editor") {
     console.log("Trying to show editor, SeatingEditor available:", !!window.SeatingEditor);
@@ -112,6 +145,7 @@ const Seating = ({ data, navigateTo }) => {
       return React.createElement(window.SeatingEditor, {
         classId: selectedClassId,
         onBack: handleBackToList,
+        onView: () => setCurrentView("viewer"),
       });
     } else {
       // Try loading again
@@ -196,7 +230,15 @@ const Seating = ({ data, navigateTo }) => {
               "div",
               {
                 key: classItem.id,
-                className: "class-card",
+                className: "class-card floating-card",
+                onClick: () => {
+                  if (classItem.current_seating_period?.seating_assignments?.length > 0) {
+                    handleViewChart(classItem.id, classItem.name);
+                  } else if (classItem.classroom_layout) {
+                    handleNewChart(classItem.id, classItem.name);
+                  }
+                },
+                style: { cursor: classItem.classroom_layout ? 'pointer' : 'not-allowed' }
               },
 
               // Class info
@@ -251,45 +293,6 @@ const Seating = ({ data, navigateTo }) => {
                       { className: "status-badge inactive" },
                       React.createElement("i", { className: "fas fa-exclamation-circle" }),
                       " No Chart"
-                    )
-              ),
-
-              // Actions
-              React.createElement(
-                "div",
-                { className: "class-card-actions" },
-                classItem.current_seating_period?.seating_assignments?.length > 0
-                  ? React.createElement(
-                      React.Fragment,
-                      null,
-                      React.createElement(
-                        "button",
-                        {
-                          className: "btn btn-primary btn-sm",
-                          onClick: () => handleViewChart(classItem.id, classItem.name),
-                        },
-                        React.createElement("i", { className: "fas fa-eye" }),
-                        " View"
-                      ),
-                      React.createElement(
-                        "button",
-                        {
-                          className: "btn btn-secondary btn-sm",
-                          onClick: () => handleEditChart(classItem.id, classItem.name),
-                        },
-                        React.createElement("i", { className: "fas fa-edit" }),
-                        " Edit"
-                      )
-                    )
-                  : React.createElement(
-                      "button",
-                      {
-                        className: "btn btn-primary btn-sm",
-                        onClick: () => handleNewChart(classItem.id, classItem.name),
-                        disabled: !classItem.classroom_layout,
-                      },
-                      React.createElement("i", { className: "fas fa-plus" }),
-                      " Create Chart"
                     )
               )
             )
