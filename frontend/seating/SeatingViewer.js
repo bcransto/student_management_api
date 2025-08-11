@@ -309,15 +309,7 @@ const SeatingViewer = ({ classId, onEdit, onBack }) => {
       ),
       
       // Title
-      React.createElement("h2", { className: "viewer-title" }, getTitle()),
-      
-      // Student count status badge (for consistency with editor)
-      React.createElement(
-        "div",
-        { className: "status-badge", style: { marginLeft: "auto" } },
-        `${Object.keys(assignments).reduce((count, tableId) => 
-          count + Object.keys(assignments[tableId] || {}).length, 0)} / ${students.length} seated`
-      ),
+      React.createElement("h2", { className: "viewer-title", style: { flex: "1" } }, getTitle()),
 
       // Period navigation buttons (right-justified)
       React.createElement(

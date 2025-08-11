@@ -774,13 +774,7 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
         React.createElement("i", { className: "fas fa-arrow-left" }),
         " Back"
       ),
-      React.createElement("h2", { className: "editor-title" }, getEditorTitle()),
-      // Student count status badge
-      React.createElement(
-        "div",
-        { className: "status-badge", style: { marginLeft: "auto" } },
-        `${getAssignedStudentIds().size} / ${students.length} seated`
-      ),
+      React.createElement("h2", { className: "editor-title", style: { flex: "1" } }, getEditorTitle()),
 
       // Period navigation buttons (right-justified)
       React.createElement(
