@@ -1058,58 +1058,6 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
               "Previous"
             )
           )
-        ),
-        
-        // Action buttons (Save, Reset, Cancel)
-        React.createElement(
-          "div",
-          { 
-            className: "toolbar-actions",
-            style: { 
-              display: "flex", 
-              gap: "0.5rem", 
-              marginLeft: "1rem",
-              borderLeft: "1px solid #e5e7eb",
-              paddingLeft: "1rem"
-            }
-          },
-          React.createElement(
-            "button",
-            {
-              className: "btn btn-sm btn-primary",
-              style: hasUnsavedChanges ? { backgroundColor: "#10b981", borderColor: "#10b981" } : {},
-              onClick: handleSave,
-              disabled: saving,
-            },
-            React.createElement("i", { className: "fas fa-save" }),
-            saving ? " Saving..." : " Save"
-          ),
-          React.createElement(
-            "button",
-            {
-              className: "btn btn-sm btn-secondary",
-              onClick: handleReset,
-            },
-            React.createElement("i", { className: "fas fa-undo" }),
-            " Reset"
-          ),
-          React.createElement(
-            "button",
-            {
-              className: "btn btn-sm btn-secondary",
-              onClick: () => {
-                if (hasUnsavedChanges) {
-                  if (window.confirm("You have unsaved changes. Are you sure you want to leave?")) {
-                    onBack();
-                  }
-                } else {
-                  onBack();
-                }
-              },
-            },
-            React.createElement("i", { className: "fas fa-times" }),
-            " Cancel"
-          )
         )
       )
     ),
@@ -1156,6 +1104,10 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
           onDragStart: setDraggedStudent,
           onDragEnd: () => setDraggedStudent(null),
           onStudentReturn: handleSeatUnassignment,
+          hasUnsavedChanges: hasUnsavedChanges,
+          onSave: handleSave,
+          onReset: handleReset,
+          saving: saving,
         })
       )
     )
@@ -1608,7 +1560,11 @@ const StudentPool = ({
   onSelectStudent,
   onDragStart,
   onDragEnd,
-  onStudentReturn, // NEW PROP
+  onStudentReturn,
+  hasUnsavedChanges,
+  onSave,
+  onReset,
+  saving,
 }) => {
   return React.createElement(
     "div",
@@ -1644,21 +1600,7 @@ const StudentPool = ({
       },
     },
 
-    // Header
-    React.createElement(
-      "div",
-      { className: "pool-header" },
-      React.createElement("h3", null, `Unassigned Students (${students.length})`),
-      React.createElement(
-        "select",
-        { className: "pool-sort" },
-        React.createElement("option", null, "Sort: A-Z"),
-        React.createElement("option", null, "Sort: Z-A"),
-        React.createElement("option", null, "Sort: Random")
-      )
-    ),
-
-    // Student grid
+    // Student grid - scrollable area
     React.createElement(
       "div",
       { className: "student-grid" },
@@ -1698,6 +1640,45 @@ const StudentPool = ({
             formatStudentName(student.first_name, student.last_name)
           )
         )
+      )
+    ),
+    
+    // Action buttons at bottom
+    React.createElement(
+      "div",
+      { 
+        className: "pool-actions",
+        style: {
+          padding: "1rem",
+          borderTop: "1px solid #e5e7eb",
+          display: "flex",
+          gap: "0.5rem",
+          backgroundColor: "white"
+        }
+      },
+      React.createElement(
+        "button",
+        {
+          className: "btn btn-primary",
+          style: { 
+            flex: 1,
+            ...(hasUnsavedChanges ? { backgroundColor: "#10b981", borderColor: "#10b981" } : {})
+          },
+          onClick: onSave,
+          disabled: saving,
+        },
+        React.createElement("i", { className: "fas fa-save" }),
+        saving ? " Saving..." : " Save"
+      ),
+      React.createElement(
+        "button",
+        {
+          className: "btn btn-secondary",
+          style: { flex: 1 },
+          onClick: onReset,
+        },
+        React.createElement("i", { className: "fas fa-undo" }),
+        " Reset"
       )
     )
   );

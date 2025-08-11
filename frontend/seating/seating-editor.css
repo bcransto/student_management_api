@@ -148,36 +148,45 @@ body.seating-editor-page .main-container {
   flex-shrink: 0;
 }
 
-.pool-header {
-  padding: 1rem;
-  border-bottom: 1px solid #e5e7eb;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.pool-header h3 {
-  margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
-  color: #1f2937;
-}
-
-.pool-sort {
-  padding: 0.25rem 0.5rem;
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
-  font-size: 0.875rem;
-}
-
 .student-grid {
   flex: 1;
   padding: 1rem;
+  padding-bottom: 0.5rem;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 0.75rem;
   overflow-y: auto;
+  overflow-x: hidden;
   align-content: start;
+  min-height: 0; /* Important for flex child to be scrollable */
+}
+
+/* Custom scrollbar for student grid */
+.student-grid::-webkit-scrollbar {
+  width: 6px;
+}
+
+.student-grid::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+.student-grid::-webkit-scrollbar-thumb {
+  background: #cbd5e0;
+  border-radius: 3px;
+}
+
+.student-grid::-webkit-scrollbar-thumb:hover {
+  background: #a0aec0;
+}
+
+/* Pool actions at bottom */
+.pool-actions {
+  padding: 1rem;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  gap: 0.5rem;
+  background-color: white;
+  flex-shrink: 0;
 }
 
 /* Student Cards - compact design matching seats */
