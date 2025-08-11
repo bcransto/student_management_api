@@ -477,11 +477,7 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
           assignmentsToCreate.push({
             seating_period: seatingPeriodId,
             roster_entry: rosterEntry.id,
-            table_number: table.table_number,
-            seat_number: parseInt(seatNumber),
-            group_number: null,
-            group_role: "",
-            assignment_notes: "",
+            seat_id: `${table.table_number}-${seatNumber}`,
           });
         });
       });
