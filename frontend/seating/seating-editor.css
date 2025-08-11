@@ -151,7 +151,6 @@ body.seating-editor-page .main-container {
 .student-grid {
   flex: 1;
   padding: 1rem;
-  padding-bottom: 0.5rem;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 0.75rem;
@@ -179,10 +178,10 @@ body.seating-editor-page .main-container {
   background: #a0aec0;
 }
 
-/* Pool actions at bottom */
+/* Pool actions at top */
 .pool-actions {
   padding: 1rem;
-  border-top: 1px solid #e5e7eb;
+  border-bottom: 1px solid #e5e7eb;
   display: flex;
   gap: 0.5rem;
   background-color: white;

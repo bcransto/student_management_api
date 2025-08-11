@@ -1600,6 +1600,45 @@ const StudentPool = ({
       },
     },
 
+    // Action buttons at top
+    React.createElement(
+      "div",
+      { 
+        className: "pool-actions",
+        style: {
+          padding: "1rem",
+          borderBottom: "1px solid #e5e7eb",
+          display: "flex",
+          gap: "0.5rem",
+          backgroundColor: "white"
+        }
+      },
+      React.createElement(
+        "button",
+        {
+          className: "btn btn-primary",
+          style: { 
+            flex: 1,
+            ...(hasUnsavedChanges ? { backgroundColor: "#10b981", borderColor: "#10b981" } : {})
+          },
+          onClick: onSave,
+          disabled: saving,
+        },
+        React.createElement("i", { className: "fas fa-save" }),
+        saving ? " Saving..." : " Save"
+      ),
+      React.createElement(
+        "button",
+        {
+          className: "btn btn-secondary",
+          style: { flex: 1 },
+          onClick: onReset,
+        },
+        React.createElement("i", { className: "fas fa-undo" }),
+        " Reset"
+      )
+    ),
+
     // Student grid - scrollable area
     React.createElement(
       "div",
@@ -1640,45 +1679,6 @@ const StudentPool = ({
             formatStudentName(student.first_name, student.last_name)
           )
         )
-      )
-    ),
-    
-    // Action buttons at bottom
-    React.createElement(
-      "div",
-      { 
-        className: "pool-actions",
-        style: {
-          padding: "1rem",
-          borderTop: "1px solid #e5e7eb",
-          display: "flex",
-          gap: "0.5rem",
-          backgroundColor: "white"
-        }
-      },
-      React.createElement(
-        "button",
-        {
-          className: "btn btn-primary",
-          style: { 
-            flex: 1,
-            ...(hasUnsavedChanges ? { backgroundColor: "#10b981", borderColor: "#10b981" } : {})
-          },
-          onClick: onSave,
-          disabled: saving,
-        },
-        React.createElement("i", { className: "fas fa-save" }),
-        saving ? " Saving..." : " Save"
-      ),
-      React.createElement(
-        "button",
-        {
-          className: "btn btn-secondary",
-          style: { flex: 1 },
-          onClick: onReset,
-        },
-        React.createElement("i", { className: "fas fa-undo" }),
-        " Reset"
       )
     )
   );
