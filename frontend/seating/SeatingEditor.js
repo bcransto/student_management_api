@@ -1616,7 +1616,7 @@ const StudentPool = ({
       React.createElement(
         "button",
         {
-          className: "btn btn-primary",
+          className: "btn btn-sm btn-secondary",
           style: { 
             flex: 1,
             ...(hasUnsavedChanges ? { backgroundColor: "#10b981", borderColor: "#10b981" } : {})
@@ -1630,7 +1630,7 @@ const StudentPool = ({
       React.createElement(
         "button",
         {
-          className: "btn btn-secondary",
+          className: "btn btn-sm btn-secondary",
           style: { flex: 1 },
           onClick: onReset,
         },
