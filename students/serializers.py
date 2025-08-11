@@ -133,11 +133,13 @@ class SeatingAssignmentSerializer(serializers.ModelSerializer):
     student_id = serializers.CharField(source="roster_entry.student.student_id", read_only=True)
     table_number = serializers.ReadOnlyField()
     seat_number = serializers.ReadOnlyField()
+    seating_period = serializers.PrimaryKeyRelatedField(queryset=SeatingPeriod.objects.all())
 
     class Meta:
         model = SeatingAssignment
         fields = [
             "id",
+            "seating_period",
             "roster_entry",
             "seat_id",
             "group_number",
@@ -151,6 +153,16 @@ class SeatingAssignmentSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["created_at", "updated_at"]
+    
+    def create(self, validated_data):
+        """Override create to handle model validation properly"""
+        # Create the instance without calling save
+        instance = SeatingAssignment(**validated_data)
+        # Run full validation which will handle the seating_period_id case
+        instance.full_clean()
+        # Save after validation passes
+        instance.save()
+        return instance
 
 
 class SeatingPeriodSerializer(serializers.ModelSerializer):
