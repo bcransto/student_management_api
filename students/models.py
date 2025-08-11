@@ -529,8 +529,19 @@ class SeatingAssignment(models.Model):
         """Validate that seat_id exists in the classroom layout"""
         super().clean()
 
+        # Skip validation if seating_period is not set (will be caught by required field validation)
+        if not self.seating_period_id:
+            return
+
+        # Get the seating period (handle both object and ID)
+        try:
+            period = self.seating_period
+        except SeatingPeriod.DoesNotExist:
+            # If we only have the ID, fetch the period
+            period = SeatingPeriod.objects.get(id=self.seating_period_id)
+
         # Check if the seating period has a layout
-        if not self.seating_period.layout:
+        if not period.layout:
             raise ValidationError("Seating period must have a classroom layout to assign seats.")
 
         # Validate seat_id format
@@ -545,7 +556,7 @@ class SeatingAssignment(models.Model):
             raise ValidationError("seat_id must be in format 'table_number-seat_number' with valid integers")
 
         # Check if the seat actually exists in the layout
-        layout = self.seating_period.layout
+        layout = period.layout
         table = layout.tables.filter(table_number=table_num).first()
         if not table:
             raise ValidationError(f"Table {table_num} does not exist in the classroom layout")
