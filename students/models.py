@@ -529,10 +529,9 @@ class SeatingAssignment(models.Model):
         """Validate that seat_id exists in the classroom layout"""
         super().clean()
 
-        # Check if the class has a layout
-        class_obj = self.seating_period.class_assigned
-        if not class_obj.classroom_layout:
-            raise ValidationError("Class must have a classroom layout to assign seats.")
+        # Check if the seating period has a layout
+        if not self.seating_period.layout:
+            raise ValidationError("Seating period must have a classroom layout to assign seats.")
 
         # Validate seat_id format
         if not self.seat_id or "-" not in self.seat_id:
@@ -546,7 +545,7 @@ class SeatingAssignment(models.Model):
             raise ValidationError("seat_id must be in format 'table_number-seat_number' with valid integers")
 
         # Check if the seat actually exists in the layout
-        layout = class_obj.classroom_layout
+        layout = self.seating_period.layout
         table = layout.tables.filter(table_number=table_num).first()
         if not table:
             raise ValidationError(f"Table {table_num} does not exist in the classroom layout")

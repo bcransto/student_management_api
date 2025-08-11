@@ -485,11 +485,17 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
       // Create all assignments
       const createdAssignments = [];
       for (const assignmentData of assignmentsToCreate) {
-        const created = await window.ApiModule.request("/seating-assignments/", {
-          method: "POST",
-          body: JSON.stringify(assignmentData),
-        });
-        createdAssignments.push(created);
+        console.log("Creating assignment with data:", assignmentData);
+        try {
+          const created = await window.ApiModule.request("/seating-assignments/", {
+            method: "POST",
+            body: JSON.stringify(assignmentData),
+          });
+          createdAssignments.push(created);
+        } catch (error) {
+          console.error("Failed to create assignment:", assignmentData, error);
+          throw error;
+        }
       }
 
       alert(`✅ Seating chart saved successfully! ${createdAssignments.length} students assigned.`);
