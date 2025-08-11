@@ -25,27 +25,11 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
   const [draggedStudent, setDraggedStudent] = useState(null);
   const [showLayoutSelector, setShowLayoutSelector] = useState(false);
   const [availableLayouts, setAvailableLayouts] = useState([]);
-  const [showAutofillDropdown, setShowAutofillDropdown] = useState(false);
-  const [showViewDropdown, setShowViewDropdown] = useState(false);
 
   // Load initial data
   useEffect(() => {
     loadClassData();
   }, [classId]);
-
-  // Close dropdowns when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      // Check if click is outside dropdown
-      if (!event.target.closest('.dropdown')) {
-        setShowAutofillDropdown(false);
-        setShowViewDropdown(false);
-      }
-    };
-
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
-  }, []);
 
   // Warn before leaving page with unsaved changes
   useEffect(() => {
@@ -832,290 +816,134 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
           },
           React.createElement("i", { className: "fas fa-calendar-plus" }),
           " New Period"
-        ),
-        
-        // Autofill dropdown
+        )
+      )
+    ),
+
+    // Secondary toolbar (replaces right sidebar content)
+    React.createElement(
+      "div",
+      { className: "secondary-toolbar" },
+
+      // Auto-fill section
+      React.createElement(
+        "div",
+        { className: "toolbar-section" },
+        React.createElement("span", { className: "toolbar-label" }, "Auto-fill:"),
         React.createElement(
           "div",
-          { className: "dropdown", style: { position: "relative" } },
+          { className: "auto-fill-buttons" },
           React.createElement(
             "button",
             {
-              className: "btn btn-sm btn-secondary dropdown-toggle",
-              onClick: () => {
-                setShowAutofillDropdown(!showAutofillDropdown);
-                setShowViewDropdown(false);
-              },
-              title: "Auto-fill seating options",
+              className: "btn btn-sm btn-outline",
+              onClick: () => alert("Auto-fill: Alphabetical"),
             },
-            React.createElement("i", { className: "fas fa-magic" }),
-            " Auto-fill ",
-            React.createElement("i", { className: "fas fa-caret-down" })
+            React.createElement("i", { className: "fas fa-sort-alpha-down" }),
+            " A-Z"
           ),
-          showAutofillDropdown && React.createElement(
-            "div",
-            { 
-              className: "dropdown-menu show",
-              style: {
-                position: "absolute",
-                top: "100%",
-                right: 0,
-                marginTop: "4px",
-                minWidth: "160px",
-                background: "white",
-                border: "1px solid #e5e7eb",
-                borderRadius: "6px",
-                boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)",
-                zIndex: 1000
-              }
-            },
-            React.createElement(
-              "button",
-              {
-                className: "dropdown-item",
-                onClick: () => {
-                  alert("Auto-fill: Alphabetical");
-                  setShowAutofillDropdown(false);
-                },
-                style: {
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  width: "100%",
-                  padding: "8px 12px",
-                  border: "none",
-                  background: "transparent",
-                  textAlign: "left",
-                  cursor: "pointer",
-                  fontSize: "14px"
-                },
-                onMouseEnter: (e) => e.target.style.background = "#f3f4f6",
-                onMouseLeave: (e) => e.target.style.background = "transparent"
-              },
-              React.createElement("i", { className: "fas fa-sort-alpha-down", style: { width: "16px" } }),
-              "Alphabetical"
-            ),
-            React.createElement(
-              "button",
-              {
-                className: "dropdown-item",
-                onClick: () => {
-                  alert("Auto-fill: Random");
-                  setShowAutofillDropdown(false);
-                },
-                style: {
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  width: "100%",
-                  padding: "8px 12px",
-                  border: "none",
-                  background: "transparent",
-                  textAlign: "left",
-                  cursor: "pointer",
-                  fontSize: "14px"
-                },
-                onMouseEnter: (e) => e.target.style.background = "#f3f4f6",
-                onMouseLeave: (e) => e.target.style.background = "transparent"
-              },
-              React.createElement("i", { className: "fas fa-random", style: { width: "16px" } }),
-              "Random"
-            ),
-            React.createElement(
-              "button",
-              {
-                className: "dropdown-item",
-                onClick: () => {
-                  alert("Auto-fill: Boy-Girl Pattern");
-                  setShowAutofillDropdown(false);
-                },
-                style: {
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  width: "100%",
-                  padding: "8px 12px",
-                  border: "none",
-                  background: "transparent",
-                  textAlign: "left",
-                  cursor: "pointer",
-                  fontSize: "14px"
-                },
-                onMouseEnter: (e) => e.target.style.background = "#f3f4f6",
-                onMouseLeave: (e) => e.target.style.background = "transparent"
-              },
-              React.createElement("i", { className: "fas fa-venus-mars", style: { width: "16px" } }),
-              "Boy-Girl Pattern"
-            )
-          )
-        ),
-        
-        // View dropdown
-        React.createElement(
-          "div",
-          { className: "dropdown", style: { position: "relative" } },
           React.createElement(
             "button",
             {
-              className: "btn btn-sm btn-secondary dropdown-toggle",
-              onClick: () => {
-                setShowViewDropdown(!showViewDropdown);
-                setShowAutofillDropdown(false);
-              },
-              title: "View options",
+              className: "btn btn-sm btn-outline",
+              onClick: () => alert("Auto-fill: Random"),
             },
-            React.createElement("i", { className: "fas fa-eye" }),
-            " View ",
-            React.createElement("i", { className: "fas fa-caret-down" })
+            React.createElement("i", { className: "fas fa-random" }),
+            " Random"
           ),
-          showViewDropdown && React.createElement(
-            "div",
-            { 
-              className: "dropdown-menu show",
-              style: {
-                position: "absolute",
-                top: "100%",
-                right: 0,
-                marginTop: "4px",
-                minWidth: "160px",
-                background: "white",
-                border: "1px solid #e5e7eb",
-                borderRadius: "6px",
-                boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)",
-                zIndex: 1000
-              }
+          React.createElement(
+            "button",
+            {
+              className: "btn btn-sm btn-outline",
+              onClick: () => alert("Auto-fill: Boy-Girl"),
             },
-            React.createElement(
-              "button",
-              {
-                className: "dropdown-item",
-                onClick: () => {
-                  setHighlightMode("none");
-                  setShowViewDropdown(false);
-                },
-                style: {
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  width: "100%",
-                  padding: "8px 12px",
-                  border: "none",
-                  background: highlightMode === "none" ? "#e0f2fe" : "transparent",
-                  textAlign: "left",
-                  cursor: "pointer",
-                  fontSize: "14px"
-                },
-                onMouseEnter: (e) => { if (highlightMode !== "none") e.target.style.background = "#f3f4f6"; },
-                onMouseLeave: (e) => { if (highlightMode !== "none") e.target.style.background = "transparent"; }
-              },
-              React.createElement("i", { className: "fas fa-check", style: { width: "16px", opacity: highlightMode === "none" ? 1 : 0 } }),
-              "Normal"
-            ),
-            React.createElement(
-              "button",
-              {
-                className: "dropdown-item",
-                onClick: () => {
-                  setHighlightMode("gender");
-                  setShowViewDropdown(false);
-                },
-                style: {
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  width: "100%",
-                  padding: "8px 12px",
-                  border: "none",
-                  background: highlightMode === "gender" ? "#e0f2fe" : "transparent",
-                  textAlign: "left",
-                  cursor: "pointer",
-                  fontSize: "14px"
-                },
-                onMouseEnter: (e) => { if (highlightMode !== "gender") e.target.style.background = "#f3f4f6"; },
-                onMouseLeave: (e) => { if (highlightMode !== "gender") e.target.style.background = "transparent"; }
-              },
-              React.createElement("i", { className: "fas fa-check", style: { width: "16px", opacity: highlightMode === "gender" ? 1 : 0 } }),
-              "Gender"
-            ),
-            React.createElement(
-              "button",
-              {
-                className: "dropdown-item",
-                onClick: () => {
-                  setHighlightMode("previous");
-                  setShowViewDropdown(false);
-                },
-                style: {
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  width: "100%",
-                  padding: "8px 12px",
-                  border: "none",
-                  background: highlightMode === "previous" ? "#e0f2fe" : "transparent",
-                  textAlign: "left",
-                  cursor: "pointer",
-                  fontSize: "14px"
-                },
-                onMouseEnter: (e) => { if (highlightMode !== "previous") e.target.style.background = "#f3f4f6"; },
-                onMouseLeave: (e) => { if (highlightMode !== "previous") e.target.style.background = "transparent"; }
-              },
-              React.createElement("i", { className: "fas fa-check", style: { width: "16px", opacity: highlightMode === "previous" ? 1 : 0 } }),
-              "Previous"
-            )
+            React.createElement("i", { className: "fas fa-venus-mars" }),
+            " Boy-Girl"
           )
-        ),
-        
-        // Action buttons (Save, Reset, Cancel)
+        )
+      ),
+
+      // View options section
+      React.createElement(
+        "div",
+        { className: "toolbar-section" },
+        React.createElement("span", { className: "toolbar-label" }, "View:"),
         React.createElement(
           "div",
-          { 
-            className: "toolbar-actions",
-            style: { 
-              display: "flex", 
-              gap: "0.5rem", 
-              marginLeft: "1rem",
-              borderLeft: "1px solid #e5e7eb",
-              paddingLeft: "1rem"
-            }
+          { className: "view-options" },
+          React.createElement(
+            "label",
+            { className: "radio-label" },
+            React.createElement("input", {
+              type: "radio",
+              name: "highlight",
+              checked: highlightMode === "none",
+              onChange: () => setHighlightMode("none"),
+            }),
+            " Normal"
+          ),
+          React.createElement(
+            "label",
+            { className: "radio-label" },
+            React.createElement("input", {
+              type: "radio",
+              name: "highlight",
+              checked: highlightMode === "gender",
+              onChange: () => setHighlightMode("gender"),
+            }),
+            " Gender"
+          ),
+          React.createElement(
+            "label",
+            { className: "radio-label" },
+            React.createElement("input", {
+              type: "radio",
+              name: "highlight",
+              checked: highlightMode === "previous",
+              onChange: () => setHighlightMode("previous"),
+            }),
+            " Previous"
+          )
+        )
+      ),
+
+      // Action buttons (Save, Reset, Cancel)
+      React.createElement(
+        "div",
+        { className: "toolbar-actions" },
+        React.createElement(
+          "button",
+          {
+            className: "btn btn-sm btn-secondary",
+            style: hasUnsavedChanges ? { backgroundColor: "#86efac", borderColor: "#86efac" } : {},
+            onClick: handleSave,
+            disabled: saving,
           },
-          React.createElement(
-            "button",
-            {
-              className: "btn btn-sm btn-primary",
-              style: hasUnsavedChanges ? { backgroundColor: "#10b981", borderColor: "#10b981" } : {},
-              onClick: handleSave,
-              disabled: saving,
-            },
-            React.createElement("i", { className: "fas fa-save" }),
-            saving ? " Saving..." : " Save"
-          ),
-          React.createElement(
-            "button",
-            {
-              className: "btn btn-sm btn-secondary",
-              onClick: handleReset,
-            },
-            React.createElement("i", { className: "fas fa-undo" }),
-            " Reset"
-          ),
-          React.createElement(
-            "button",
-            {
-              className: "btn btn-sm btn-secondary",
-              onClick: () => {
-                if (hasUnsavedChanges) {
-                  if (window.confirm("You have unsaved changes. Are you sure you want to leave?")) {
-                    onBack();
-                  }
-                } else {
+          saving ? "Saving..." : "Save"
+        ),
+        React.createElement(
+          "button",
+          {
+            className: "btn btn-sm btn-secondary",
+            onClick: handleReset,
+          },
+          "Reset"
+        ),
+        React.createElement(
+          "button",
+          {
+            className: "btn btn-sm btn-secondary",
+            onClick: () => {
+              if (hasUnsavedChanges) {
+                if (window.confirm("You have unsaved changes. Are you sure you want to leave?")) {
                   onBack();
                 }
-              },
+              } else {
+                onBack();
+              }
             },
-            React.createElement("i", { className: "fas fa-times" }),
-            " Cancel"
-          )
+          },
+          "Cancel"
         )
       )
     ),
@@ -1182,36 +1010,20 @@ const SeatingCanvas = ({
   onDragStart,
   onDragEnd,
 }) => {
-  // Get shared styles
-  const { LayoutStyles } = window;
-  const gridSize = 80; // Grid size for editor
-  
   // This will render the layout with students assigned to seats
   return React.createElement(
     "div",
     {
       className: `seating-canvas ${draggedStudent ? "drag-active" : ""}`,
-      style: LayoutStyles.getCanvasContainerStyle(layout.room_width, layout.room_height, gridSize),
+      style: {
+        width: layout.room_width * 80,
+        height: layout.room_height * 80,
+        position: "relative",
+        backgroundColor: "white",
+        border: "2px solid #e5e7eb",
+        margin: "0 auto",
+      },
     },
-
-    // Grid background (optional)
-    React.createElement("div", { style: LayoutStyles.getGridStyle(gridSize) }),
-
-    // Render obstacles
-    layout.obstacles?.map((obstacle) =>
-      React.createElement(
-        "div",
-        {
-          key: obstacle.id,
-          style: LayoutStyles.getObstacleStyle(obstacle, false, false, gridSize),
-        },
-        React.createElement(
-          "div",
-          { style: LayoutStyles.getObstacleLabelStyle() },
-          obstacle.name
-        )
-      )
-    ),
 
     // Render tables with seats
     layout.tables?.map((table) =>
@@ -1220,16 +1032,47 @@ const SeatingCanvas = ({
         {
           key: table.id,
           className: "seating-table",
-          style: LayoutStyles.getTableStyle(table, false, false, gridSize),
+          style: {
+            position: "absolute",
+            left: table.x_position * 80,
+            top: table.y_position * 80,
+            width: table.width * 80,
+            height: table.height * 80,
+          },
         },
 
-        // Table label - using shared style
+        // Table background
         React.createElement(
           "div",
-          { style: LayoutStyles.getTableLabelStyle() },
-          String(table.table_number)
-        )
-        ,
+          {
+            className: "table-shape",
+            style: {
+              width: "100%",
+              height: "100%",
+              backgroundColor: "#e0e7ff",
+              border: "2px solid #6366f1",
+              borderRadius: table.table_shape === "round" ? "50%" : "8px",
+              position: "relative",
+            },
+          },
+
+          // Table label
+          React.createElement(
+            "div",
+            {
+              style: {
+                position: "absolute",
+                top: "50%",
+                left: "50%",
+                transform: "translate(-50%, -50%)",
+                fontSize: "14px",
+                fontWeight: "bold",
+                color: "#4c1d95",
+              },
+            },
+            table.table_name || `T${table.table_number}`
+          )
+        ),
 
         // Render seats
         table.seats?.map((seat) => {
@@ -1246,32 +1089,7 @@ const SeatingCanvas = ({
             );
           }
 
-          // Use shared seat styles
-          const seatStyle = LayoutStyles.getSeatStyle(seat, {
-            isOccupied: !!assignedStudent,
-            isSelected: false,
-            isAccessible: seat.is_accessible,
-            gridSize: gridSize,
-            showName: !!assignedStudent
-          });
-
-          // Force empty seat colors from shared styles
-          if (!assignedStudent) {
-            seatStyle.backgroundColor = '#e0f2fe';  // Very light blue
-            seatStyle.borderColor = '#7dd3fc';      // Light blue border
-            seatStyle.color = '#0284c7';            // Blue text
-          }
-
-          // Override background color for gender highlighting if needed
-          if (assignedStudent && highlightMode === "gender") {
-            seatStyle.backgroundColor = assignedStudent.gender === "F" 
-              ? "#fbbf24"  // Yellow for female
-              : "#60a5fa"; // Blue for male
-            seatStyle.borderColor = assignedStudent.gender === "F"
-              ? "#f59e0b"
-              : "#3b82f6";
-          }
-
+          // In SeatingCanvas component, replace the seat rendering with this:
           return React.createElement(
             "div",
             {
@@ -1280,8 +1098,32 @@ const SeatingCanvas = ({
                 seat.is_accessible ? "accessible" : ""
               }`,
               style: {
-                ...seatStyle,
+                position: "absolute",
+                left: `${seat.relative_x * 100}%`,
+                top: `${seat.relative_y * 100}%`,
+                transform: "translate(-50%, -50%)",
+                width: "65px",
+                height: "45px",
+                borderRadius: "8px",
+                backgroundColor: assignedStudent
+                  ? assignedStudent.gender === "F"
+                    ? "#fbbf24"
+                    : "#60a5fa"
+                  : "#e5e7eb",
+                border: "2px solid",
+                borderColor: assignedStudent
+                  ? assignedStudent.gender === "F"
+                    ? "#f59e0b"
+                    : "#3b82f6"
+                  : "#d1d5db",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "11px",
+                fontWeight: "500",
+                color: "#333",
                 cursor: "pointer",
+                transition: "all 0.2s",
               },
               onClick: () => onSeatClick(table.id, seat.seat_number),
 
@@ -1415,37 +1257,21 @@ const SeatingCanvas = ({
                 : `Seat ${seat.seat_number}`,
             },
             assignedStudent
-              ? (() => {
-                  const { line1, line2 } = LayoutStyles.formatSeatName(
-                    assignedStudent.first_name,
-                    assignedStudent.last_name
-                  );
-                  return React.createElement(
-                    React.Fragment,
-                    null,
-                    React.createElement(
-                      "div",
-                      {
-                        style: {
-                          fontSize: "11px",
-                          fontWeight: "bold",
-                          lineHeight: "1.1",
-                        },
-                      },
-                      line1
-                    ),
-                    React.createElement(
-                      "div",
-                      {
-                        style: {
-                          fontSize: "10px",
-                          lineHeight: "1.1",
-                        },
-                      },
-                      line2
-                    )
-                  );
-                })()
+              ? React.createElement(
+                  "div",
+                  {
+                    className: "seat-name",
+                    style: {
+                      fontSize: "11px",
+                      fontWeight: "500",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                      maxWidth: "57px",
+                    },
+                  },
+                  formatStudentName(assignedStudent.first_name, assignedStudent.last_name)
+                )
               : seat.seat_number
           );
         })
