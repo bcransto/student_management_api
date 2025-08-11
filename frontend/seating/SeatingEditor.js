@@ -449,12 +449,9 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
       );
 
       if (currentAssignments.results && currentAssignments.results.length > 0) {
-
-        // Verify each assignment belongs to the correct period before deleting
+        // Delete all assignments for this period
         for (const assignment of currentAssignments.results) {
-          if (assignment.seating_period !== seatingPeriodId) {
-            continue;
-          }
+          // The API already filtered by seating_period, so all these belong to our period
           await window.ApiModule.request(`/seating-assignments/${assignment.id}/`, {
             method: "DELETE",
           });
@@ -485,17 +482,11 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
       // Create all assignments
       const createdAssignments = [];
       for (const assignmentData of assignmentsToCreate) {
-        console.log("Creating assignment with data:", assignmentData);
-        try {
-          const created = await window.ApiModule.request("/seating-assignments/", {
-            method: "POST",
-            body: JSON.stringify(assignmentData),
-          });
-          createdAssignments.push(created);
-        } catch (error) {
-          console.error("Failed to create assignment:", assignmentData, error);
-          throw error;
-        }
+        const created = await window.ApiModule.request("/seating-assignments/", {
+          method: "POST",
+          body: JSON.stringify(assignmentData),
+        });
+        createdAssignments.push(created);
       }
 
       alert(`✅ Seating chart saved successfully! ${createdAssignments.length} students assigned.`);

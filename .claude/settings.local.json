@@ -15,7 +15,8 @@
       "Bash(npm run format:python:*)",
       "Bash(open /Users/bcransto/Documents/student_management_api/test_layout_editor_debug.html)",
       "Bash(touch:*)",
-      "Bash(cp:*)"
+      "Bash(cp:*)",
+      "Bash(python test:*)"
     ],
     "deny": []
   }
