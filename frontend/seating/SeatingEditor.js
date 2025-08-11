@@ -1204,7 +1204,7 @@ const SeatingCanvas = ({
           // Force empty seat colors from shared styles
           if (!assignedStudent) {
             seatStyle.backgroundColor = '#e0f2fe';  // Very light blue
-            seatStyle.borderColor = '#7dd3fc';      // Light blue border
+            seatStyle.border = '2px solid #7dd3fc';  // Light blue border
             seatStyle.color = '#0284c7';            // Blue text
           }
 
@@ -1213,9 +1213,9 @@ const SeatingCanvas = ({
             seatStyle.backgroundColor = assignedStudent.gender === "F" 
               ? "#fbbf24"  // Yellow for female
               : "#60a5fa"; // Blue for male
-            seatStyle.borderColor = assignedStudent.gender === "F"
-              ? "#f59e0b"
-              : "#3b82f6";
+            seatStyle.border = assignedStudent.gender === "F"
+              ? "2px solid #f59e0b"
+              : "2px solid #3b82f6";
           }
 
           return React.createElement(
