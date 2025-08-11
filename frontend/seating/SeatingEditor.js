@@ -384,45 +384,11 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
     try {
       setSaving(true);
 
-      console.log("Starting to save seating assignments...");
-      console.log("Current assignments:", assignments);
-
-      // Debug: Check all periods for this class
-      try {
-        const allPeriods = await window.ApiModule.request(
-          `/seating-periods/?class_assigned=${classId}`
-        );
-        console.log("All periods for this class:", allPeriods);
-        if (allPeriods?.results) {
-          console.log("Period count:", allPeriods.results.length);
-          allPeriods.results.forEach((period) => {
-            console.log(
-              `Period ${period.id}: "${period.name}" - Active: ${period.is_active}, Start: ${period.start_date}`
-            );
-          });
-        }
-        console.log(
-          "Currently saving to period:",
-          classInfo.current_seating_period?.id,
-          classInfo.current_seating_period?.name
-        );
-      } catch (debugError) {
-        console.error("Debug fetch failed:", debugError);
-      }
-
       // Get or create seating period
       let seatingPeriodId;
       if (classInfo.current_seating_period) {
         seatingPeriodId = classInfo.current_seating_period.id;
-        console.log("Using existing seating period:", seatingPeriodId);
-        console.log("Period details:", {
-          id: classInfo.current_seating_period.id,
-          name: classInfo.current_seating_period.name,
-          start_date: classInfo.current_seating_period.start_date,
-          is_active: classInfo.current_seating_period.is_active,
-        });
       } else {
-        console.log("Creating new seating period...");
 
         // If no layout from class, need to select one
         if (!layout || !layout.id) {
@@ -475,45 +441,24 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
           }),
         });
         seatingPeriodId = newPeriod.id;
-        console.log("Created new seating period:", seatingPeriodId);
       }
 
       // Clear existing assignments ONLY for the current period
-      console.log(`Fetching assignments for period ${seatingPeriodId}...`);
       const currentAssignments = await window.ApiModule.request(
         `/seating-assignments/?seating_period=${seatingPeriodId}`
       );
 
-      console.log("Current assignments response:", currentAssignments);
-
       if (currentAssignments.results && currentAssignments.results.length > 0) {
-        console.log(
-          `Found ${currentAssignments.results.length} assignments to clear for period ${seatingPeriodId}`
-        );
-        console.log(
-          "Assignments to delete:",
-          currentAssignments.results.map((a) => ({
-            id: a.id,
-            seating_period: a.seating_period,
-            seat_id: a.seat_id,
-            roster_entry: a.roster_entry,
-          }))
-        );
 
         // Verify each assignment belongs to the correct period before deleting
         for (const assignment of currentAssignments.results) {
           if (assignment.seating_period !== seatingPeriodId) {
-            console.error(
-              `WARNING: Assignment ${assignment.id} belongs to period ${assignment.seating_period}, not ${seatingPeriodId}!`
-            );
-            console.error("Skipping deletion of wrong period assignment");
             continue;
           }
           await window.ApiModule.request(`/seating-assignments/${assignment.id}/`, {
             method: "DELETE",
           });
         }
-        console.log(`Cleared ${currentAssignments.results.length} existing assignments`);
       }
 
       // Create new assignments
@@ -532,15 +477,14 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
           assignmentsToCreate.push({
             seating_period: seatingPeriodId,
             roster_entry: rosterEntry.id,
-            seat_id: `${table.table_number}-${seatNumber}`,
+            table_number: table.table_number,
+            seat_number: parseInt(seatNumber),
             group_number: null,
             group_role: "",
             assignment_notes: "",
           });
         });
       });
-
-      console.log(`Creating ${assignmentsToCreate.length} new assignments...`);
 
       // Create all assignments
       const createdAssignments = [];
@@ -552,7 +496,6 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
         createdAssignments.push(created);
       }
 
-      console.log(`Successfully created ${createdAssignments.length} seating assignments`);
       alert(`✅ Seating chart saved successfully! ${createdAssignments.length} students assigned.`);
 
       // Mark as saved
@@ -561,7 +504,6 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
 
       // Stay in editor after saving - removed: if (onBack) onBack();
     } catch (error) {
-      console.error("Failed to save seating assignments:", error);
       alert(`❌ Failed to save seating chart: ${error.message}`);
     } finally {
       setSaving(false);
