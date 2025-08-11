@@ -431,6 +431,7 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
 
         const newPeriod = await window.ApiModule.request("/seating-periods/", {
           method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             class_assigned: classId,
             layout: layout.id, // Now required!
@@ -444,18 +445,24 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
       }
 
       // Clear existing assignments ONLY for the current period
+      console.log(`Checking for existing assignments for period ${seatingPeriodId}`);
       const currentAssignments = await window.ApiModule.request(
         `/seating-assignments/?seating_period=${seatingPeriodId}`
       );
 
       if (currentAssignments.results && currentAssignments.results.length > 0) {
+        console.log(`Found ${currentAssignments.results.length} existing assignments to delete`);
         // Delete all assignments for this period
         for (const assignment of currentAssignments.results) {
+          console.log(`Deleting assignment ${assignment.id}`);
           // The API already filtered by seating_period, so all these belong to our period
           await window.ApiModule.request(`/seating-assignments/${assignment.id}/`, {
             method: "DELETE",
           });
         }
+        console.log("All existing assignments deleted");
+      } else {
+        console.log("No existing assignments found");
       }
 
       // Create new assignments
@@ -464,12 +471,18 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
       Object.keys(assignments).forEach((tableId) => {
         const tableAssignments = assignments[tableId];
         const table = layout.tables.find((t) => t.id == tableId);
-        if (!table) return;
+        if (!table) {
+          console.warn(`Table with id ${tableId} not found in layout`);
+          return;
+        }
 
         Object.keys(tableAssignments).forEach((seatNumber) => {
           const studentId = tableAssignments[seatNumber];
           const rosterEntry = classInfo.roster.find((r) => r.student == studentId);
-          if (!rosterEntry) return;
+          if (!rosterEntry) {
+            console.warn(`Roster entry not found for student ${studentId}`);
+            return;
+          }
 
           assignmentsToCreate.push({
             seating_period: seatingPeriodId,
@@ -479,14 +492,26 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
         });
       });
 
+      console.log(`Creating ${assignmentsToCreate.length} new assignments`);
+      console.log("Assignment data:", assignmentsToCreate);
+
       // Create all assignments
       const createdAssignments = [];
       for (const assignmentData of assignmentsToCreate) {
-        const created = await window.ApiModule.request("/seating-assignments/", {
-          method: "POST",
-          body: JSON.stringify(assignmentData),
-        });
-        createdAssignments.push(created);
+        console.log("Creating assignment:", assignmentData);
+        try {
+          const created = await window.ApiModule.request("/seating-assignments/", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(assignmentData),
+          });
+          createdAssignments.push(created);
+          console.log("Successfully created assignment");
+        } catch (error) {
+          console.error("Failed to create assignment:", assignmentData);
+          console.error("Error details:", error);
+          throw error;
+        }
       }
 
       alert(`✅ Seating chart saved successfully! ${createdAssignments.length} students assigned.`);
