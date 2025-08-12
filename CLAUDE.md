@@ -17,11 +17,14 @@ python manage.py runserver
 python manage.py makemigrations
 python manage.py migrate
 python manage.py shell  # Django shell for debugging
+python manage.py createsuperuser  # Create admin user
 
 # Run tests
 python manage.py test                    # All tests
 python manage.py test students.tests    # Specific app
 python test_nickname_functionality.py   # Standalone test file
+python test_seating_api.py             # Test seating APIs
+python test_save.py                    # Test save functionality
 
 # Linting and formatting
 npm run lint:all          # Frontend + backend linting
@@ -73,13 +76,20 @@ React.createElement("div", { className: "example" }, children)
 
 **Key Components & Their Quirks**:
 
-1. **SeatingEditor.js**
+1. **SeatingEditor.js** (Complex state management)
    - Assignments state: `{tableId: {seatNumber: studentId}}` with string keys
    - Seat ID format: "tableNumber-seatNumber" (e.g., "1-2")
    - Gender highlighting requires DOM manipulation with setProperty('important')
    - Left sidebar (125px) contains controls
    - Autofill preserves existing seat assignments
    - Search includes nickname field
+   - **Fill System**: Three modes (Random, Match Gender, Balance Gender)
+     - Click-to-fill: Click empty seats to auto-assign students
+     - Auto button: Fill all empty seats at once
+     - Batch operations create single undo entry
+   - **Undo System**: Full history tracking with 50-level limit
+   - **Seat Deactivation**: Shift+click to block seats (red, stored in Set)
+   - **Period Navigation**: View-only - does NOT modify database end_dates
 
 2. **Students Components**
    - `formatStudentNameTwoLine()` returns { line1: nickname, line2: "Smi." } for consistent two-line display
@@ -114,6 +124,25 @@ await ApiModule.request(url, method, body)  // ❌
 - API responses may be paginated: check for `results` key
 - ClassRoomLayout ViewSet filters by `created_by` user (except superusers)
 
+### History & Undo System
+
+**Implementation Pattern**:
+```javascript
+// All assignment changes must use addToHistory()
+const addToHistory = (newAssignments, description) => {
+  const entry = {
+    assignments: JSON.parse(JSON.stringify(assignments)), // Deep copy before
+    newAssignments: JSON.parse(JSON.stringify(newAssignments)), // Deep copy after
+    description: description,  // e.g., "Place John Doe", "Auto-fill 12 seats (random)"
+    timestamp: Date.now()
+  };
+  // Truncate future history, add new entry, limit to 50 entries
+}
+
+// Batch operations create single undo entry
+handleAutoFill() // Creates one entry for all seats filled
+```
+
 ### Common Pitfalls & Solutions
 
 **Data Type Consistency**:
@@ -138,6 +167,9 @@ element.style.setProperty('background-color', '#10b981', 'important');
 - Creating new period auto-ends previous (sets end_date to today)
 - Only one period per class can have `end_date=None`
 - Model's save() method enforces single current period
+- **CRITICAL**: Period navigation (Previous/Next buttons) must NEVER modify end_dates
+- Navigation is view-only - historical periods never become active again
+- Only "New Period" button should modify database state
 
 **Nickname Handling**:
 - Model auto-sets to first_name if empty/whitespace

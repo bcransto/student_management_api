@@ -1,24 +1,31 @@
-# Student Management API
+# Student Management System
 
-A Django REST API for managing students, classes, and classroom rosters with group and seating assignments.
+A full-stack web application for managing students, classes, and classroom seating with an interactive drag-and-drop seating editor.
 
 ## Features
 
-- **User Management**: Teacher authentication with JWT tokens
-- **Student Management**: CRUD operations for student records
-- **Class Management**: Create and manage classes with full details
-- **Roster Management**: Enroll students, assign groups and seats
-- **Group Management**: Organize students into groups with roles
-- **Seating Charts**: Visual representation of classroom seating
-- **Search & Filtering**: Find students and classes quickly
+- **User Management**: Teacher authentication with JWT tokens (email-based)
+- **Student Management**: Full CRUD operations with soft delete
+- **Class Management**: Create and manage classes with rosters
+- **Interactive Seating Editor**: 
+  - Drag-and-drop student placement
+  - Historical seating periods with timeline navigation
+  - Seat deactivation for broken/unusable seats
+  - Smart fill modes (Random, Match Gender, Balance Gender)
+  - Auto-fill all empty seats with one click
+  - Complete undo/redo system
+- **Classroom Layouts**: Create reusable room layouts with tables and obstacles
+- **Seating Periods**: Track seating arrangements over time
+- **Visual Views**: Multiple display modes (Names, Gender, Groups)
 - **Permissions**: Teachers can only access their own classes
 
 ## Technology Stack
 
-- **Backend**: Django 4.x + Django REST Framework
-- **Authentication**: JWT (JSON Web Tokens)
-- **Database**: SQLite (development) / PostgreSQL (production ready)
-- **API Documentation**: Django REST Framework browsable API
+- **Backend**: Django 5.2.3 + Django REST Framework
+- **Frontend**: React 18 (CDN-based, no build process)
+- **Authentication**: JWT with email-based login
+- **Database**: SQLite (development) / MySQL (production on PythonAnywhere)
+- **Routing**: Hash-based SPA routing
 
 ## Installation
 
@@ -36,13 +43,14 @@ A Django REST API for managing students, classes, and classroom rosters with gro
 
 2. **Create virtual environment**
    ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   python -m venv myenv
+   source myenv/bin/activate  # On Windows: myenv\Scripts\activate
    ```
 
 3. **Install dependencies**
    ```bash
    pip install -r requirements.txt
+   npm install  # For linting and formatting tools
    ```
 
 4. **Run migrations**
@@ -60,7 +68,8 @@ A Django REST API for managing students, classes, and classroom rosters with gro
    python manage.py runserver
    ```
 
-The API will be available at `http://127.0.0.1:8000/api/`
+The application will be available at `http://127.0.0.1:8000/`
+Admin panel at `http://127.0.0.1:8000/admin/`
 
 ## API Endpoints
 
@@ -86,8 +95,6 @@ The API will be available at `http://127.0.0.1:8000/api/`
 - `GET /api/classes/{id}/` - Get class details
 - `PATCH /api/classes/{id}/` - Update class
 - `DELETE /api/classes/{id}/` - Delete class
-- `GET /api/classes/{id}/groups/` - Get class groups
-- `GET /api/classes/{id}/seating_chart/` - Get seating chart
 - `POST /api/classes/{id}/enroll/` - Enroll student
 - `POST /api/classes/{id}/remove_student/` - Remove student
 
@@ -95,8 +102,14 @@ The API will be available at `http://127.0.0.1:8000/api/`
 - `GET /api/roster/` - List roster entries
 - `GET /api/roster/{id}/` - Get roster details
 - `PATCH /api/roster/{id}/` - Update roster entry
-- `POST /api/roster/{id}/assign_group/` - Assign to group
-- `POST /api/roster/{id}/assign_seat/` - Assign seat
+
+### Seating Management
+- `GET /api/classroom-layouts/` - List available layouts
+- `POST /api/classroom-layouts/` - Create new layout
+- `GET /api/seating-periods/` - List seating periods
+- `POST /api/seating-periods/` - Create new period
+- `GET /api/seating-assignments/` - List seat assignments
+- `POST /api/seating-assignments/` - Assign student to seat
 
 ## Sample Usage
 
@@ -105,7 +118,7 @@ The API will be available at `http://127.0.0.1:8000/api/`
 curl -X POST http://127.0.0.1:8000/api/token/ \
   -H "Content-Type: application/json" \
   -d '{
-    "username": "teacher_username",
+    "email": "teacher@example.com",
     "password": "teacher_password"
   }'
 ```
@@ -122,58 +135,88 @@ curl -X POST http://127.0.0.1:8000/api/classes/1/enroll/ \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "student_id": "1001"
+    "student_id": 1
   }'
 ```
 
 ## Data Models
 
-### Student
-- Student ID, Name, Email
-- Enrollment date, Active status
-- Notes field for additional information
+### Core Models
+- **User**: Custom user with email auth and `is_teacher` flag
+- **Student**: First/last name, email, gender, soft delete support
+- **Class**: Name, subject, grade, linked to teacher and layout
+- **ClassRoster**: M2M relationship between students and classes
 
-### Class
-- Name, Subject, Description
-- Grade level, Teacher assignment
-- Creation and modification timestamps
-
-### ClassRoster
-- Links students to classes
-- Group assignments with roles
-- Seat assignments
-- Enrollment tracking
+### Seating Models
+- **ClassroomLayout**: Physical room layouts with tables/obstacles
+- **SeatingPeriod**: Time-bounded seating arrangements
+- **SeatingAssignment**: Maps students to specific seats
 
 ## Development
 
-### Running Tests
+### Running the Application
 ```bash
-python manage.py test
+# Backend (Django)
+source myenv/bin/activate
+python manage.py runserver
+
+# Access the app
+http://127.0.0.1:8000/
 ```
 
-### Creating Sample Data
-Use the Django shell to create sample data:
+### Linting and Formatting
 ```bash
-python manage.py shell
-# Run the sample data creation scripts
+# Frontend
+npm run lint          # ESLint and HTMLHint
+npm run format        # Prettier
+
+# Backend
+npm run lint:python   # Flake8, Black check, isort check
+npm run format:python # Black and isort formatting
+
+# All
+npm run lint:all      # Both frontend and backend
 ```
+
+### Application Routes
+
+**Frontend Routes** (hash-based):
+- `#dashboard` - Main dashboard
+- `#students` - Student management
+- `#students/edit/{id}` - Edit student
+- `#classes` - Class list
+- `#seating` - Seating management with editor
+- `#layouts` - Layout templates
 
 ### Admin Interface
 Access the Django admin at `http://127.0.0.1:8000/admin/` with your superuser credentials.
 
-## Contributing
+## Key Features Details
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+### Seating Editor
+The interactive seating editor provides:
+- **Drag & Drop**: Move students between seats with visual feedback
+- **Period Management**: Navigate through historical seating arrangements
+- **Smart Fill**: Three intelligent modes for automatic placement
+- **Seat Management**: Deactivate broken seats with Shift+click
+- **Undo System**: Full history tracking with batch operation support
+
+### Fill Modes
+1. **Random**: Randomly assigns students to empty seats
+2. **Match Gender**: Groups students of the same gender together
+3. **Balance Gender**: Maintains even gender distribution
+
+## Deployment
+
+### PythonAnywhere
+1. Push code to GitHub
+2. SSH to PythonAnywhere console
+3. Pull latest changes
+4. Run migrations if needed
+5. Reload web app from dashboard
+
+The frontend automatically detects the production environment and switches API URLs.
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Contact
-
-Your Name - your.email@example.com
-Project Link: [https://github.com/YOUR_USERNAME/student-management-api](https://github.com/YOUR_USERNAME/student-management-api)
+This project is licensed under the MIT License.
