@@ -815,10 +815,16 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
       return;
     }
     
-    // Separate students by gender
-    const boys = unassignedStudents.filter(s => s.gender === 'M' || s.gender === 'Male');
-    const girls = unassignedStudents.filter(s => s.gender === 'F' || s.gender === 'Female');
-    const others = unassignedStudents.filter(s => !['M', 'Male', 'F', 'Female'].includes(s.gender));
+    // Separate students by gender (database uses lowercase values)
+    const boys = unassignedStudents.filter(s => s.gender === 'male' || s.gender === 'Male' || s.gender === 'M');
+    const girls = unassignedStudents.filter(s => s.gender === 'female' || s.gender === 'Female' || s.gender === 'F');
+    const others = unassignedStudents.filter(s => !['male', 'Male', 'M', 'female', 'Female', 'F'].includes(s.gender));
+    
+    console.log("Boy-Girl Autofill Debug:");
+    console.log(`Unassigned students: ${unassignedStudents.length}`);
+    console.log(`Boys: ${boys.length}`, boys.map(s => `${s.first_name} (${s.gender})`));
+    console.log(`Girls: ${girls.length}`, girls.map(s => `${s.first_name} (${s.gender})`));
+    console.log(`Others: ${others.length}`, others.map(s => `${s.first_name} (${s.gender})`));
     
     // Sort each group alphabetically
     boys.sort((a, b) => `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`));
@@ -852,6 +858,9 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
         orderedStudents.push(girls[girlIndex++]);
       }
     }
+    
+    console.log("Alternating pattern created:");
+    console.log(orderedStudents.map(s => `${s.first_name} (${s.gender})`).join(", "));
     
     // Add students without gender specification at the end
     while (otherIndex < others.length) {
