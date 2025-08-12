@@ -341,7 +341,7 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
       periods.sort((a, b) => new Date(a.start_date) - new Date(b.start_date));
       console.log(
         "Sorted periods:",
-        periods.map((p) => ({ id: p.id, name: p.name, active: p.is_active }))
+        periods.map((p) => ({ id: p.id, name: p.name, active: p.end_date === null }))
       );
 
       // Find current period index
@@ -360,11 +360,24 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
       console.log(`Navigating from period ${currentPeriodId} to ${targetPeriod.id}`);
       console.log("Target period:", targetPeriod);
 
-      // Set the target period as active (this will deactivate others automatically in the backend)
+      // Update end_date to make periods current/not current
+      // First, end the current period if it exists
+      if (currentPeriodId) {
+        await window.ApiModule.request(`/seating-periods/${currentPeriodId}/`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            end_date: new Date().toISOString().split("T")[0],
+          }),
+        });
+      }
+      
+      // Then make the target period current by clearing its end_date
       await window.ApiModule.request(`/seating-periods/${targetPeriod.id}/`, {
         method: "PATCH",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          is_active: true,
+          end_date: null,
         }),
       });
 
@@ -438,7 +451,7 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
             layout: layout.id, // Now required!
             name: `Seating Chart - ${new Date().toLocaleDateString()}`,
             start_date: new Date().toISOString().split("T")[0],
-            is_active: true,
+            end_date: null,
             notes: "Created from seating chart editor",
           }),
         });
@@ -612,7 +625,6 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             end_date: today,
-            is_active: false,
           }),
         });
       }
@@ -646,7 +658,6 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
           name: periodName,
           start_date: startDate,
           end_date: null,
-          is_active: true,
         }),
       });
 

@@ -248,8 +248,8 @@ class Class(models.Model):
 
     @property
     def current_seating_period(self):
-        """Get the current active seating period"""
-        return self.seating_periods.filter(is_active=True).first()
+        """Get the current seating period (one with no end date)"""
+        return self.seating_periods.filter(end_date__isnull=True).first()
 
     def get_available_seats(self):
         """Get all available seats based on the classroom layout"""
@@ -450,7 +450,6 @@ class SeatingPeriod(models.Model):
     name = models.CharField(max_length=100, help_text="e.g., 'Week 1-2', 'September 1-15', 'Quarter 1'")
     start_date = models.DateField()
     end_date = models.DateField(blank=True, null=True)
-    is_active = models.BooleanField(default=False, help_text="Only one period can be active per class")
     notes = models.TextField(blank=True, help_text="Notes about this seating arrangement")
 
     # Timestamps
@@ -461,27 +460,31 @@ class SeatingPeriod(models.Model):
         ordering = ["-start_date"]
         unique_together = [["class_assigned", "name"]]
         indexes = [
-            models.Index(fields=["is_active"]),  # Fast lookup for active periods
-            models.Index(fields=["class_assigned", "is_active"]),
+            models.Index(fields=["class_assigned", "end_date"]),  # Fast lookup for current periods
         ]
 
     def __str__(self):
-        status = " (Active)" if self.is_active else ""
+        status = " (Current)" if self.end_date is None else ""
         return f"{self.class_assigned.name} - {self.name}{status}"
 
     def save(self, *args, **kwargs):
-        # Ensure only one active period per class
-        if self.is_active:
-            # Deactivate other periods (but don't modify their end_date)
-            other_periods = SeatingPeriod.objects.filter(class_assigned=self.class_assigned, is_active=True).exclude(
-                id=self.id
+        from datetime import date
+        
+        # If this is a new period with no end_date (making it current)
+        # We need to close any other current periods for this class
+        if not self.pk and self.end_date is None:  # New period without end date
+            # Find any other periods for this class with no end date
+            current_periods = SeatingPeriod.objects.filter(
+                class_assigned=self.class_assigned,
+                end_date__isnull=True
             )
-
-            # Only deactivate other periods, don't touch their end_date
-            for period in other_periods:
-                period.is_active = False
-                period.save(update_fields=["is_active"])
-
+            
+            # Set their end_date to today
+            today = date.today()
+            for period in current_periods:
+                period.end_date = today
+                period.save(update_fields=["end_date"])
+        
         super().save(*args, **kwargs)
 
     def get_groups(self):

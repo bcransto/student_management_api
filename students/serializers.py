@@ -181,7 +181,6 @@ class SeatingPeriodSerializer(serializers.ModelSerializer):
             "name",
             "start_date",
             "end_date",
-            "is_active",
             "notes",
             "layout",
             "layout_details",
@@ -338,9 +337,8 @@ class EnrollStudentSerializer(serializers.Serializer):
 class CreateSeatingPeriodSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=100)
     start_date = serializers.DateField()
-    end_date = serializers.DateField(required=False)
+    end_date = serializers.DateField(required=False, allow_blank=True)
     notes = serializers.CharField(required=False, allow_blank=True)
-    is_active = serializers.BooleanField(default=True)
 
 
 class AssignSeatSerializer(serializers.Serializer):

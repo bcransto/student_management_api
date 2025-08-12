@@ -90,20 +90,27 @@ class SeatingAssignmentInline(admin.TabularInline):
 
 @admin.register(SeatingPeriod)
 class SeatingPeriodAdmin(admin.ModelAdmin):
-    list_display = ["class_assigned", "name", "layout", "start_date", "end_date", "is_active", "assignment_count"]
-    list_filter = ["is_active", "start_date", "class_assigned__teacher", "layout"]
+    list_display = ["class_assigned", "name", "layout", "start_date", "end_date", "is_current", "assignment_count"]
+    list_filter = ["end_date", "start_date", "class_assigned__teacher", "layout"]
     search_fields = ["name", "class_assigned__name", "class_assigned__teacher__username", "layout__name"]
-    readonly_fields = ["created_at", "updated_at", "assignment_count"]
+    readonly_fields = ["created_at", "updated_at", "assignment_count", "is_current"]
     autocomplete_fields = ["class_assigned", "layout"]  # Add autocomplete for easier selection
     inlines = [SeatingAssignmentInline]
     date_hierarchy = "start_date"
 
     fieldsets = (
         ("Period Information", {"fields": ("name", "class_assigned", "layout")}),
-        ("Dates", {"fields": ("start_date", "end_date", "is_active")}),
+        ("Dates", {"fields": ("start_date", "end_date", "is_current")}),
         ("Notes", {"fields": ("notes",), "classes": ("collapse",)}),
         ("Statistics", {"fields": ("assignment_count", "created_at", "updated_at"), "classes": ("collapse",)}),
     )
+    
+    def is_current(self, obj):
+        """Display whether this is the current period"""
+        return obj.end_date is None
+    
+    is_current.boolean = True
+    is_current.short_description = "Current"
 
     def assignment_count(self, obj):
         """Display number of seating assignments in this period"""
@@ -121,7 +128,7 @@ class SeatingPeriodAdmin(admin.ModelAdmin):
 @admin.register(SeatingAssignment)
 class SeatingAssignmentAdmin(admin.ModelAdmin):
     list_display = ["student_name", "class_name", "period_name", "seat_id", "group_number", "group_role", "created_at"]
-    list_filter = ["group_number", "group_role", "seating_period__is_active", "seating_period__class_assigned__teacher"]
+    list_filter = ["group_number", "group_role", "seating_period__end_date", "seating_period__class_assigned__teacher"]
     search_fields = [
         "roster_entry__student__first_name",
         "roster_entry__student__last_name",
@@ -185,7 +192,7 @@ class ClassRosterInline(admin.TabularInline):
 class SeatingPeriodInline(admin.TabularInline):
     model = SeatingPeriod
     extra = 0
-    fields = ["name", "layout", "start_date", "end_date", "is_active"]
+    fields = ["name", "layout", "start_date", "end_date"]
     readonly_fields = ["created_at"]
     autocomplete_fields = ["layout"]
 

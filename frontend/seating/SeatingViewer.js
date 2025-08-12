@@ -138,11 +138,24 @@ const SeatingViewer = ({ classId, onEdit, onBack }) => {
 
       console.log(`Navigating from period ${currentPeriodId} to ${targetPeriod.id}`);
 
-      // Set the target period as active
+      // Update end_date to make periods current/not current
+      // First, end the current period
+      if (currentPeriodId) {
+        await window.ApiModule.request(`/seating-periods/${currentPeriodId}/`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            end_date: new Date().toISOString().split("T")[0],
+          }),
+        });
+      }
+      
+      // Then make the target period current by clearing its end_date
       await window.ApiModule.request(`/seating-periods/${targetPeriod.id}/`, {
         method: "PATCH",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          is_active: true,
+          end_date: null,
         }),
       });
 
@@ -193,7 +206,6 @@ const SeatingViewer = ({ classId, onEdit, onBack }) => {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               end_date: today,
-              is_active: false,
             }),
           }
         );
@@ -219,7 +231,6 @@ const SeatingViewer = ({ classId, onEdit, onBack }) => {
         name: periodName,
         start_date: startDate,
         end_date: null,
-        is_active: true,
       };
 
       console.log("Creating new period with data:", requestBody);
