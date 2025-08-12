@@ -310,6 +310,52 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
     return students.filter((student) => !assigned.has(student.id));
   };
 
+  // Handle click-to-fill for empty seats
+  const handleClickToFill = (tableId, seatNumber) => {
+    const tableIdStr = String(tableId);
+    const seatNumberStr = String(seatNumber);
+    
+    // Check if seat is already occupied
+    if (assignments[tableIdStr]?.[seatNumberStr]) {
+      console.log("Seat already occupied");
+      return;
+    }
+    
+    // Check if seat is deactivated
+    const seatId = `${tableId}-${seatNumber}`;
+    if (deactivatedSeats.has(seatId)) {
+      console.log("Cannot fill deactivated seat");
+      return;
+    }
+    
+    // Get unassigned students
+    const unassignedStudents = getUnassignedStudents();
+    if (unassignedStudents.length === 0) {
+      console.log("No unassigned students available");
+      return;
+    }
+    
+    let selectedStudent = null;
+    
+    // Select student based on fill mode
+    if (fillMode === "random") {
+      // Random selection
+      const randomIndex = Math.floor(Math.random() * unassignedStudents.length);
+      selectedStudent = unassignedStudents[randomIndex];
+      console.log(`Random fill: Selected ${selectedStudent.first_name} ${selectedStudent.last_name}`);
+    } else {
+      // For now, other modes will also use random (will be implemented in Stage 3)
+      console.log(`Fill mode "${fillMode}" not yet implemented, using random`);
+      const randomIndex = Math.floor(Math.random() * unassignedStudents.length);
+      selectedStudent = unassignedStudents[randomIndex];
+    }
+    
+    if (selectedStudent) {
+      // Use the existing handleSeatAssignment function which includes history tracking
+      handleSeatAssignment(selectedStudent.id, tableId, seatNumber);
+    }
+  };
+
   // Build the title string
   const getEditorTitle = () => {
     if (!classInfo) return "Loading...";
@@ -1393,8 +1439,9 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
                   console.log(`Cannot deactivate seats in historical periods`);
                   alert("Seat deactivation is only available for the current period");
                 } else {
-                  // Normal click - existing assignment logic would go here
+                  // Normal click - handle click-to-fill for empty seats
                   console.log(`Normal click on seat ${seatId}`);
+                  handleClickToFill(tableId, seatNumber);
                 }
               },
               onStudentDrop: handleSeatAssignment,
@@ -1570,6 +1617,10 @@ const SeatingCanvas = ({
             seatStyle.backgroundColor = '#e0f2fe';  // Very light blue
             seatStyle.border = '2px solid #7dd3fc';  // Light blue border
             seatStyle.color = '#0284c7';            // Blue text
+            
+            // Add hover effect for empty seats (visual feedback for click-to-fill)
+            seatStyle.transition = 'all 0.2s ease';
+            seatStyle.cursor = 'pointer';
           }
 
           // Determine gender class and create final styles
@@ -1604,7 +1655,7 @@ const SeatingCanvas = ({
 
           const finalClassName = `seat ${assignedStudent ? "occupied" : "empty"} ${
             seat.is_accessible ? "accessible" : ""
-          } ${genderClass}`.trim();
+          } ${genderClass} ${!assignedStudent && !isDeactivated ? "fillable" : ""}`.trim();
           
           if (genderClass) {
             console.log(`Seat ${table.id}-${seat.seat_number} final className: "${finalClassName}"`);
@@ -1617,9 +1668,21 @@ const SeatingCanvas = ({
               className: finalClassName,
               style: {
                 ...finalSeatStyle,
-                cursor: "pointer",
+                cursor: isDeactivated ? "not-allowed" : "pointer",
               },
               onClick: (e) => onSeatClick(table.id, seat.seat_number, e),
+              onMouseEnter: !assignedStudent && !isDeactivated ? (e) => {
+                // Visual feedback on hover for fillable seats
+                e.currentTarget.style.backgroundColor = '#bfdbfe';  // Darker blue on hover
+                e.currentTarget.style.borderColor = '#3b82f6';      // Brighter blue border
+                e.currentTarget.style.transform = 'scale(1.05)';    // Slight grow effect
+              } : undefined,
+              onMouseLeave: !assignedStudent && !isDeactivated ? (e) => {
+                // Reset styles on mouse leave
+                e.currentTarget.style.backgroundColor = '#e0f2fe';
+                e.currentTarget.style.borderColor = '#7dd3fc';
+                e.currentTarget.style.transform = 'scale(1)';
+              } : undefined,
 
               // ADD THESE NEW PROPERTIES FOR DRAGGING:
               draggable: assignedStudent && !isDeactivated ? true : false,
