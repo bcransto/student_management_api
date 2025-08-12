@@ -28,6 +28,9 @@ python manage.py createsuperuser
 # Run backend linting and formatting
 npm run lint:python         # Run all backend linters
 npm run format:python       # Format Python code with Black/isort
+
+# Run tests
+python manage.py test
 ```
 
 ### Frontend
@@ -57,15 +60,16 @@ npm run lint:all          # Run both frontend and backend linters
 - **Database**: SQLite (local), MySQL (production on PythonAnywhere)
 - **Auth**: JWT with email-based login (not username)
 - **Routing**: Hash-based SPA routing (#dashboard, #students, etc.)
+- **No Build Process**: Frontend files served directly via Django, no webpack/babel compilation needed
 
 ### Backend Structure
 
 **Core Models** (`students/models.py`):
 - `User`: Custom user with email auth and `is_teacher` flag
 - `Class`: Classes taught by teachers with `classroom_layout` FK
-- `Student`: Student records with soft delete (`is_active`)
+- `Student`: Student records with soft delete (`is_active`), includes `gender` field (male/female/other)
 - `ClassRoster`: M2M relationship between students and classes
-- `ClassroomLayout`: Physical room layouts (can be templates)
+- `ClassroomLayout`: Physical room layouts (can be templates), filtered by `created_by` user
 - `SeatingPeriod`: Time-bounded seating with its own layout FK
 - `SeatingAssignment`: Maps roster entries to specific seats
 
@@ -102,6 +106,10 @@ SeatingAssignment → roster_entry (FK to ClassRoster)
    - Special handling for same-table swaps vs cross-table
    - Period navigation with Previous/Next buttons
    - New Period button creates fresh period with empty seats
+   - Left sidebar (125px) with controls: autofill, view modes, save/reset
+   - Autofill functions: Alphabetical, Random, Boy-Girl (preserves existing seats)
+   - Gender highlighting: Green for females, blue for males (uses DOM manipulation)
+   - Student pool sorting by name or gender
 
 2. **SeatingViewer.js** (Read-only viewer):
    - Uses standard app CSS (not custom editor styles)
@@ -169,37 +177,42 @@ seat_id = "1-2"  // "tableNumber-seatNumber"
 
 ### Common Pitfalls and Solutions
 
-1. **Save Function Deleting Wrong Periods**:
+1. **Gender Highlighting Not Working**:
+   - CSS specificity issues prevent inline styles from applying
+   - Solution: Use React.useEffect with DOM manipulation and setProperty('important')
+   - Gender values in DB are lowercase: 'male', 'female', 'other'
+
+2. **Save Function Deleting Wrong Periods**:
    - Issue: SeatingAssignmentViewSet wasn't filtering by period
    - Fix: Added `filterset_fields` and query param filtering
 
-2. **Period Navigation Clearing Assignments**:
+3. **Period Navigation Clearing Assignments**:
    - Issue: Setting `is_active` triggers model save() side effects
    - Solution: Only update `is_active`, never touch `end_date`
 
-3. **Layout Not Loading**:
+4. **Layout Not Loading**:
    - Always check `period.layout_details` first
    - Fallback to `class.classroom_layout`
    - Never assume layout exists
 
-4. **Drag & Drop Same Table**:
+5. **Drag & Drop Same Table**:
    - Don't delete/recreate table object for same-table swaps
    - Swap values directly in the assignments object
 
-5. **Virtual Environment**:
+6. **Virtual Environment**:
    - MUST use `myenv/` not `venv/`
    - Activate before any Python commands
 
-6. **CORS in Development**:
+7. **CORS in Development**:
    - Check `CORS_ALLOWED_ORIGINS` includes localhost
    - Frontend auto-handles token refresh on 401
 
-7. **Token Storage**:
+8. **Token Storage**:
    - Main app stores as `token` in localStorage
    - Layout editor looks for both `token` and `access_token`
    - JWT auth uses `email` field, not `username`
 
-8. **SeatingAssignment Creation**:
+9. **SeatingAssignment Creation**:
    - Model's `clean()` method handles both object and ID references
    - Serializer has custom `create()` to ensure validation
    - Always include Content-Type header in POST requests
@@ -215,11 +228,12 @@ seat_id = "1-2"  // "tableNumber-seatNumber"
 
 ### Testing Approach
 
-No automated tests currently. Manual testing via:
+Limited automated tests. Manual testing via:
 - Django admin panel for data verification
 - Browser console for frontend debugging
 - Django shell for backend queries
 - Test scripts: `test_seating_api.py`, `test_periods.py`, `test_save.py`
+- Run tests: `python manage.py test`
 
 ### URL Routing
 

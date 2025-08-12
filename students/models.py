@@ -355,6 +355,7 @@ class Student(models.Model):
     student_id = models.CharField(max_length=20, unique=True)
     first_name = models.CharField(max_length=30)
     last_name = models.CharField(max_length=30)
+    nickname = models.CharField(max_length=30)  # Required field, auto-populated from first_name if not provided
     email = models.EmailField(blank=True, null=True)
     gender = models.CharField(
         max_length=10,
@@ -381,6 +382,12 @@ class Student(models.Model):
 
     def get_full_name(self):
         return f"{self.first_name} {self.last_name}"
+    
+    def save(self, *args, **kwargs):
+        """Override save to auto-set nickname if not provided"""
+        if not self.nickname:
+            self.nickname = self.first_name
+        super().save(*args, **kwargs)
 
     @property
     def active_classes(self):

@@ -265,6 +265,7 @@ class ClassRosterSerializer(serializers.ModelSerializer):
 class StudentSerializer(serializers.ModelSerializer):
     active_classes = serializers.SerializerMethodField()
     current_enrollments = ClassRosterSerializer(source="enrollments", many=True, read_only=True)
+    nickname = serializers.CharField(max_length=30, required=False, allow_blank=True)
 
     class Meta:
         model = Student
@@ -273,6 +274,7 @@ class StudentSerializer(serializers.ModelSerializer):
             "student_id",
             "first_name",
             "last_name",
+            "nickname",
             "email",
             "gender",
             "date_of_birth",
