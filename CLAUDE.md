@@ -144,6 +144,7 @@ await ApiModule.request('/endpoint/', {
 - SeatingPeriod includes: `class_assigned` (was missing, now added)
 - ClassRoster includes: `class_assigned_details` with nested info
 - SeatingAssignment expects: `roster_entry` ID, not student ID
+- SeatingAssignmentSerializer has custom `create()` method for proper validation
 
 ### Data Type Consistency Issues
 
@@ -198,6 +199,11 @@ seat_id = "1-2"  // "tableNumber-seatNumber"
    - Layout editor looks for both `token` and `access_token`
    - JWT auth uses `email` field, not `username`
 
+8. **SeatingAssignment Creation**:
+   - Model's `clean()` method handles both object and ID references
+   - Serializer has custom `create()` to ensure validation
+   - Always include Content-Type header in POST requests
+
 ### Deployment to PythonAnywhere
 
 1. Push code to GitHub
@@ -213,7 +219,7 @@ No automated tests currently. Manual testing via:
 - Django admin panel for data verification
 - Browser console for frontend debugging
 - Django shell for backend queries
-- Test scripts: `test_seating_api.py`, `test_periods.py`
+- Test scripts: `test_seating_api.py`, `test_periods.py`, `test_save.py`
 
 ### URL Routing
 

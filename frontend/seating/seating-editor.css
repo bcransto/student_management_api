@@ -99,6 +99,43 @@ body.seating-editor-page .main-container {
   display: flex;
 }
 
+.editor-left-sidebar {
+  width: 125px;
+  background: white;
+  border-right: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.editor-left-sidebar .sidebar-section {
+  padding: 0.75rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.editor-left-sidebar .sidebar-section:last-child {
+  border-bottom: none;
+}
+
+.editor-left-sidebar h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #374151;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.editor-left-sidebar .btn {
+  font-size: 11px;
+  padding: 0.25rem 0.5rem;
+}
+
+.editor-left-sidebar .btn i {
+  font-size: 10px;
+}
+
 .editor-canvas-section {
   flex: 1;
   display: flex;

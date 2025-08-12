@@ -27,6 +27,7 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
   const [availableLayouts, setAvailableLayouts] = useState([]);
   const [showAutofillDropdown, setShowAutofillDropdown] = useState(false);
   const [showViewDropdown, setShowViewDropdown] = useState(false);
+  const [studentSortBy, setStudentSortBy] = useState("name"); // "name" or "gender"
 
   // Load initial data
   useEffect(() => {
@@ -688,6 +689,195 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
     }
   };
 
+  // Autofill helper functions
+  const getAvailableSeats = () => {
+    const availableSeats = [];
+    if (!layout || !layout.tables) return availableSeats;
+    
+    layout.tables.forEach(table => {
+      if (!table.seats) return;
+      table.seats.forEach(seat => {
+        // Check if seat is not already occupied
+        if (!assignments[table.id] || !assignments[table.id][String(seat.seat_number)]) {
+          availableSeats.push({
+            tableId: table.id,
+            seatNumber: String(seat.seat_number),
+            table: table,
+            seat: seat
+          });
+        }
+      });
+    });
+    
+    return availableSeats;
+  };
+  
+  const handleAutofillAlphabetical = () => {
+    const availableSeats = getAvailableSeats();
+    const unassignedStudents = getUnassignedStudents();
+    
+    if (availableSeats.length === 0) {
+      alert("No available seats to fill");
+      return;
+    }
+    
+    if (unassignedStudents.length === 0) {
+      alert("All students are already assigned");
+      return;
+    }
+    
+    // Sort students alphabetically by first name, then last name
+    const sortedStudents = [...unassignedStudents].sort((a, b) => {
+      const nameA = `${a.first_name} ${a.last_name}`.toLowerCase();
+      const nameB = `${b.first_name} ${b.last_name}`.toLowerCase();
+      return nameA.localeCompare(nameB);
+    });
+    
+    // Sort seats by table number then seat number for consistent placement
+    const sortedSeats = [...availableSeats].sort((a, b) => {
+      if (a.table.table_number !== b.table.table_number) {
+        return a.table.table_number - b.table.table_number;
+      }
+      return parseInt(a.seatNumber) - parseInt(b.seatNumber);
+    });
+    
+    // Assign students to available seats
+    const newAssignments = { ...assignments };
+    const studentsToAssign = Math.min(sortedStudents.length, sortedSeats.length);
+    
+    for (let i = 0; i < studentsToAssign; i++) {
+      const seat = sortedSeats[i];
+      const student = sortedStudents[i];
+      
+      if (!newAssignments[seat.tableId]) {
+        newAssignments[seat.tableId] = {};
+      }
+      newAssignments[seat.tableId][seat.seatNumber] = student.id;
+    }
+    
+    setAssignments(newAssignments);
+    setHasUnsavedChanges(true);
+    
+    alert(`Assigned ${studentsToAssign} students alphabetically to available seats`);
+  };
+  
+  const handleAutofillRandom = () => {
+    const availableSeats = getAvailableSeats();
+    const unassignedStudents = getUnassignedStudents();
+    
+    if (availableSeats.length === 0) {
+      alert("No available seats to fill");
+      return;
+    }
+    
+    if (unassignedStudents.length === 0) {
+      alert("All students are already assigned");
+      return;
+    }
+    
+    // Shuffle students randomly
+    const shuffledStudents = [...unassignedStudents].sort(() => Math.random() - 0.5);
+    
+    // Shuffle seats randomly
+    const shuffledSeats = [...availableSeats].sort(() => Math.random() - 0.5);
+    
+    // Assign students to available seats
+    const newAssignments = { ...assignments };
+    const studentsToAssign = Math.min(shuffledStudents.length, shuffledSeats.length);
+    
+    for (let i = 0; i < studentsToAssign; i++) {
+      const seat = shuffledSeats[i];
+      const student = shuffledStudents[i];
+      
+      if (!newAssignments[seat.tableId]) {
+        newAssignments[seat.tableId] = {};
+      }
+      newAssignments[seat.tableId][seat.seatNumber] = student.id;
+    }
+    
+    setAssignments(newAssignments);
+    setHasUnsavedChanges(true);
+    
+    alert(`Randomly assigned ${studentsToAssign} students to available seats`);
+  };
+  
+  const handleAutofillBoyGirl = () => {
+    const availableSeats = getAvailableSeats();
+    const unassignedStudents = getUnassignedStudents();
+    
+    if (availableSeats.length === 0) {
+      alert("No available seats to fill");
+      return;
+    }
+    
+    if (unassignedStudents.length === 0) {
+      alert("All students are already assigned");
+      return;
+    }
+    
+    // Separate students by gender
+    const boys = unassignedStudents.filter(s => s.gender === 'M' || s.gender === 'Male');
+    const girls = unassignedStudents.filter(s => s.gender === 'F' || s.gender === 'Female');
+    const others = unassignedStudents.filter(s => !['M', 'Male', 'F', 'Female'].includes(s.gender));
+    
+    // Sort each group alphabetically
+    boys.sort((a, b) => `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`));
+    girls.sort((a, b) => `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`));
+    others.sort((a, b) => `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`));
+    
+    // Sort seats by table then seat number
+    const sortedSeats = [...availableSeats].sort((a, b) => {
+      if (a.table.table_number !== b.table.table_number) {
+        return a.table.table_number - b.table.table_number;
+      }
+      return parseInt(a.seatNumber) - parseInt(b.seatNumber);
+    });
+    
+    // Create alternating pattern
+    const orderedStudents = [];
+    let boyIndex = 0, girlIndex = 0, otherIndex = 0;
+    let lastWasBoy = false;
+    
+    // Alternate between boys and girls, then add others
+    while (boyIndex < boys.length || girlIndex < girls.length) {
+      if (lastWasBoy && girlIndex < girls.length) {
+        orderedStudents.push(girls[girlIndex++]);
+        lastWasBoy = false;
+      } else if (!lastWasBoy && boyIndex < boys.length) {
+        orderedStudents.push(boys[boyIndex++]);
+        lastWasBoy = true;
+      } else if (boyIndex < boys.length) {
+        orderedStudents.push(boys[boyIndex++]);
+      } else if (girlIndex < girls.length) {
+        orderedStudents.push(girls[girlIndex++]);
+      }
+    }
+    
+    // Add students without gender specification at the end
+    while (otherIndex < others.length) {
+      orderedStudents.push(others[otherIndex++]);
+    }
+    
+    // Assign students to seats
+    const newAssignments = { ...assignments };
+    const studentsToAssign = Math.min(orderedStudents.length, sortedSeats.length);
+    
+    for (let i = 0; i < studentsToAssign; i++) {
+      const seat = sortedSeats[i];
+      const student = orderedStudents[i];
+      
+      if (!newAssignments[seat.tableId]) {
+        newAssignments[seat.tableId] = {};
+      }
+      newAssignments[seat.tableId][seat.seatNumber] = student.id;
+    }
+    
+    setAssignments(newAssignments);
+    setHasUnsavedChanges(true);
+    
+    alert(`Assigned ${studentsToAssign} students in boy-girl pattern to available seats`);
+  };
+
   if (loading) {
     return React.createElement(
       "div",
@@ -776,243 +966,11 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
           },
           React.createElement("i", { className: "fas fa-calendar-plus" }),
           " New Period"
-        ),
-        
-        // Autofill dropdown
-        React.createElement(
-          "div",
-          { className: "dropdown", style: { position: "relative" } },
-          React.createElement(
-            "button",
-            {
-              className: "btn btn-sm btn-secondary dropdown-toggle",
-              onClick: () => {
-                setShowAutofillDropdown(!showAutofillDropdown);
-                setShowViewDropdown(false);
-              },
-              title: "Auto-fill seating options",
-            },
-            React.createElement("i", { className: "fas fa-magic" }),
-            " Auto-fill ",
-            React.createElement("i", { className: "fas fa-caret-down" })
-          ),
-          showAutofillDropdown && React.createElement(
-            "div",
-            { 
-              className: "dropdown-menu show",
-              style: {
-                position: "absolute",
-                top: "100%",
-                right: 0,
-                marginTop: "4px",
-                minWidth: "160px",
-                background: "white",
-                border: "1px solid #e5e7eb",
-                borderRadius: "6px",
-                boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)",
-                zIndex: 1000
-              }
-            },
-            React.createElement(
-              "button",
-              {
-                className: "dropdown-item",
-                onClick: () => {
-                  alert("Auto-fill: Alphabetical");
-                  setShowAutofillDropdown(false);
-                },
-                style: {
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  width: "100%",
-                  padding: "8px 12px",
-                  border: "none",
-                  background: "transparent",
-                  textAlign: "left",
-                  cursor: "pointer",
-                  fontSize: "14px"
-                },
-                onMouseEnter: (e) => e.target.style.background = "#f3f4f6",
-                onMouseLeave: (e) => e.target.style.background = "transparent"
-              },
-              React.createElement("i", { className: "fas fa-sort-alpha-down", style: { width: "16px" } }),
-              "Alphabetical"
-            ),
-            React.createElement(
-              "button",
-              {
-                className: "dropdown-item",
-                onClick: () => {
-                  alert("Auto-fill: Random");
-                  setShowAutofillDropdown(false);
-                },
-                style: {
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  width: "100%",
-                  padding: "8px 12px",
-                  border: "none",
-                  background: "transparent",
-                  textAlign: "left",
-                  cursor: "pointer",
-                  fontSize: "14px"
-                },
-                onMouseEnter: (e) => e.target.style.background = "#f3f4f6",
-                onMouseLeave: (e) => e.target.style.background = "transparent"
-              },
-              React.createElement("i", { className: "fas fa-random", style: { width: "16px" } }),
-              "Random"
-            ),
-            React.createElement(
-              "button",
-              {
-                className: "dropdown-item",
-                onClick: () => {
-                  alert("Auto-fill: Boy-Girl Pattern");
-                  setShowAutofillDropdown(false);
-                },
-                style: {
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  width: "100%",
-                  padding: "8px 12px",
-                  border: "none",
-                  background: "transparent",
-                  textAlign: "left",
-                  cursor: "pointer",
-                  fontSize: "14px"
-                },
-                onMouseEnter: (e) => e.target.style.background = "#f3f4f6",
-                onMouseLeave: (e) => e.target.style.background = "transparent"
-              },
-              React.createElement("i", { className: "fas fa-venus-mars", style: { width: "16px" } }),
-              "Boy-Girl Pattern"
-            )
-          )
-        ),
-        
-        // View dropdown
-        React.createElement(
-          "div",
-          { className: "dropdown", style: { position: "relative" } },
-          React.createElement(
-            "button",
-            {
-              className: "btn btn-sm btn-secondary dropdown-toggle",
-              onClick: () => {
-                setShowViewDropdown(!showViewDropdown);
-                setShowAutofillDropdown(false);
-              },
-              title: "View options",
-            },
-            React.createElement("i", { className: "fas fa-eye" }),
-            " View ",
-            React.createElement("i", { className: "fas fa-caret-down" })
-          ),
-          showViewDropdown && React.createElement(
-            "div",
-            { 
-              className: "dropdown-menu show",
-              style: {
-                position: "absolute",
-                top: "100%",
-                right: 0,
-                marginTop: "4px",
-                minWidth: "160px",
-                background: "white",
-                border: "1px solid #e5e7eb",
-                borderRadius: "6px",
-                boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)",
-                zIndex: 1000
-              }
-            },
-            React.createElement(
-              "button",
-              {
-                className: "dropdown-item",
-                onClick: () => {
-                  setHighlightMode("none");
-                  setShowViewDropdown(false);
-                },
-                style: {
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  width: "100%",
-                  padding: "8px 12px",
-                  border: "none",
-                  background: highlightMode === "none" ? "#e0f2fe" : "transparent",
-                  textAlign: "left",
-                  cursor: "pointer",
-                  fontSize: "14px"
-                },
-                onMouseEnter: (e) => { if (highlightMode !== "none") e.target.style.background = "#f3f4f6"; },
-                onMouseLeave: (e) => { if (highlightMode !== "none") e.target.style.background = "transparent"; }
-              },
-              React.createElement("i", { className: "fas fa-check", style: { width: "16px", opacity: highlightMode === "none" ? 1 : 0 } }),
-              "Normal"
-            ),
-            React.createElement(
-              "button",
-              {
-                className: "dropdown-item",
-                onClick: () => {
-                  setHighlightMode("gender");
-                  setShowViewDropdown(false);
-                },
-                style: {
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  width: "100%",
-                  padding: "8px 12px",
-                  border: "none",
-                  background: highlightMode === "gender" ? "#e0f2fe" : "transparent",
-                  textAlign: "left",
-                  cursor: "pointer",
-                  fontSize: "14px"
-                },
-                onMouseEnter: (e) => { if (highlightMode !== "gender") e.target.style.background = "#f3f4f6"; },
-                onMouseLeave: (e) => { if (highlightMode !== "gender") e.target.style.background = "transparent"; }
-              },
-              React.createElement("i", { className: "fas fa-check", style: { width: "16px", opacity: highlightMode === "gender" ? 1 : 0 } }),
-              "Gender"
-            ),
-            React.createElement(
-              "button",
-              {
-                className: "dropdown-item",
-                onClick: () => {
-                  setHighlightMode("previous");
-                  setShowViewDropdown(false);
-                },
-                style: {
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  width: "100%",
-                  padding: "8px 12px",
-                  border: "none",
-                  background: highlightMode === "previous" ? "#e0f2fe" : "transparent",
-                  textAlign: "left",
-                  cursor: "pointer",
-                  fontSize: "14px"
-                },
-                onMouseEnter: (e) => { if (highlightMode !== "previous") e.target.style.background = "#f3f4f6"; },
-                onMouseLeave: (e) => { if (highlightMode !== "previous") e.target.style.background = "transparent"; }
-              },
-              React.createElement("i", { className: "fas fa-check", style: { width: "16px", opacity: highlightMode === "previous" ? 1 : 0 } }),
-              "Previous"
-            )
-          )
         )
       )
     ),
 
-    // Main content area with canvas on left, pool on right
+    // Main content area with left sidebar, canvas in center, pool on right
     React.createElement(
       "div",
       { className: "editor-main-area" },
@@ -1021,7 +979,154 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
         "div",
         { className: "editor-content-wrapper" },
 
-        // Canvas section (left)
+        // Left sidebar with controls
+        React.createElement(
+          "div",
+          { className: "editor-left-sidebar" },
+          
+          // Actions section with Save/Reset
+          React.createElement(
+            "div",
+            { className: "sidebar-section", style: { borderBottom: "1px solid #e5e7eb" } },
+            React.createElement("h3", null, "Actions"),
+            React.createElement(
+              "div",
+              { style: { display: "flex", flexDirection: "column", gap: "0.5rem" } },
+              React.createElement(
+                "button",
+                {
+                  className: "btn btn-sm",
+                  style: { 
+                    width: "100%",
+                    ...(hasUnsavedChanges ? { backgroundColor: "#10b981", borderColor: "#10b981", color: "white" } : {})
+                  },
+                  onClick: handleSave,
+                  disabled: saving,
+                },
+                React.createElement("i", { className: "fas fa-save" }),
+                saving ? " Saving..." : " Save"
+              ),
+              React.createElement(
+                "button",
+                {
+                  className: "btn btn-sm btn-secondary",
+                  style: { width: "100%" },
+                  onClick: handleReset,
+                },
+                React.createElement("i", { className: "fas fa-undo" }),
+                " Reset"
+              )
+            )
+          ),
+          
+          // Layout selector
+          React.createElement(
+            "div",
+            { className: "sidebar-section", style: { borderBottom: "1px solid #e5e7eb" } },
+            React.createElement("h3", null, "Layout"),
+            React.createElement(
+              "button",
+              {
+                className: "btn btn-sm btn-secondary",
+                style: { width: "100%" },
+                onClick: () => alert("Layout selector coming soon"),
+                title: "Select classroom layout",
+              },
+              React.createElement("i", { className: "fas fa-th" }),
+              " Select Layout"
+            )
+          ),
+          
+          // Auto-fill section
+          React.createElement(
+            "div",
+            { className: "sidebar-section", style: { borderBottom: "1px solid #e5e7eb" } },
+            React.createElement("h3", null, "Auto-fill"),
+            React.createElement(
+              "div",
+              { style: { display: "flex", flexDirection: "column", gap: "0.5rem" } },
+              React.createElement(
+                "button",
+                {
+                  className: "btn btn-sm btn-secondary",
+                  style: { width: "100%", fontSize: "12px" },
+                  onClick: handleAutofillAlphabetical,
+                },
+                React.createElement("i", { className: "fas fa-sort-alpha-down", style: { fontSize: "10px" } }),
+                " ABC"
+              ),
+              React.createElement(
+                "button",
+                {
+                  className: "btn btn-sm btn-secondary",
+                  style: { width: "100%", fontSize: "12px" },
+                  onClick: handleAutofillRandom,
+                },
+                React.createElement("i", { className: "fas fa-random", style: { fontSize: "10px" } }),
+                " Random"
+              ),
+              React.createElement(
+                "button",
+                {
+                  className: "btn btn-sm btn-secondary",
+                  style: { width: "100%", fontSize: "12px" },
+                  onClick: handleAutofillBoyGirl,
+                },
+                React.createElement("i", { className: "fas fa-venus-mars", style: { fontSize: "10px" } }),
+                " Boy-Girl"
+              )
+            )
+          ),
+          
+          // View options section
+          React.createElement(
+            "div",
+            { className: "sidebar-section" },
+            React.createElement("h3", null, "View"),
+            React.createElement(
+              "div",
+              { style: { display: "flex", flexDirection: "column", gap: "0.5rem" } },
+              React.createElement(
+                "button",
+                {
+                  className: `btn btn-sm ${highlightMode === "none" ? "btn-primary" : "btn-secondary"}`,
+                  style: { width: "100%", fontSize: "12px" },
+                  onClick: () => {
+                    console.log("Normal button clicked, setting highlightMode to 'none'");
+                    setHighlightMode("none");
+                  },
+                },
+                React.createElement("i", { className: "fas fa-eye", style: { fontSize: "10px" } }),
+                " Normal"
+              ),
+              React.createElement(
+                "button",
+                {
+                  className: `btn btn-sm ${highlightMode === "gender" ? "btn-primary" : "btn-secondary"}`,
+                  style: { width: "100%", fontSize: "12px" },
+                  onClick: () => {
+                    console.log("Gender button clicked, setting highlightMode to 'gender'");
+                    setHighlightMode("gender");
+                  },
+                },
+                React.createElement("i", { className: "fas fa-venus-mars", style: { fontSize: "10px" } }),
+                " Gender"
+              ),
+              React.createElement(
+                "button",
+                {
+                  className: `btn btn-sm ${highlightMode === "previous" ? "btn-primary" : "btn-secondary"}`,
+                  style: { width: "100%", fontSize: "12px" },
+                  onClick: () => setHighlightMode("previous"),
+                },
+                React.createElement("i", { className: "fas fa-history", style: { fontSize: "10px" } }),
+                " Previous"
+              )
+            )
+          )
+        ),
+
+        // Canvas section (center)
         React.createElement(
           "div",
           { className: "editor-canvas-section" },
@@ -1054,10 +1159,9 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
           onDragStart: setDraggedStudent,
           onDragEnd: () => setDraggedStudent(null),
           onStudentReturn: handleSeatUnassignment,
-          hasUnsavedChanges: hasUnsavedChanges,
-          onSave: handleSave,
-          onReset: handleReset,
-          saving: saving,
+          studentSortBy: studentSortBy,
+          onSortChange: setStudentSortBy,
+          highlightMode: highlightMode,
         })
       )
     )
@@ -1081,6 +1185,8 @@ const SeatingCanvas = ({
   // Get shared styles
   const { LayoutStyles } = window;
   const gridSize = 80; // Grid size for editor
+  
+  console.log("SeatingCanvas render - highlightMode:", highlightMode);
   
   // This will render the layout with students assigned to seats
   return React.createElement(
@@ -1160,12 +1266,20 @@ const SeatingCanvas = ({
 
           // Override background color for gender highlighting if needed
           if (assignedStudent && highlightMode === "gender") {
-            seatStyle.backgroundColor = assignedStudent.gender === "F" 
-              ? "#fbbf24"  // Yellow for female
-              : "#60a5fa"; // Blue for male
-            seatStyle.border = assignedStudent.gender === "F"
-              ? "2px solid #f59e0b"
-              : "2px solid #3b82f6";
+            // Check for female gender (F or Female)
+            const isFemale = assignedStudent.gender === "F" || assignedStudent.gender === "Female";
+            console.log(`Gender highlighting - Student: ${assignedStudent.first_name}, Gender: ${assignedStudent.gender}, isFemale: ${isFemale}`);
+            
+            if (isFemale) {
+              seatStyle.backgroundColor = "#10b981";  // Green for female (similar intensity to blue)
+              seatStyle.border = "2px solid #059669";  // Darker green border
+              seatStyle.color = "white";  // Keep white text
+            } else {
+              // Males keep default blue styling
+              seatStyle.backgroundColor = "#3b82f6";  // Blue for male (default)
+              seatStyle.border = "2px solid #2563eb";  // Darker blue border
+              seatStyle.color = "white";  // Keep white text
+            }
           }
 
           return React.createElement(
@@ -1486,11 +1600,35 @@ const StudentPool = ({
   onDragStart,
   onDragEnd,
   onStudentReturn,
-  hasUnsavedChanges,
-  onSave,
-  onReset,
-  saving,
+  studentSortBy,
+  onSortChange,
+  highlightMode,
 }) => {
+  const [showSortDropdown, setShowSortDropdown] = useState(false);
+  
+  // Sort students based on selected sort option
+  const sortedStudents = React.useMemo(() => {
+    const sorted = [...students];
+    if (studentSortBy === "name") {
+      sorted.sort((a, b) => {
+        const nameA = `${a.first_name} ${a.last_name}`.toLowerCase();
+        const nameB = `${b.first_name} ${b.last_name}`.toLowerCase();
+        return nameA.localeCompare(nameB);
+      });
+    } else if (studentSortBy === "gender") {
+      sorted.sort((a, b) => {
+        // First sort by gender, then by name within gender
+        if (a.gender !== b.gender) {
+          return (a.gender || "").localeCompare(b.gender || "");
+        }
+        const nameA = `${a.first_name} ${a.last_name}`.toLowerCase();
+        const nameB = `${b.first_name} ${b.last_name}`.toLowerCase();
+        return nameA.localeCompare(nameB);
+      });
+    }
+    return sorted;
+  }, [students, studentSortBy]);
+  
   return React.createElement(
     "div",
     {
@@ -1525,7 +1663,7 @@ const StudentPool = ({
       },
     },
 
-    // Action buttons at top
+    // Sort dropdown at top
     React.createElement(
       "div",
       { 
@@ -1534,33 +1672,94 @@ const StudentPool = ({
           padding: "1rem",
           borderBottom: "1px solid #e5e7eb",
           display: "flex",
+          flexDirection: "column",
           gap: "0.5rem",
-          backgroundColor: "white"
+          backgroundColor: "white",
+          position: "relative"
         }
       },
+      React.createElement("h3", { style: { margin: "0 0 0.5rem 0", fontSize: "14px", fontWeight: "600" } }, "Student Pool"),
       React.createElement(
-        "button",
-        {
-          className: "btn btn-sm btn-secondary",
-          style: { 
-            flex: 1,
-            ...(hasUnsavedChanges ? { backgroundColor: "#10b981", borderColor: "#10b981" } : {})
+        "div",
+        { className: "dropdown", style: { position: "relative" } },
+        React.createElement(
+          "button",
+          {
+            className: "btn btn-sm btn-secondary dropdown-toggle",
+            onClick: () => setShowSortDropdown(!showSortDropdown),
+            style: { width: "100%" },
+            title: "Sort students",
           },
-          onClick: onSave,
-          disabled: saving,
-        },
-        React.createElement("i", { className: "fas fa-save" }),
-        saving ? " Saving..." : " Save"
-      ),
-      React.createElement(
-        "button",
-        {
-          className: "btn btn-sm btn-secondary",
-          style: { flex: 1 },
-          onClick: onReset,
-        },
-        React.createElement("i", { className: "fas fa-undo" }),
-        " Reset"
+          React.createElement("i", { className: "fas fa-sort" }),
+          ` Sort: ${studentSortBy === "name" ? "Name" : "Gender"} `,
+          React.createElement("i", { className: "fas fa-caret-down" })
+        ),
+        showSortDropdown && React.createElement(
+          "div",
+          { 
+            className: "dropdown-menu show",
+            style: {
+              position: "absolute",
+              top: "100%",
+              left: 0,
+              right: 0,
+              marginTop: "4px",
+              background: "white",
+              border: "1px solid #e5e7eb",
+              borderRadius: "6px",
+              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+              zIndex: 1000
+            }
+          },
+          React.createElement(
+            "button",
+            {
+              className: "dropdown-item",
+              onClick: () => {
+                onSortChange("name");
+                setShowSortDropdown(false);
+              },
+              style: {
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                width: "100%",
+                padding: "8px 12px",
+                border: "none",
+                background: studentSortBy === "name" ? "#e0f2fe" : "transparent",
+                textAlign: "left",
+                cursor: "pointer",
+                fontSize: "14px"
+              },
+            },
+            React.createElement("i", { className: "fas fa-check", style: { width: "16px", opacity: studentSortBy === "name" ? 1 : 0 } }),
+            "Sort by Name"
+          ),
+          React.createElement(
+            "button",
+            {
+              className: "dropdown-item",
+              onClick: () => {
+                onSortChange("gender");
+                setShowSortDropdown(false);
+              },
+              style: {
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                width: "100%",
+                padding: "8px 12px",
+                border: "none",
+                background: studentSortBy === "gender" ? "#e0f2fe" : "transparent",
+                textAlign: "left",
+                cursor: "pointer",
+                fontSize: "14px"
+              },
+            },
+            React.createElement("i", { className: "fas fa-check", style: { width: "16px", opacity: studentSortBy === "gender" ? 1 : 0 } }),
+            "Sort by Gender"
+          )
+        )
       )
     ),
 
@@ -1568,14 +1767,26 @@ const StudentPool = ({
     React.createElement(
       "div",
       { className: "student-grid" },
-      students.map((student) =>
-        React.createElement(
+      sortedStudents.map((student) => {
+        // Determine if we should apply gender highlighting
+        const isFemale = student.gender === "F" || student.gender === "Female";
+        const genderStyle = {};
+        
+        // Apply gender-specific styling when in gender highlight mode
+        if (highlightMode === "gender" && isFemale) {
+          genderStyle.border = "2px solid #10b981";  // Green border for females
+          genderStyle.backgroundColor = "white";  // Keep white background
+          genderStyle.color = "black";  // Keep black text
+        }
+        
+        return React.createElement(
           "div",
           {
             key: student.id,
             className: `student-card ${
               selectedStudent?.id === student.id ? "selected" : ""
             } ${student.gender === "F" ? "female" : "male"}`,
+            style: genderStyle,
             onClick: () => onSelectStudent(student),
             draggable: true,
             onDragStart: (e) => {
@@ -1603,8 +1814,8 @@ const StudentPool = ({
             { className: "student-card-name" },
             formatStudentName(student.first_name, student.last_name)
           )
-        )
-      )
+        );
+      })
     )
   );
 };

@@ -356,6 +356,16 @@ class Student(models.Model):
     first_name = models.CharField(max_length=30)
     last_name = models.CharField(max_length=30)
     email = models.EmailField(blank=True, null=True)
+    gender = models.CharField(
+        max_length=10,
+        choices=[
+            ('male', 'Male'),
+            ('female', 'Female'),
+            ('other', 'Other')
+        ],
+        blank=True,
+        null=True
+    )
     date_of_birth = models.DateField(blank=True, null=True)
     enrollment_date = models.DateField(auto_now_add=True)
     is_active = models.BooleanField(default=True)
