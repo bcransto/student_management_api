@@ -4,258 +4,185 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Essential Commands
 
-### Backend (Django)
+### Development Environment
 ```bash
-# Activate virtual environment (always do this first)
-source myenv/bin/activate  # Note: NOT 'venv', but 'myenv'
+# CRITICAL: Always activate virtual environment first
+source myenv/bin/activate  # NOT 'venv' - must use 'myenv'
 
-# Run development server
+# Start development server
 python manage.py runserver
+# Kill if port in use: lsof -ti:8000 | xargs kill -9 2>/dev/null
 
-# Kill existing server if port in use
-lsof -ti:8000 | xargs kill -9 2>/dev/null
-
-# Database migrations
+# Database operations
 python manage.py makemigrations
 python manage.py migrate
-
-# Django shell for debugging
-python manage.py shell
-
-# Create superuser for admin access
-python manage.py createsuperuser
-
-# Run backend linting and formatting
-npm run lint:python         # Run all backend linters
-npm run format:python       # Format Python code with Black/isort
+python manage.py shell  # Django shell for debugging
 
 # Run tests
-python manage.py test
+python manage.py test                    # All tests
+python manage.py test students.tests    # Specific app
+python test_nickname_functionality.py   # Standalone test file
+
+# Linting and formatting
+npm run lint:all          # Frontend + backend linting
+npm run lint:python       # Backend only (flake8, pylint)
+npm run format:python     # Format with Black/isort
+npm run lint              # Frontend only (ESLint, HTMLHint)
+npm run format            # Format frontend with Prettier
 ```
 
-### Frontend
-The frontend is pure React without build tools. Files are served directly through Django.
-```bash
-# No build process needed - just edit files and refresh browser
-# Access the app at http://127.0.0.1:8000/
-# Admin panel at http://127.0.0.1:8000/admin/
-
-# Frontend linting and formatting
-npm run lint               # Run ESLint and HTMLHint
-npm run lint:fix          # Auto-fix linting issues
-npm run format            # Format with Prettier
-npm run format:check      # Check formatting without changes
-```
-
-### Full Project Linting
-```bash
-npm run lint:all          # Run both frontend and backend linters
-```
+### No Build Process
+Frontend is pure React served directly through Django - no webpack/babel:
+- Edit files directly in `frontend/`
+- Refresh browser to see changes
+- Access app at http://127.0.0.1:8000/
+- Admin at http://127.0.0.1:8000/admin/
 
 ## Architecture Overview
 
 ### Tech Stack
-- **Backend**: Django 5.2.3 with Django REST Framework
-- **Frontend**: React 18 (CDN, no JSX, uses React.createElement)
-- **Database**: SQLite (local), MySQL (production on PythonAnywhere)
-- **Auth**: JWT with email-based login (not username)
-- **Routing**: Hash-based SPA routing (#dashboard, #students, etc.)
-- **No Build Process**: Frontend files served directly via Django, no webpack/babel compilation needed
+- **Backend**: Django 5.2.3 + Django REST Framework
+- **Frontend**: React 18 via CDN (no JSX, uses React.createElement)
+- **Database**: SQLite local, MySQL on PythonAnywhere
+- **Auth**: JWT with email-based login (uses email field, not username)
+- **Settings Module**: `student_project.settings`
 
-### Backend Structure
+### Critical Model Relationships
 
-**Core Models** (`students/models.py`):
-- `User`: Custom user with email auth and `is_teacher` flag
-- `Class`: Classes taught by teachers with `classroom_layout` FK
-- `Student`: Student records with soft delete (`is_active`), includes `gender` field (male/female/other)
-- `ClassRoster`: M2M relationship between students and classes
-- `ClassroomLayout`: Physical room layouts (can be templates), filtered by `created_by` user
-- `SeatingPeriod`: Time-bounded seating with its own layout FK
-- `SeatingAssignment`: Maps roster entries to specific seats
-
-**Critical Model Relationships**:
 ```python
+# Seating hierarchy
 Class → classroom_layout (FK to ClassroomLayout)
 SeatingPeriod → layout (FK to ClassroomLayout, PROTECT on delete)
 SeatingPeriod → class_assigned (FK to Class)
 SeatingAssignment → seating_period (FK to SeatingPeriod)
-SeatingAssignment → roster_entry (FK to ClassRoster)
+SeatingAssignment → roster_entry (FK to ClassRoster, not Student!)
+
+# Student fields
+Student.nickname  # Defaults to first_name if empty/whitespace
+Student.gender    # 'male', 'female', 'other' (lowercase in DB)
 ```
 
-**SeatingPeriod Behavior**:
-- Only one active period per class (enforced in `save()` method)
-- Deactivating other periods does NOT modify their `end_date`
-- New periods should copy layout from previous period or class
+### Frontend Component Architecture
 
-### Frontend Architecture
+**React without JSX Pattern**:
+```javascript
+// All components use React.createElement
+React.createElement("div", { className: "example" }, children)
+// Never use JSX syntax
+```
 
-**Single Page Application Structure**:
-- `index.html`: Main entry point with all script/style imports
-- `frontend/app.js`: Main app controller with hash routing
-- `frontend/shared/core.js`: AuthModule and ApiModule for API communication
-- `frontend/shared/utils.js`: Shared utilities (formatStudentName, formatDate)
-- Components use pure React.createElement (no JSX, no build process)
-- All React components loaded via CDN
+**Key Components & Their Quirks**:
 
-**Key Components**:
+1. **SeatingEditor.js**
+   - Assignments state: `{tableId: {seatNumber: studentId}}` with string keys
+   - Seat ID format: "tableNumber-seatNumber" (e.g., "1-2")
+   - Gender highlighting requires DOM manipulation with setProperty('important')
+   - Left sidebar (125px) contains controls
+   - Autofill preserves existing seat assignments
+   - Search includes nickname field
 
-1. **SeatingEditor.js** (Complex drag-and-drop editor):
-   - State: `assignments = {tableId: {seatNumber: studentId}}`
-   - Seat IDs format: "tableNumber-seatNumber" (e.g., "1-2")
-   - Name truncation: "FirstName L." (max 8 chars + initial)
-   - Special handling for same-table swaps vs cross-table
-   - Period navigation with Previous/Next buttons
-   - New Period button creates fresh period with empty seats
-   - Left sidebar (125px) with controls: autofill, view modes, save/reset
-   - Autofill functions: Alphabetical, Random, Boy-Girl (preserves existing seats)
-   - Gender highlighting: Green for females, blue for males (uses DOM manipulation)
-   - Student pool sorting by name or gender
+2. **Students Components**
+   - `formatStudentName()` utility prefers nickname over first_name
+   - Search filters by nickname, first_name, last_name, student_id, email
+   - StudentEditor includes nickname and gender fields
 
-2. **SeatingViewer.js** (Read-only viewer):
-   - Uses standard app CSS (not custom editor styles)
-   - Toggle between view/edit modes
-   - Shares canvas rendering with editor
-   - No drag-drop or pool functionality
-
-3. **StudentEditor.js** (Full student CRUD):
-   - Route: `#students/edit/{studentId}`
-   - Form validation for required fields
-   - Soft delete sets `is_active = false`
-   - Shows enrolled classes with details
-
-4. **Layout Editor** (`frontend/layouts/editor/`):
-   - Modular React-based layout designer
-   - Drag-and-drop table/obstacle placement
-   - Real-time seat management
-   - Served at `/frontend/layouts/editor/`
+3. **Layout System**
+   - ClassroomLayout filtered by `created_by` user
+   - Layouts can be templates (`is_template` flag)
+   - Tables contain seats with relative positioning
 
 ### API Patterns
 
-**ApiModule.request() Usage**:
+**ApiModule.request() - MUST use options object**:
 ```javascript
-// Correct format - options object as second parameter
-await ApiModule.request('/endpoint/', {
+// CORRECT
+await ApiModule.request('/api/endpoint/', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify(data)
 });
 
-// NOT separate parameters like: request(url, method, body)
+// WRONG - DO NOT use separate parameters
+await ApiModule.request(url, method, body)  // ❌
 ```
 
-**Query Parameter Filtering**:
-- SeatingPeriodViewSet: `?class_assigned={classId}`
-- SeatingAssignmentViewSet: `?seating_period={periodId}`
-- Both viewsets filter by teacher ownership automatically
+**Critical Serializer Behaviors**:
+- SeatingAssignment expects `roster_entry` ID, not `student` ID
+- Student.nickname defaults to first_name when empty
+- API responses may be paginated: check for `results` key
+- ClassRoomLayout ViewSet filters by `created_by` user (except superusers)
 
-**Serializer Fields**:
-- SeatingPeriod includes: `class_assigned` (was missing, now added)
-- ClassRoster includes: `class_assigned_details` with nested info
-- SeatingAssignment expects: `roster_entry` ID, not student ID
-- SeatingAssignmentSerializer has custom `create()` method for proper validation
+### Common Pitfalls & Solutions
 
-### Data Type Consistency Issues
-
-**Always Handle as Strings**:
-- Seat numbers (even if API returns numbers)
-- Table IDs when used as object keys
-- Student IDs in assignment maps
-
-**Format Examples**:
+**Data Type Consistency**:
 ```javascript
-// Correct assignment structure
+// Table IDs and seat numbers MUST be strings in assignments
 assignments = {
-  "106": {  // tableId as string key
-    "1": 5,   // seatNumber as string key, studentId as number
-    "2": 8
+  "106": {         // ✓ String table ID
+    "1": studentId // ✓ String seat number
   }
 }
-
-// Seat ID format
-seat_id = "1-2"  // "tableNumber-seatNumber"
 ```
 
-### Common Pitfalls and Solutions
+**Gender Highlighting CSS Specificity**:
+```javascript
+// Inline styles won't work due to !important rules
+// Must use DOM manipulation:
+element.style.setProperty('background-color', '#10b981', 'important');
+```
 
-1. **Gender Highlighting Not Working**:
-   - CSS specificity issues prevent inline styles from applying
-   - Solution: Use React.useEffect with DOM manipulation and setProperty('important')
-   - Gender values in DB are lowercase: 'male', 'female', 'other'
+**SeatingPeriod Active State**:
+- Setting `is_active=True` deactivates others automatically
+- Never modify `end_date` when deactivating
+- Only one active period per class
 
-2. **Save Function Deleting Wrong Periods**:
-   - Issue: SeatingAssignmentViewSet wasn't filtering by period
-   - Fix: Added `filterset_fields` and query param filtering
+**Nickname Handling**:
+- Model auto-sets to first_name if empty/whitespace
+- Frontend `formatStudentName()` prefers nickname
+- Search includes nickname in all filtering
 
-3. **Period Navigation Clearing Assignments**:
-   - Issue: Setting `is_active` triggers model save() side effects
-   - Solution: Only update `is_active`, never touch `end_date`
+## Testing Strategy
 
-4. **Layout Not Loading**:
-   - Always check `period.layout_details` first
-   - Fallback to `class.classroom_layout`
-   - Never assume layout exists
+```bash
+# Run specific test files
+python test_nickname_functionality.py  # Comprehensive nickname tests
+python test_seating_api.py            # Seating API tests
+python test_save.py                   # Save functionality tests
 
-5. **Drag & Drop Same Table**:
-   - Don't delete/recreate table object for same-table swaps
-   - Swap values directly in the assignments object
+# Frontend testing
+open test_nickname_frontend.html      # Interactive browser tests
+```
 
-6. **Virtual Environment**:
-   - MUST use `myenv/` not `venv/`
-   - Activate before any Python commands
+## Deployment to PythonAnywhere
 
-7. **CORS in Development**:
-   - Check `CORS_ALLOWED_ORIGINS` includes localhost
-   - Frontend auto-handles token refresh on 401
-
-8. **Token Storage**:
-   - Main app stores as `token` in localStorage
-   - Layout editor looks for both `token` and `access_token`
-   - JWT auth uses `email` field, not `username`
-
-9. **SeatingAssignment Creation**:
-   - Model's `clean()` method handles both object and ID references
-   - Serializer has custom `create()` to ensure validation
-   - Always include Content-Type header in POST requests
-
-### Deployment to PythonAnywhere
-
-1. Push code to GitHub
+1. Push to GitHub main branch
 2. SSH to PythonAnywhere console
-3. Pull latest changes in `/home/bcranston/student_management_api/`
-4. Run migrations if model changes
-5. Reload web app from PythonAnywhere dashboard
-6. Frontend URLs auto-switch based on hostname detection
+3. Navigate to `/home/bcranston/student_management_api/`
+4. Pull latest: `git pull origin main`
+5. Run migrations if needed: `python manage.py migrate`
+6. Reload web app from dashboard
 
-### Testing Approach
+Frontend auto-detects production environment via hostname.
 
-Limited automated tests. Manual testing via:
-- Django admin panel for data verification
-- Browser console for frontend debugging
-- Django shell for backend queries
-- Test scripts: `test_seating_api.py`, `test_periods.py`, `test_save.py`
-- Run tests: `python manage.py test`
+## URL Structure
 
-### URL Routing
-
-**Django URL Patterns**:
-- `/` - Main SPA (index.html)
-- `/api/` - REST API endpoints
-- `/admin/` - Django admin panel
-- `/frontend/<path>` - Static frontend files
-- `/frontend/layouts/editor/` - Layout editor app
+**Django URLs**:
+- `/` - Main SPA
+- `/api/` - REST endpoints
+- `/admin/` - Django admin
+- `/frontend/<path>` - Static files served via Django
 
 **Frontend Hash Routes**:
-- `#dashboard` - Main dashboard
-- `#students` - Student list
+- `#dashboard` - Main view
+- `#students` - Student list with search
 - `#students/edit/{id}` - Edit student
-- `#classes` - Class list
-- `#seating` - Seating management
-- `#layouts` - Layout management
+- `#seating` - Seating editor
+- `#layouts` - Layout management (user's layouts only)
 
-### File Serving Strategy
+## Critical Files to Understand
 
-Frontend files are served through Django's `serve_frontend_file` function in `urls.py`, which:
-- Reads files from `frontend/` directory
-- Sets appropriate content-type headers
-- Handles production URL replacements
-- No webpack/build process needed
+1. `students/models.py` - Model relationships and save() overrides
+2. `frontend/shared/core.js` - ApiModule request pattern
+3. `frontend/seating/SeatingEditor.js` - Complex state management
+4. `students/views.py` - ViewSet filtering and permissions
+5. `frontend/shared/utils.js` - formatStudentName nickname logic
