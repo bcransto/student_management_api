@@ -133,10 +133,11 @@ assignments = {
 element.style.setProperty('background-color', '#10b981', 'important');
 ```
 
-**SeatingPeriod Active State**:
-- Setting `is_active=True` deactivates others automatically
-- Never modify `end_date` when deactivating
-- Only one active period per class
+**SeatingPeriod Current State**:
+- Current period identified by `end_date=None` (no is_active field)
+- Creating new period auto-ends previous (sets end_date to today)
+- Only one period per class can have `end_date=None`
+- Model's save() method enforces single current period
 
 **Nickname Handling**:
 - Model auto-sets to first_name if empty/whitespace

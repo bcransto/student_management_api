@@ -337,7 +337,7 @@ class EnrollStudentSerializer(serializers.Serializer):
 class CreateSeatingPeriodSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=100)
     start_date = serializers.DateField()
-    end_date = serializers.DateField(required=False, allow_blank=True)
+    end_date = serializers.DateField(required=False, allow_null=True)
     notes = serializers.CharField(required=False, allow_blank=True)
 
 
