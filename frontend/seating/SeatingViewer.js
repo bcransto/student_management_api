@@ -124,7 +124,7 @@ const SeatingViewer = ({ classId, onEdit, onBack }) => {
     }
   };
 
-  // Navigate to previous/next seating period
+  // Navigate to previous/next seating period (VIEW ONLY - does not modify database)
   const handlePeriodNavigation = async (direction) => {
     try {
       // Get all periods for this class
@@ -148,9 +148,9 @@ const SeatingViewer = ({ classId, onEdit, onBack }) => {
       // Sort by start date
       periods.sort((a, b) => new Date(a.start_date) - new Date(b.start_date));
 
-      // Find current period index
-      const currentPeriodId = classInfo.current_seating_period?.id;
-      const currentIndex = periods.findIndex((p) => p.id === currentPeriodId);
+      // Find the currently viewed period index (not necessarily the active one)
+      const currentlyViewedPeriodId = classInfo.current_seating_period?.id;
+      const currentIndex = periods.findIndex((p) => p.id === currentlyViewedPeriodId);
 
       let targetIndex;
       if (direction === "previous") {
@@ -161,34 +161,54 @@ const SeatingViewer = ({ classId, onEdit, onBack }) => {
 
       const targetPeriod = periods[targetIndex];
 
-      console.log(`Navigating from period ${currentPeriodId} to ${targetPeriod.id}`);
+      console.log(`Navigating from period ${currentlyViewedPeriodId} to ${targetPeriod.id}`);
+      console.log("Note: This is VIEW-ONLY navigation, not changing active period in database");
 
-      // Update end_date to make periods current/not current
-      // First, end the current period
-      if (currentPeriodId) {
-        await window.ApiModule.request(`/seating-periods/${currentPeriodId}/`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            end_date: new Date().toISOString().split("T")[0],
-          }),
+      // Get full details of the target period
+      const fullTargetPeriod = await window.ApiModule.request(`/seating-periods/${targetPeriod.id}/`);
+
+      // Update the UI to show the target period WITHOUT modifying the database
+      // We're just changing what we're viewing, not which period is active
+      setClassInfo(prevInfo => ({
+        ...prevInfo,
+        current_seating_period: fullTargetPeriod
+      }));
+
+      // Load assignments for the target period
+      if (fullTargetPeriod.seating_assignments && fullTargetPeriod.seating_assignments.length > 0 && layout) {
+        const assignmentMap = {};
+        fullTargetPeriod.seating_assignments.forEach((assignment) => {
+          const table = layout.tables.find(
+            (t) => t.table_number === assignment.table_number
+          );
+          if (!table) {
+            console.warn(`Table ${assignment.table_number} not found in layout`);
+            return;
+          }
+
+          const tableId = table.id;
+          const seatNumber = String(assignment.seat_number);
+
+          // Find the student ID from the roster
+          const rosterEntry = classInfo.roster.find((r) => r.id === assignment.roster_entry);
+          const studentId = rosterEntry ? rosterEntry.student : null;
+
+          if (studentId) {
+            if (!assignmentMap[tableId]) {
+              assignmentMap[tableId] = {};
+            }
+            assignmentMap[tableId][seatNumber] = studentId;
+          }
         });
+        setAssignments(assignmentMap);
+      } else {
+        setAssignments({});
       }
-      
-      // Then make the target period current by clearing its end_date
-      await window.ApiModule.request(`/seating-periods/${targetPeriod.id}/`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          end_date: null,
-        }),
-      });
 
-      // Small delay to ensure backend has updated
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      // Reload the data with the new period
-      await loadClassData();
+      // Update layout if the period has a different one
+      if (fullTargetPeriod.layout_details) {
+        setLayout(fullTargetPeriod.layout_details);
+      }
     } catch (error) {
       console.error("Failed to navigate periods:", error);
       alert("Failed to navigate to " + direction + " period");

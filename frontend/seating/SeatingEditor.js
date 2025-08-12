@@ -169,7 +169,7 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
             return;
           }
 
-          const tableId = table.id;
+          const tableId = String(table.id); // Ensure it's a string
           const seatNumber = String(assignment.seat_number); // Ensure it's a string
 
           // Find the student ID from the roster
@@ -329,7 +329,7 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
     }
   };
 
-  // Navigate to previous/next seating period
+  // Navigate to previous/next seating period (VIEW ONLY - does not modify database)
   const handlePeriodNavigation = async (direction) => {
     try {
       // Check for unsaved changes
@@ -364,9 +364,9 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
         periods.map((p) => ({ id: p.id, name: p.name, active: p.end_date === null }))
       );
 
-      // Find current period index
-      const currentPeriodId = classInfo.current_seating_period?.id;
-      const currentIndex = periods.findIndex((p) => p.id === currentPeriodId);
+      // Find the currently viewed period index (not necessarily the active one)
+      const currentlyViewedPeriodId = classInfo.current_seating_period?.id;
+      const currentIndex = periods.findIndex((p) => p.id === currentlyViewedPeriodId);
 
       let targetIndex;
       if (direction === "previous") {
@@ -377,35 +377,69 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
 
       const targetPeriod = periods[targetIndex];
 
-      console.log(`Navigating from period ${currentPeriodId} to ${targetPeriod.id}`);
+      console.log(`Navigating from period ${currentlyViewedPeriodId} to ${targetPeriod.id}`);
       console.log("Target period:", targetPeriod);
+      console.log("Note: This is VIEW-ONLY navigation, not changing active period in database");
 
-      // Update end_date to make periods current/not current
-      // First, end the current period if it exists
-      if (currentPeriodId) {
-        await window.ApiModule.request(`/seating-periods/${currentPeriodId}/`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            end_date: new Date().toISOString().split("T")[0],
-          }),
-        });
+      // Get full details of the target period
+      const fullTargetPeriod = await window.ApiModule.request(`/seating-periods/${targetPeriod.id}/`);
+
+      // Update the UI to show the target period WITHOUT modifying the database
+      // We're just changing what we're viewing, not which period is active
+      setClassInfo(prevInfo => ({
+        ...prevInfo,
+        current_seating_period: fullTargetPeriod
+      }));
+
+      // Clear deactivated seats when viewing a historical period
+      if (fullTargetPeriod.end_date !== null) {
+        console.log("Viewing historical period - clearing deactivated seats");
+        setDeactivatedSeats(new Set());
+        setIsViewingCurrentPeriod(false);
+      } else {
+        console.log("Viewing the true current period");
+        setIsViewingCurrentPeriod(true);
       }
-      
-      // Then make the target period current by clearing its end_date
-      await window.ApiModule.request(`/seating-periods/${targetPeriod.id}/`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          end_date: null,
-        }),
-      });
 
-      // Small delay to ensure backend has updated
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      // Update layout first if the period has a different one
+      let currentLayout = layout;
+      if (fullTargetPeriod.layout_details) {
+        currentLayout = fullTargetPeriod.layout_details;
+        setLayout(currentLayout);
+      }
 
-      // Reload the data with the new period
-      await loadClassData();
+      // Load assignments for the target period
+      if (fullTargetPeriod.seating_assignments && fullTargetPeriod.seating_assignments.length > 0 && currentLayout) {
+        const assignmentMap = {};
+        fullTargetPeriod.seating_assignments.forEach((assignment) => {
+          // Find the table in the layout by table_number to get its ID
+          const table = currentLayout.tables?.find(
+            (t) => t.table_number === assignment.table_number
+          );
+          
+          if (!table) {
+            console.warn(`Table ${assignment.table_number} not found in layout`);
+            return;
+          }
+
+          const tableId = String(table.id);  // Use the table's ID, not table_number
+          const seatNumber = String(assignment.seat_number);
+          const rosterEntry = classInfo.roster.find((r) => r.id === assignment.roster_entry);
+          const studentId = rosterEntry ? rosterEntry.student : null;
+
+          if (studentId) {
+            if (!assignmentMap[tableId]) {
+              assignmentMap[tableId] = {};
+            }
+            assignmentMap[tableId][seatNumber] = studentId;
+          }
+        });
+        console.log("Loaded assignments for period:", assignmentMap);
+        setAssignments(assignmentMap);
+      } else {
+        setAssignments({});
+      }
+
       setHasUnsavedChanges(false);
     } catch (error) {
       console.error("Failed to navigate periods:", error);
@@ -1233,6 +1267,7 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
               assignments: assignments,
               students: students,
               highlightMode: highlightMode,
+              deactivatedSeats: deactivatedSeats,  // Pass deactivated seats to canvas
               onSeatClick: (tableId, seatNumber, event) => {
                 const seatId = `${tableId}-${seatNumber}`;
                 const isModifierPressed = event && event.shiftKey;

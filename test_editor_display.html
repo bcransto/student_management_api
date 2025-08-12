@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Editor Display Fix</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        h1 { color: #333; }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 5px;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Editor Display Fix - Test Guide</h1>
+    
+    <div class="test-section success">
+        <h2>✅ Fix Applied</h2>
+        <p><strong>Issue:</strong> Seated students weren't displaying in the editor after period navigation</p>
+        <p><strong>Root Cause:</strong> The handlePeriodNavigation was using table_number as the key instead of table.id</p>
+        <p><strong>Solution:</strong> Updated to properly map table_number to table.id before creating assignments</p>
+    </div>
+
+    <div class="test-section info">
+        <h2>🧪 Test Steps</h2>
+        <ol>
+            <li><strong>Navigate to Seating Editor:</strong>
+                <ul>
+                    <li>Go to <code>http://127.0.0.1:8000/#seating</code></li>
+                    <li>Select the "Blue" class (has multiple periods with students)</li>
+                    <li>Click "Edit" to enter the editor</li>
+                </ul>
+            </li>
+            
+            <li><strong>Check Current Period:</strong>
+                <ul>
+                    <li>Students should be visible on their assigned seats</li>
+                    <li>Note which students are where</li>
+                </ul>
+            </li>
+            
+            <li><strong>Test Period Navigation:</strong>
+                <ul>
+                    <li>Click "Previous" button</li>
+                    <li>Students should still display correctly (if that period has assignments)</li>
+                    <li>Click "Next" to return</li>
+                    <li>Original students should reappear in their positions</li>
+                </ul>
+            </li>
+            
+            <li><strong>Test Deactivation (Current Period Only):</strong>
+                <ul>
+                    <li>On the current period, Shift+click to deactivate seats</li>
+                    <li>Navigate to Previous period</li>
+                    <li>Deactivated seats should clear (no red X)</li>
+                    <li>Navigate back - deactivated seats should NOT persist</li>
+                </ul>
+            </li>
+            
+            <li><strong>Console Verification:</strong>
+                <ul>
+                    <li>Open browser console (F12)</li>
+                    <li>Look for: <code>"Loaded assignments for period:"</code></li>
+                    <li>Should show object with table IDs (numbers) as keys</li>
+                    <li>Example: <code>{106: {1: 5, 2: 8}, 107: {1: 3}}</code></li>
+                </ul>
+            </li>
+        </ol>
+    </div>
+
+    <div class="test-section info">
+        <h2>📊 What to Check in Console</h2>
+        <p>When navigating between periods, you should see:</p>
+        <ul>
+            <li><code>Navigating from period X to Y</code></li>
+            <li><code>Note: This is VIEW-ONLY navigation, not changing active period in database</code></li>
+            <li><code>Viewing historical period - clearing deactivated seats</code> (for non-current)</li>
+            <li><code>Loaded assignments for period: {table_id: {seat: student_id}}</code></li>
+        </ul>
+    </div>
+
+    <div class="test-section success">
+        <h2>✨ Expected Behavior</h2>
+        <ul>
+            <li>✅ Students display correctly in all periods</li>
+            <li>✅ Period navigation is view-only (no database changes)</li>
+            <li>✅ Deactivated seats only work on true current period</li>
+            <li>✅ Table IDs properly mapped (using table.id not table_number)</li>
+            <li>✅ Assignments persist correctly when saving</li>
+        </ul>
+    </div>
+</body>
+</html>
