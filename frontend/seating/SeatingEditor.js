@@ -726,10 +726,10 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
       return;
     }
     
-    // Sort students alphabetically by first name, then last name
+    // Sort students alphabetically by nickname or first name, then last name
     const sortedStudents = [...unassignedStudents].sort((a, b) => {
-      const nameA = `${a.first_name} ${a.last_name}`.toLowerCase();
-      const nameB = `${b.first_name} ${b.last_name}`.toLowerCase();
+      const nameA = `${a.nickname || a.first_name} ${a.last_name}`.toLowerCase();
+      const nameB = `${b.nickname || b.first_name} ${b.last_name}`.toLowerCase();
       return nameA.localeCompare(nameB);
     });
     
@@ -827,9 +827,9 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
     console.log(`Others: ${others.length}`, others.map(s => `${s.first_name} (${s.gender})`));
     
     // Sort each group alphabetically
-    boys.sort((a, b) => `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`));
-    girls.sort((a, b) => `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`));
-    others.sort((a, b) => `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`));
+    boys.sort((a, b) => `${a.nickname || a.first_name} ${a.last_name}`.localeCompare(`${b.nickname || b.first_name} ${b.last_name}`));
+    girls.sort((a, b) => `${a.nickname || a.first_name} ${a.last_name}`.localeCompare(`${b.nickname || b.first_name} ${b.last_name}`));
+    others.sort((a, b) => `${a.nickname || a.first_name} ${a.last_name}`.localeCompare(`${b.nickname || b.first_name} ${b.last_name}`));
     
     // Sort seats by table then seat number
     const sortedSeats = [...availableSeats].sort((a, b) => {
@@ -1461,13 +1461,13 @@ const SeatingCanvas = ({
                 }
               },
               title: assignedStudent
-                ? `${assignedStudent.first_name} ${assignedStudent.last_name}`
+                ? `${assignedStudent.nickname || assignedStudent.first_name} ${assignedStudent.last_name}`
                 : `Seat ${seat.seat_number}`,
             },
             assignedStudent
               ? (() => {
                   const { line1, line2 } = LayoutStyles.formatSeatName(
-                    assignedStudent.first_name,
+                    assignedStudent.nickname || assignedStudent.first_name,
                     assignedStudent.last_name
                   );
                   return React.createElement(
@@ -1670,14 +1670,31 @@ const StudentPool = ({
   highlightMode,
 }) => {
   const [showSortDropdown, setShowSortDropdown] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  
+  // Filter students based on search term
+  const filteredStudents = React.useMemo(() => {
+    if (!searchTerm) return students;
+    
+    const term = searchTerm.toLowerCase();
+    return students.filter(student => {
+      return (
+        student.student_id?.toLowerCase().includes(term) ||
+        student.first_name?.toLowerCase().includes(term) ||
+        student.last_name?.toLowerCase().includes(term) ||
+        student.nickname?.toLowerCase().includes(term) ||
+        `${student.first_name} ${student.last_name}`.toLowerCase().includes(term)
+      );
+    });
+  }, [students, searchTerm]);
   
   // Sort students based on selected sort option
   const sortedStudents = React.useMemo(() => {
-    const sorted = [...students];
+    const sorted = [...filteredStudents];
     if (studentSortBy === "name") {
       sorted.sort((a, b) => {
-        const nameA = `${a.first_name} ${a.last_name}`.toLowerCase();
-        const nameB = `${b.first_name} ${b.last_name}`.toLowerCase();
+        const nameA = `${a.nickname || a.first_name} ${a.last_name}`.toLowerCase();
+        const nameB = `${b.nickname || b.first_name} ${b.last_name}`.toLowerCase();
         return nameA.localeCompare(nameB);
       });
     } else if (studentSortBy === "gender") {
@@ -1686,13 +1703,13 @@ const StudentPool = ({
         if (a.gender !== b.gender) {
           return (a.gender || "").localeCompare(b.gender || "");
         }
-        const nameA = `${a.first_name} ${a.last_name}`.toLowerCase();
-        const nameB = `${b.first_name} ${b.last_name}`.toLowerCase();
+        const nameA = `${a.nickname || a.first_name} ${a.last_name}`.toLowerCase();
+        const nameB = `${b.nickname || b.first_name} ${b.last_name}`.toLowerCase();
         return nameA.localeCompare(nameB);
       });
     }
     return sorted;
-  }, [students, studentSortBy]);
+  }, [filteredStudents, studentSortBy]);
   
   return React.createElement(
     "div",
@@ -1744,6 +1761,22 @@ const StudentPool = ({
         }
       },
       React.createElement("h3", { style: { margin: "0 0 0.5rem 0", fontSize: "14px", fontWeight: "600" } }, "Student Pool"),
+      
+      // Search input
+      React.createElement("input", {
+        type: "text",
+        className: "form-control",
+        placeholder: "Search by name or nickname...",
+        value: searchTerm,
+        onChange: (e) => setSearchTerm(e.target.value),
+        style: { 
+          width: "100%",
+          padding: "6px 10px",
+          fontSize: "13px",
+          marginBottom: "8px"
+        }
+      }),
+      
       React.createElement(
         "div",
         { className: "dropdown", style: { position: "relative" } },
@@ -1827,6 +1860,21 @@ const StudentPool = ({
         )
       )
     ),
+    
+    // Search results count
+    searchTerm && React.createElement(
+      "div",
+      { 
+        style: { 
+          padding: "8px 16px",
+          backgroundColor: "#f3f4f6",
+          borderBottom: "1px solid #e5e7eb",
+          fontSize: "13px",
+          color: "#6b7280"
+        }
+      },
+      `Found ${sortedStudents.length} student${sortedStudents.length !== 1 ? 's' : ''}`
+    ),
 
     // Student grid - scrollable area
     React.createElement(
@@ -1877,7 +1925,7 @@ const StudentPool = ({
           React.createElement(
             "div",
             { className: "student-card-name" },
-            formatStudentName(student.first_name, student.last_name)
+            formatStudentName(student)
           )
         );
       })

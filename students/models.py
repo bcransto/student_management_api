@@ -385,7 +385,7 @@ class Student(models.Model):
     
     def save(self, *args, **kwargs):
         """Override save to auto-set nickname if not provided"""
-        if not self.nickname:
+        if not self.nickname or not self.nickname.strip():
             self.nickname = self.first_name
         super().save(*args, **kwargs)
 

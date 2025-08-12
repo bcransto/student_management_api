@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nickname Frontend Tests</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #555;
+            margin-top: 30px;
+        }
+        .test-result {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .test-pass {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .test-fail {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+        .code {
+            font-family: 'Courier New', monospace;
+            background: #f4f4f4;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+        .summary {
+            margin-top: 30px;
+            padding: 15px;
+            background: #e7f3ff;
+            border: 1px solid #b3d9ff;
+            border-radius: 4px;
+        }
+        .search-demo {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+        }
+        .search-demo input {
+            width: 300px;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+        }
+        .student-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .student-card {
+            padding: 8px 12px;
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .student-card:hover {
+            background: #f8f9fa;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🧪 Nickname Frontend Tests</h1>
+        
+        <div id="test-results"></div>
+        
+        <div class="test-section">
+            <h2>Test 4: formatStudentName Utility Function</h2>
+            <div id="format-tests"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>Test 3: Search Functionality Demo</h2>
+            <div class="search-demo">
+                <h3>Student List Search</h3>
+                <input type="text" id="student-search" placeholder="Search by name, nickname, or ID...">
+                <div id="search-results"></div>
+                <div class="student-list" id="student-list"></div>
+            </div>
+        </div>
+        
+        <div class="summary" id="test-summary"></div>
+    </div>
+
+    <script>
+        // Load the formatStudentName function for testing
+        const formatStudentName = (firstNameOrStudent, lastName) => {
+            let firstName, nickname;
+            
+            // Handle both object and string parameters
+            if (typeof firstNameOrStudent === 'object' && firstNameOrStudent !== null) {
+                firstName = firstNameOrStudent.nickname || firstNameOrStudent.first_name;
+                lastName = firstNameOrStudent.last_name;
+            } else {
+                firstName = firstNameOrStudent;
+            }
+            
+            if (!firstName) return "";
+
+            // Get first name and last initial
+            const lastInitial = lastName ? lastName[0] : "";
+            const baseName = `${firstName} ${lastInitial}`;
+
+            // If already 7 chars or less, return as is
+            if (baseName.length <= 7) {
+                return baseName;
+            }
+
+            // Otherwise, truncate first name to fit within 7 chars
+            const maxFirstNameLength = 5; // 7 - 2
+            const truncatedFirst = firstName.substring(0, maxFirstNameLength);
+            return `${truncatedFirst} ${lastInitial}`;
+        };
+
+        // Test data
+        const testStudents = [
+            {
+                id: 1,
+                student_id: 'STU001',
+                first_name: 'Christopher',
+                last_name: 'Anderson',
+                nickname: 'Chris',
+                email: 'chris@test.com'
+            },
+            {
+                id: 2,
+                student_id: 'STU002',
+                first_name: 'Nicholas',
+                last_name: 'Thompson',
+                nickname: 'Nick',
+                email: 'nick@test.com'
+            },
+            {
+                id: 3,
+                student_id: 'STU003',
+                first_name: 'Alexander',
+                last_name: 'Martinez',
+                nickname: 'Alex',
+                email: 'alex@test.com'
+            },
+            {
+                id: 4,
+                student_id: 'STU004',
+                first_name: 'Elizabeth',
+                last_name: 'Johnson',
+                nickname: 'Liz',
+                email: 'liz@test.com'
+            },
+            {
+                id: 5,
+                student_id: 'STU005',
+                first_name: 'Maximilian',
+                last_name: 'Smith',
+                nickname: 'Max',
+                email: 'max@test.com'
+            },
+            {
+                id: 6,
+                student_id: 'STU006',
+                first_name: 'Sarah',
+                last_name: 'Davis',
+                nickname: '', // Empty nickname should use first_name
+                email: 'sarah@test.com'
+            }
+        ];
+
+        let testResults = [];
+        
+        // Test 4.1: formatStudentName prefers nickname
+        function testFormatPrefersNickname() {
+            const student = testStudents[0]; // Christopher/Chris
+            const result = formatStudentName(student);
+            const expected = 'Chris A';
+            const passed = result === expected;
+            
+            testResults.push({
+                name: 'Test 4.1: formatStudentName prefers nickname over first_name',
+                passed,
+                expected,
+                actual: result
+            });
+            return passed;
+        }
+        
+        // Test 4.2: formatStudentName falls back to first_name
+        function testFormatFallback() {
+            const student = {
+                first_name: 'Robert',
+                last_name: 'Wilson',
+                nickname: null
+            };
+            const result = formatStudentName(student);
+            const expected = 'Robert W';
+            const passed = result === expected;
+            
+            testResults.push({
+                name: 'Test 4.2: Falls back to first_name when no nickname',
+                passed,
+                expected,
+                actual: result
+            });
+            return passed;
+        }
+        
+        // Test 4.3: formatStudentName truncates long names
+        function testFormatTruncation() {
+            const student = {
+                first_name: 'Christopher',
+                last_name: 'Anderson',
+                nickname: 'Christopher' // Long nickname
+            };
+            const result = formatStudentName(student);
+            const expected = 'Chris A'; // Should truncate to 7 chars total
+            const passed = result === expected;
+            
+            testResults.push({
+                name: 'Test 4.3: Truncates long nicknames to fit',
+                passed,
+                expected,
+                actual: result
+            });
+            return passed;
+        }
+        
+        // Test 4.4: formatStudentName handles empty nickname
+        function testFormatEmptyNickname() {
+            const student = testStudents[5]; // Sarah with empty nickname
+            const result = formatStudentName(student);
+            const expected = 'Sarah D';
+            const passed = result === expected;
+            
+            testResults.push({
+                name: 'Test 4.4: Handles empty nickname string',
+                passed,
+                expected,
+                actual: result
+            });
+            return passed;
+        }
+        
+        // Test 4.5: formatStudentName with string parameters
+        function testFormatStringParams() {
+            const result = formatStudentName('Johnny', 'Appleseed');
+            const expected = 'Johnny A';
+            const passed = result === expected;
+            
+            testResults.push({
+                name: 'Test 4.5: Works with string parameters (backward compatibility)',
+                passed,
+                expected,
+                actual: result
+            });
+            return passed;
+        }
+        
+        // Test 3: Search functionality
+        function testSearchFunctionality() {
+            const searchTests = [
+                {
+                    term: 'chris',
+                    expectedIds: [1], // Should find Christopher by nickname
+                    description: 'Search by nickname "chris"'
+                },
+                {
+                    term: 'nick',
+                    expectedIds: [2], // Should find Nicholas by nickname
+                    description: 'Search by nickname "nick"'
+                },
+                {
+                    term: 'alex',
+                    expectedIds: [3], // Should find Alexander by both first_name and nickname
+                    description: 'Search by nickname "alex"'
+                },
+                {
+                    term: 'maximilian',
+                    expectedIds: [5], // Should find by first_name
+                    description: 'Search by full first_name'
+                },
+                {
+                    term: 'max',
+                    expectedIds: [5], // Should find by nickname
+                    description: 'Search by nickname "max"'
+                },
+                {
+                    term: 'STU00',
+                    expectedIds: [1, 2, 3, 4, 5, 6], // Should find all by student_id prefix
+                    description: 'Search by student ID prefix'
+                },
+                {
+                    term: 'sarah',
+                    expectedIds: [6], // Should find Sarah (no nickname)
+                    description: 'Search for student without nickname'
+                }
+            ];
+            
+            let allPassed = true;
+            
+            searchTests.forEach(test => {
+                const results = searchStudents(test.term);
+                const resultIds = results.map(s => s.id).sort();
+                const expectedIds = test.expectedIds.sort();
+                const passed = JSON.stringify(resultIds) === JSON.stringify(expectedIds);
+                
+                testResults.push({
+                    name: `Test 3: ${test.description}`,
+                    passed,
+                    expected: `IDs: [${expectedIds.join(', ')}]`,
+                    actual: `IDs: [${resultIds.join(', ')}]`
+                });
+                
+                if (!passed) allPassed = false;
+            });
+            
+            return allPassed;
+        }
+        
+        // Search function implementation (mirrors the React component logic)
+        function searchStudents(searchTerm) {
+            if (!searchTerm) return testStudents;
+            
+            const term = searchTerm.toLowerCase();
+            return testStudents.filter(student => {
+                return (
+                    student.student_id?.toLowerCase().includes(term) ||
+                    student.first_name?.toLowerCase().includes(term) ||
+                    student.last_name?.toLowerCase().includes(term) ||
+                    student.nickname?.toLowerCase().includes(term) ||
+                    student.email?.toLowerCase().includes(term) ||
+                    `${student.first_name} ${student.last_name}`.toLowerCase().includes(term)
+                );
+            });
+        }
+        
+        // Interactive search demo
+        function setupSearchDemo() {
+            const searchInput = document.getElementById('student-search');
+            const studentList = document.getElementById('student-list');
+            const searchResults = document.getElementById('search-results');
+            
+            // Display all students initially
+            function displayStudents(students) {
+                studentList.innerHTML = students.map(student => `
+                    <div class="student-card">
+                        <strong>${student.student_id}</strong><br>
+                        Name: ${student.first_name} ${student.last_name}<br>
+                        Nickname: ${student.nickname || '(none)'}<br>
+                        Display: <span class="code">${formatStudentName(student)}</span>
+                    </div>
+                `).join('');
+                
+                if (searchInput.value) {
+                    searchResults.innerHTML = `Found ${students.length} student${students.length !== 1 ? 's' : ''}`;
+                } else {
+                    searchResults.innerHTML = '';
+                }
+            }
+            
+            // Initial display
+            displayStudents(testStudents);
+            
+            // Search on input
+            searchInput.addEventListener('input', (e) => {
+                const filtered = searchStudents(e.target.value);
+                displayStudents(filtered);
+            });
+        }
+        
+        // Run all tests
+        function runTests() {
+            testResults = [];
+            
+            // Run formatStudentName tests
+            testFormatPrefersNickname();
+            testFormatFallback();
+            testFormatTruncation();
+            testFormatEmptyNickname();
+            testFormatStringParams();
+            
+            // Run search tests
+            testSearchFunctionality();
+            
+            // Display results
+            displayTestResults();
+            
+            // Setup interactive demo
+            setupSearchDemo();
+        }
+        
+        // Display test results
+        function displayTestResults() {
+            const resultsDiv = document.getElementById('test-results');
+            const formatDiv = document.getElementById('format-tests');
+            const summaryDiv = document.getElementById('test-summary');
+            
+            let formatTests = testResults.filter(t => t.name.includes('4.'));
+            let searchTests = testResults.filter(t => t.name.includes('Test 3'));
+            
+            // Display format tests
+            formatDiv.innerHTML = formatTests.map(test => `
+                <div class="test-result ${test.passed ? 'test-pass' : 'test-fail'}">
+                    ${test.passed ? '✓' : '✗'} ${test.name}<br>
+                    Expected: <span class="code">${test.expected}</span><br>
+                    Actual: <span class="code">${test.actual}</span>
+                </div>
+            `).join('');
+            
+            // Display search tests
+            const searchTestsHtml = searchTests.map(test => `
+                <div class="test-result ${test.passed ? 'test-pass' : 'test-fail'}">
+                    ${test.passed ? '✓' : '✗'} ${test.name}<br>
+                    Expected: <span class="code">${test.expected}</span><br>
+                    Actual: <span class="code">${test.actual}</span>
+                </div>
+            `).join('');
+            
+            if (searchTests.length > 0) {
+                resultsDiv.innerHTML = '<h2>Search Tests</h2>' + searchTestsHtml;
+            }
+            
+            // Summary
+            const passed = testResults.filter(t => t.passed).length;
+            const total = testResults.length;
+            const allPassed = passed === total;
+            
+            summaryDiv.innerHTML = `
+                <h2>📊 Test Summary</h2>
+                <p>Tests Passed: <strong>${passed}/${total}</strong></p>
+                ${allPassed 
+                    ? '<p style="color: green; font-weight: bold;">✓ All tests passed!</p>' 
+                    : '<p style="color: red; font-weight: bold;">✗ Some tests failed</p>'}
+            `;
+        }
+        
+        // Run tests on page load
+        window.addEventListener('DOMContentLoaded', runTests);
+    </script>
+</body>
+</html>

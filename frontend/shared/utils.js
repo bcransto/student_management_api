@@ -3,11 +3,21 @@
 /**
  * Format student name with truncation for display
  * Max 7 characters: "FirstName L" or truncated "First L"
- * @param {string} firstName - Student's first name
- * @param {string} lastName - Student's last name
+ * @param {string|object} firstNameOrStudent - Student's first name or student object
+ * @param {string} lastName - Student's last name (optional if first param is object)
  * @returns {string} Formatted name
  */
-const formatStudentName = (firstName, lastName) => {
+const formatStudentName = (firstNameOrStudent, lastName) => {
+  let firstName, nickname;
+  
+  // Handle both object and string parameters
+  if (typeof firstNameOrStudent === 'object' && firstNameOrStudent !== null) {
+    firstName = firstNameOrStudent.nickname || firstNameOrStudent.first_name;
+    lastName = firstNameOrStudent.last_name;
+  } else {
+    firstName = firstNameOrStudent;
+  }
+  
   if (!firstName) return "";
 
   // Get first name and last initial

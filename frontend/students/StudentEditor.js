@@ -11,7 +11,9 @@ const StudentEditor = ({ studentId, navigateTo, apiModule }) => {
     student_id: "",
     first_name: "",
     last_name: "",
+    nickname: "",
     email: "",
+    gender: "",
     is_active: true,
     enrollment_date: "",
   });
@@ -42,7 +44,9 @@ const StudentEditor = ({ studentId, navigateTo, apiModule }) => {
         student_id: studentData.student_id || "",
         first_name: studentData.first_name || "",
         last_name: studentData.last_name || "",
+        nickname: studentData.nickname || "",
         email: studentData.email || "",
+        gender: studentData.gender || "",
         is_active: studentData.is_active !== undefined ? studentData.is_active : true,
         enrollment_date: studentData.enrollment_date || "",
       });
@@ -116,7 +120,9 @@ const StudentEditor = ({ studentId, navigateTo, apiModule }) => {
         student_id: formData.student_id,
         first_name: formData.first_name,
         last_name: formData.last_name,
+        nickname: formData.nickname || formData.first_name,
         email: formData.email || null,
+        gender: formData.gender || null,
         is_active: formData.is_active,
         enrollment_date: formData.enrollment_date,
       };
@@ -319,6 +325,43 @@ const StudentEditor = ({ studentId, navigateTo, apiModule }) => {
             }),
             errors.last_name &&
               React.createElement("span", { className: "error-message" }, errors.last_name)
+          )
+        ),
+
+        // Nickname and Gender fields (side by side)
+        React.createElement(
+          "div",
+          { className: "form-row" },
+          React.createElement(
+            "div",
+            { className: "form-group col" },
+            React.createElement("label", { htmlFor: "nickname" }, "Nickname"),
+            React.createElement("input", {
+              type: "text",
+              id: "nickname",
+              className: "form-control",
+              value: formData.nickname,
+              onChange: (e) => handleInputChange("nickname", e.target.value),
+              placeholder: "Defaults to first name",
+            })
+          ),
+          React.createElement(
+            "div",
+            { className: "form-group col" },
+            React.createElement("label", { htmlFor: "gender" }, "Gender"),
+            React.createElement(
+              "select",
+              {
+                id: "gender",
+                className: "form-control",
+                value: formData.gender,
+                onChange: (e) => handleInputChange("gender", e.target.value),
+              },
+              React.createElement("option", { value: "" }, "-- Select --"),
+              React.createElement("option", { value: "male" }, "Male"),
+              React.createElement("option", { value: "female" }, "Female"),
+              React.createElement("option", { value: "other" }, "Other")
+            )
           )
         ),
 
