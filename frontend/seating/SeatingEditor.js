@@ -469,6 +469,199 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
     }
   };
 
+  // Handle auto-fill all empty seats
+  const handleAutoFill = () => {
+    console.log(`Starting auto-fill with mode: ${fillMode}`);
+    
+    // Get all empty seats
+    const emptySeats = [];
+    if (layout && layout.tables) {
+      layout.tables.forEach(table => {
+        if (table.seats) {
+          table.seats.forEach(seat => {
+            const tableIdStr = String(table.id);
+            const seatNumberStr = String(seat.seat_number);
+            const seatId = `${table.id}-${seat.seat_number}`;
+            
+            // Check if seat is empty and not deactivated
+            const isOccupied = assignments[tableIdStr]?.[seatNumberStr];
+            const isDeactivated = deactivatedSeats.has(seatId);
+            
+            if (!isOccupied && !isDeactivated) {
+              emptySeats.push({
+                tableId: table.id,
+                seatNumber: seat.seat_number,
+                tableNumber: table.table_number
+              });
+            }
+          });
+        }
+      });
+    }
+    
+    console.log(`Found ${emptySeats.length} empty seats to fill`);
+    
+    if (emptySeats.length === 0) {
+      alert("No empty seats to fill!");
+      return;
+    }
+    
+    // Get unassigned students
+    const unassignedStudents = getUnassignedStudents();
+    if (unassignedStudents.length === 0) {
+      alert("No unassigned students available!");
+      return;
+    }
+    
+    // Create a copy of current assignments for batch update
+    const newAssignments = JSON.parse(JSON.stringify(assignments));
+    const placedStudents = [];
+    
+    // Fill seats based on mode
+    if (fillMode === "random") {
+      // Random mode - shuffle and assign
+      const shuffledStudents = [...unassignedStudents].sort(() => Math.random() - 0.5);
+      
+      emptySeats.forEach((seat, index) => {
+        if (index < shuffledStudents.length) {
+          const student = shuffledStudents[index];
+          const tableIdStr = String(seat.tableId);
+          const seatNumberStr = String(seat.seatNumber);
+          
+          if (!newAssignments[tableIdStr]) {
+            newAssignments[tableIdStr] = {};
+          }
+          newAssignments[tableIdStr][seatNumberStr] = student.id;
+          placedStudents.push(student.first_name);
+        }
+      });
+      
+    } else if (fillMode === "matchGender") {
+      // Match Gender mode - try to group similar genders
+      const remainingStudents = [...unassignedStudents];
+      
+      emptySeats.forEach(seat => {
+        if (remainingStudents.length === 0) return;
+        
+        // Get neighbor genders for this seat (check both existing and newly placed)
+        const neighborGenders = [];
+        const tableIdStr = String(seat.tableId);
+        const table = layout?.tables?.find(t => t.id === seat.tableId);
+        if (table && table.seats) {
+          const seatNum = parseInt(seat.seatNumber);
+          const checkSeats = [seatNum - 1, seatNum + 1];
+          
+          checkSeats.forEach(num => {
+            const neighborSeat = table.seats.find(s => s.seat_number === num);
+            if (neighborSeat) {
+              // Check new assignments first, then existing
+              const studentId = newAssignments[tableIdStr]?.[String(num)] || assignments[tableIdStr]?.[String(num)];
+              if (studentId) {
+                const student = students.find(s => s.id === studentId);
+                if (student && student.gender) {
+                  neighborGenders.push(student.gender);
+                }
+              }
+            }
+          });
+        }
+        let selectedStudent = null;
+        let selectedIndex = -1;
+        
+        if (neighborGenders.length > 0) {
+          // Try to find a student matching neighbor gender
+          const targetGender = neighborGenders[0];
+          const targetIsFemale = targetGender === "female" || targetGender === "F" || targetGender === "Female";
+          
+          for (let i = 0; i < remainingStudents.length; i++) {
+            const student = remainingStudents[i];
+            if (student.gender) {
+              const isFemale = student.gender === "female" || student.gender === "F" || student.gender === "Female";
+              if (isFemale === targetIsFemale) {
+                selectedStudent = student;
+                selectedIndex = i;
+                break;
+              }
+            }
+          }
+        }
+        
+        // If no match found, take any student
+        if (!selectedStudent && remainingStudents.length > 0) {
+          selectedStudent = remainingStudents[0];
+          selectedIndex = 0;
+        }
+        
+        if (selectedStudent) {
+          const tableIdStr = String(seat.tableId);
+          const seatNumberStr = String(seat.seatNumber);
+          
+          if (!newAssignments[tableIdStr]) {
+            newAssignments[tableIdStr] = {};
+          }
+          newAssignments[tableIdStr][seatNumberStr] = selectedStudent.id;
+          placedStudents.push(selectedStudent.first_name);
+          remainingStudents.splice(selectedIndex, 1);
+        }
+      });
+      
+    } else if (fillMode === "balanceGender") {
+      // Balance Gender mode - alternate genders
+      const remainingStudents = [...unassignedStudents];
+      const males = remainingStudents.filter(s => s.gender && (s.gender === "male" || s.gender === "M" || s.gender === "Male"));
+      const females = remainingStudents.filter(s => s.gender && (s.gender === "female" || s.gender === "F" || s.gender === "Female"));
+      const unknownGender = remainingStudents.filter(s => !s.gender || (s.gender !== "male" && s.gender !== "M" && s.gender !== "Male" && s.gender !== "female" && s.gender !== "F" && s.gender !== "Female"));
+      
+      console.log(`Balance Gender: ${males.length} males, ${females.length} females, ${unknownGender.length} unknown`);
+      
+      // Get current balance to determine starting gender
+      const currentBalance = getGenderBalance();
+      let preferFemale = currentBalance.male > currentBalance.female;
+      
+      emptySeats.forEach(seat => {
+        let selectedStudent = null;
+        
+        // Try to select from preferred gender
+        if (preferFemale && females.length > 0) {
+          selectedStudent = females.shift();
+        } else if (!preferFemale && males.length > 0) {
+          selectedStudent = males.shift();
+        } else if (females.length > 0) {
+          selectedStudent = females.shift();
+        } else if (males.length > 0) {
+          selectedStudent = males.shift();
+        } else if (unknownGender.length > 0) {
+          selectedStudent = unknownGender.shift();
+        }
+        
+        if (selectedStudent) {
+          const tableIdStr = String(seat.tableId);
+          const seatNumberStr = String(seat.seatNumber);
+          
+          if (!newAssignments[tableIdStr]) {
+            newAssignments[tableIdStr] = {};
+          }
+          newAssignments[tableIdStr][seatNumberStr] = selectedStudent.id;
+          placedStudents.push(selectedStudent.first_name);
+          
+          // Alternate preference for next seat
+          preferFemale = !preferFemale;
+        }
+      });
+    }
+    
+    // Add to history as a single batch operation
+    const numPlaced = placedStudents.length;
+    const description = `Auto-fill ${numPlaced} seats (${fillMode})`;
+    console.log(`Auto-fill complete: Placed ${numPlaced} students`);
+    
+    if (numPlaced > 0) {
+      addToHistory(newAssignments, description);
+    } else {
+      alert("No students were placed!");
+    }
+  };
+
   // Build the title string
   const getEditorTitle = () => {
     if (!classInfo) return "Loading...";
@@ -1462,11 +1655,7 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
                     fontSize: "12px",
                     marginTop: "0.5rem"
                   },
-                  onClick: () => {
-                    console.log("Auto fill clicked with mode:", fillMode);
-                    // Will implement auto-fill all in Stage 4
-                    alert(`Auto-fill all with ${fillMode} mode - Coming in Stage 4!`);
-                  },
+                  onClick: handleAutoFill,
                 },
                 React.createElement("i", { className: "fas fa-magic", style: { fontSize: "10px" } }),
                 " Auto"
