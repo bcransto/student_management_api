@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Two-Line Name Display Tests</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+        }
+        .test-section {
+            margin: 30px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+        .test-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .name-card {
+            background: white;
+            border: 2px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+            text-align: center;
+            min-height: 60px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .name-card.pass {
+            border-color: #28a745;
+            background: #d4edda;
+        }
+        .name-card.fail {
+            border-color: #dc3545;
+            background: #f8d7da;
+        }
+        .line1 {
+            font-weight: bold;
+            font-size: 14px;
+            color: #333;
+        }
+        .line2 {
+            font-size: 12px;
+            color: #666;
+            margin-top: 2px;
+        }
+        .test-input {
+            background: #e9ecef;
+            padding: 5px;
+            border-radius: 3px;
+            font-size: 11px;
+            margin-top: 5px;
+        }
+        .expected {
+            background: #fff3cd;
+            padding: 5px;
+            border-radius: 3px;
+            font-size: 11px;
+            margin-top: 3px;
+        }
+        .actual {
+            background: #cfe2ff;
+            padding: 5px;
+            border-radius: 3px;
+            font-size: 11px;
+            margin-top: 3px;
+        }
+        .summary {
+            padding: 15px;
+            background: #e7f3ff;
+            border: 1px solid #b3d9ff;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+        .visual-demo {
+            display: flex;
+            gap: 20px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        .demo-card {
+            width: 80px;
+            height: 60px;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+        }
+        .demo-label {
+            font-size: 10px;
+            color: #666;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Two-Line Student Name Display Tests</h1>
+        
+        <div class="summary" id="summary">
+            <h2>Test Summary</h2>
+            <p>Loading tests...</p>
+        </div>
+
+        <div class="test-section">
+            <h2>Test Cases</h2>
+            <div class="test-grid" id="test-grid"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>Visual Demo - Pool Cards</h2>
+            <div class="visual-demo" id="pool-demo"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>Visual Demo - Seated Students</h2>
+            <div class="visual-demo" id="seat-demo"></div>
+        </div>
+    </div>
+
+    <script>
+        // Import the utility function
+        const formatStudentNameTwoLine = (student) => {
+            if (!student) return { line1: "", line2: "" };
+            
+            // Line 1: Always use nickname (backend ensures it exists)
+            const line1 = student.nickname || student.first_name || "";
+            
+            // Line 2: Last name truncated to 3 chars
+            let line2 = "";
+            if (student.last_name) {
+                if (student.last_name.length <= 3) {
+                    // Short last names don't need period
+                    line2 = student.last_name;
+                } else {
+                    // Truncate and add period
+                    line2 = student.last_name.substring(0, 3) + ".";
+                }
+            }
+            
+            return { line1, line2 };
+        };
+
+        // Test cases
+        const testCases = [
+            {
+                name: "Normal name",
+                input: { nickname: "Chris", last_name: "Anderson" },
+                expected: { line1: "Chris", line2: "And." }
+            },
+            {
+                name: "Long nickname",
+                input: { nickname: "Christopher", last_name: "Smith" },
+                expected: { line1: "Christopher", line2: "Smi." }
+            },
+            {
+                name: "Short last name (3 chars)",
+                input: { nickname: "John", last_name: "Cho" },
+                expected: { line1: "John", line2: "Cho" }
+            },
+            {
+                name: "Very short last name (2 chars)",
+                input: { nickname: "Mary", last_name: "Li" },
+                expected: { line1: "Mary", line2: "Li" }
+            },
+            {
+                name: "Single letter last name",
+                input: { nickname: "Jane", last_name: "O" },
+                expected: { line1: "Jane", line2: "O" }
+            },
+            {
+                name: "No last name",
+                input: { nickname: "Cher", last_name: "" },
+                expected: { line1: "Cher", line2: "" }
+            },
+            {
+                name: "Special characters",
+                input: { nickname: "José", last_name: "García" },
+                expected: { line1: "José", line2: "Gar." }
+            },
+            {
+                name: "Hyphenated last name",
+                input: { nickname: "Anna", last_name: "Smith-Jones" },
+                expected: { line1: "Anna", line2: "Smi." }
+            },
+            {
+                name: "Apostrophe in name",
+                input: { nickname: "Patrick", last_name: "O'Brien" },
+                expected: { line1: "Patrick", line2: "O'B." }
+            },
+            {
+                name: "Very long last name",
+                input: { nickname: "Alex", last_name: "Konstantopoulos" },
+                expected: { line1: "Alex", line2: "Kon." }
+            },
+            {
+                name: "Fallback to first_name",
+                input: { first_name: "William", last_name: "Johnson" },
+                expected: { line1: "William", line2: "Joh." }
+            },
+            {
+                name: "Unicode characters",
+                input: { nickname: "李明", last_name: "王" },
+                expected: { line1: "李明", line2: "王" }
+            }
+        ];
+
+        // Run tests
+        function runTests() {
+            const testGrid = document.getElementById('test-grid');
+            let passCount = 0;
+            let failCount = 0;
+
+            testCases.forEach(test => {
+                const result = formatStudentNameTwoLine(test.input);
+                const passed = result.line1 === test.expected.line1 && 
+                              result.line2 === test.expected.line2;
+                
+                if (passed) passCount++;
+                else failCount++;
+
+                const card = document.createElement('div');
+                card.className = `name-card ${passed ? 'pass' : 'fail'}`;
+                card.innerHTML = `
+                    <div class="line1">${result.line1}</div>
+                    <div class="line2">${result.line2}</div>
+                    <div class="test-input">Test: ${test.name}</div>
+                    <div class="expected">Expected: "${test.expected.line1}" / "${test.expected.line2}"</div>
+                    <div class="actual">Got: "${result.line1}" / "${result.line2}"</div>
+                `;
+                testGrid.appendChild(card);
+            });
+
+            // Update summary
+            const summary = document.getElementById('summary');
+            const allPassed = failCount === 0;
+            summary.innerHTML = `
+                <h2>📊 Test Summary</h2>
+                <p><strong>Tests Passed:</strong> ${passCount}/${testCases.length}</p>
+                ${allPassed 
+                    ? '<p style="color: green; font-weight: bold;">✅ All tests passed!</p>' 
+                    : `<p style="color: red; font-weight: bold;">❌ ${failCount} test(s) failed</p>`}
+            `;
+        }
+
+        // Create visual demos
+        function createDemos() {
+            const poolDemo = document.getElementById('pool-demo');
+            const seatDemo = document.getElementById('seat-demo');
+            
+            const demoStudents = [
+                { nickname: "Chris", last_name: "Anderson" },
+                { nickname: "Alex", last_name: "Jo" },
+                { nickname: "Sam", last_name: "Richardson" },
+                { nickname: "Pat", last_name: "O'Brien" },
+                { nickname: "李明", last_name: "王" }
+            ];
+
+            demoStudents.forEach(student => {
+                const { line1, line2 } = formatStudentNameTwoLine(student);
+                
+                // Pool card style
+                const poolCard = document.createElement('div');
+                poolCard.className = 'demo-card';
+                poolCard.innerHTML = `
+                    <div style="font-weight: bold;">${line1}</div>
+                    <div style="font-size: 11px; opacity: 0.8;">${line2}</div>
+                `;
+                poolDemo.appendChild(poolCard);
+
+                // Seat style (more compact)
+                const seatCard = document.createElement('div');
+                seatCard.className = 'demo-card';
+                seatCard.style.fontSize = '10px';
+                seatCard.innerHTML = `
+                    <div style="font-weight: bold;">${line1}</div>
+                    <div style="font-size: 9px;">${line2}</div>
+                `;
+                seatDemo.appendChild(seatCard);
+            });
+        }
+
+        // Run on load
+        window.addEventListener('DOMContentLoaded', () => {
+            runTests();
+            createDemos();
+        });
+    </script>
+</body>
+</html>

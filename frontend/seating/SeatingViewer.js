@@ -595,7 +595,7 @@ const SeatingViewerCanvas = ({
             assignedStudent
               ? (() => {
                   const { line1, line2 } = LayoutStyles.formatSeatName(
-                    assignedStudent.first_name,
+                    assignedStudent.nickname || assignedStudent.first_name,
                     assignedStudent.last_name
                   );
                   return React.createElement(

@@ -190,14 +190,24 @@ const LayoutStyles = {
   }),
 
   // Helper function to format name for two-line display
-  formatSeatName: (firstName, lastName) => {
-    if (!firstName && !lastName) return { line1: '', line2: '' };
+  // Updated to use nickname and 3-letter last name truncation
+  formatSeatName: (nicknameOrFirstName, lastName) => {
+    if (!nicknameOrFirstName && !lastName) return { line1: '', line2: '' };
     
-    // First line: truncate first name to 5 characters
-    const line1 = firstName ? firstName.substring(0, 5) : '';
+    // First line: Use nickname (or first name as fallback)
+    const line1 = nicknameOrFirstName || '';
     
-    // Second line: last initial with period
-    const line2 = lastName ? `${lastName[0]}.` : '';
+    // Second line: Last name truncated to 3 chars
+    let line2 = '';
+    if (lastName) {
+      if (lastName.length <= 3) {
+        // Short last names don't need period
+        line2 = lastName;
+      } else {
+        // Truncate and add period
+        line2 = lastName.substring(0, 3) + '.';
+      }
+    }
     
     return { line1, line2 };
   }

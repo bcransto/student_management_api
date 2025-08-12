@@ -82,9 +82,11 @@ React.createElement("div", { className: "example" }, children)
    - Search includes nickname field
 
 2. **Students Components**
-   - `formatStudentName()` utility prefers nickname over first_name
+   - `formatStudentNameTwoLine()` returns { line1: nickname, line2: "Smi." } for consistent two-line display
+   - `formatStudentName()` deprecated - use formatStudentNameTwoLine for new features
    - Search filters by nickname, first_name, last_name, student_id, email
    - StudentEditor includes nickname and gender fields
+   - All name displays (pool, seats, viewer) use two-line format: nickname on line 1, last name truncated to 3 chars on line 2
 
 3. **Layout System**
    - ClassroomLayout filtered by `created_by` user
@@ -185,4 +187,5 @@ Frontend auto-detects production environment via hostname.
 2. `frontend/shared/core.js` - ApiModule request pattern
 3. `frontend/seating/SeatingEditor.js` - Complex state management
 4. `students/views.py` - ViewSet filtering and permissions
-5. `frontend/shared/utils.js` - formatStudentName nickname logic
+5. `frontend/shared/utils.js` - formatStudentNameTwoLine() for unified name display
+6. `frontend/shared/layoutStyles.js` - formatSeatName() for canvas rendering

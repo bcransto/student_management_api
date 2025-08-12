@@ -1,8 +1,37 @@
 // Shared utility functions for the frontend application
 
 /**
+ * Format student name for two-line display
+ * Line 1: Nickname (guaranteed to exist per backend)
+ * Line 2: Last name truncated to 3 characters with period if truncated
+ * @param {object} student - Student object with nickname and last_name
+ * @returns {object} { line1: string, line2: string }
+ */
+const formatStudentNameTwoLine = (student) => {
+  if (!student) return { line1: "", line2: "" };
+  
+  // Line 1: Always use nickname (backend ensures it exists)
+  const line1 = student.nickname || student.first_name || "";
+  
+  // Line 2: Last name truncated to 3 chars
+  let line2 = "";
+  if (student.last_name) {
+    if (student.last_name.length <= 3) {
+      // Short last names don't need period
+      line2 = student.last_name;
+    } else {
+      // Truncate and add period
+      line2 = student.last_name.substring(0, 3) + ".";
+    }
+  }
+  
+  return { line1, line2 };
+};
+
+/**
  * Format student name with truncation for display
  * Max 7 characters: "FirstName L" or truncated "First L"
+ * @deprecated Use formatStudentNameTwoLine for new features
  * @param {string|object} firstNameOrStudent - Student's first name or student object
  * @param {string} lastName - Student's last name (optional if first param is object)
  * @returns {string} Formatted name
@@ -136,6 +165,7 @@ const getRelativeTime = (dateString) => {
 if (typeof window !== "undefined") {
   window.SharedUtils = {
     formatStudentName,
+    formatStudentNameTwoLine,
     formatDate,
     formatDateShort,
     formatDateLong,

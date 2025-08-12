@@ -5,7 +5,7 @@ const { useState, useEffect } = React;
 
 const SeatingEditor = ({ classId, onBack, onView }) => {
   // Get utility functions from shared module
-  const { formatStudentName, formatDate } = window.SharedUtils;
+  const { formatStudentName, formatStudentNameTwoLine, formatDate } = window.SharedUtils;
   // Core state
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -1922,11 +1922,31 @@ const StudentPool = ({
               onDragEnd();
             },
           },
-          React.createElement(
-            "div",
-            { className: "student-card-name" },
-            formatStudentName(student)
-          )
+          (() => {
+            const { line1, line2 } = formatStudentNameTwoLine(student);
+            return React.createElement(
+              "div",
+              { 
+                className: "student-card-name",
+                style: {
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  lineHeight: "1.2"
+                }
+              },
+              React.createElement(
+                "span",
+                { style: { fontWeight: "bold" } },
+                line1
+              ),
+              React.createElement(
+                "span",
+                { style: { fontSize: "0.9em", opacity: 0.8 } },
+                line2
+              )
+            );
+          })()
         );
       })
     )
