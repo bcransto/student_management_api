@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Seat Deactivation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #333;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-result {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 3px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .warning {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+        }
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 5px;
+            border-radius: 3px;
+        }
+        ul {
+            line-height: 1.8;
+        }
+    </style>
+</head>
+<body>
+    <h1>Seat Deactivation Feature Test Guide</h1>
+    
+    <div class="test-section">
+        <h2>✅ Implementation Summary</h2>
+        <div class="test-result success">
+            <strong>Successfully implemented basic seat deactivation state management!</strong>
+            <ul>
+                <li>✓ Added <code>deactivatedSeats</code> state using Set for efficient lookups</li>
+                <li>✓ State clears when class or layout changes</li>
+                <li>✓ Shift+click toggles seat deactivation</li>
+                <li>✓ Deactivated seats show red with ✕ symbol</li>
+                <li>✓ Students moved back to pool when seat is deactivated</li>
+                <li>✓ Drag and drop disabled on deactivated seats</li>
+                <li>✓ Visual feedback with tooltips and help text</li>
+                <li>✓ Counter shows number of blocked seats</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>🧪 Testing Instructions</h2>
+        <div class="test-result info">
+            <h3>How to Test the Feature:</h3>
+            <ol>
+                <li><strong>Navigate to Seating Editor:</strong>
+                    <ul>
+                        <li>Go to <code>http://127.0.0.1:8000/#seating</code></li>
+                        <li>Click on any class with a layout</li>
+                        <li>Click "Edit" to enter the seating editor</li>
+                    </ul>
+                </li>
+                
+                <li><strong>Test Basic Deactivation:</strong>
+                    <ul>
+                        <li>Hold <kbd>Shift</kbd> and click on an empty seat</li>
+                        <li>Seat should turn red with an ✕ symbol</li>
+                        <li>Check browser console for: <code>"Deactivated seat [tableId]-[seatNumber]"</code></li>
+                    </ul>
+                </li>
+                
+                <li><strong>Test Reactivation:</strong>
+                    <ul>
+                        <li>Hold <kbd>Shift</kbd> and click the red seat again</li>
+                        <li>Seat should return to normal blue color</li>
+                        <li>Console should show: <code>"Reactivated seat [tableId]-[seatNumber]"</code></li>
+                    </ul>
+                </li>
+                
+                <li><strong>Test with Assigned Student:</strong>
+                    <ul>
+                        <li>Drag a student to a seat</li>
+                        <li>Hold <kbd>Shift</kbd> and click the occupied seat</li>
+                        <li>Student should move back to pool</li>
+                        <li>Seat should become red/blocked</li>
+                    </ul>
+                </li>
+                
+                <li><strong>Test Drag Prevention:</strong>
+                    <ul>
+                        <li>Try dragging a student to a red/blocked seat</li>
+                        <li>Drop should be prevented</li>
+                        <li>Console should show: <code>"Cannot drop on deactivated seat"</code></li>
+                    </ul>
+                </li>
+                
+                <li><strong>Test State Persistence:</strong>
+                    <ul>
+                        <li>Block multiple seats</li>
+                        <li>Check the counter in sidebar shows correct count</li>
+                        <li>Navigate between periods - blocked seats should clear</li>
+                        <li>Change class - blocked seats should clear</li>
+                    </ul>
+                </li>
+            </ol>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>📊 Console Logs to Verify</h2>
+        <div class="test-result info">
+            <p>Open browser console (F12) and look for these messages:</p>
+            <ul>
+                <li><code>Shift+click on seat [id]</code> - When Shift+clicking</li>
+                <li><code>Deactivated seat [id]</code> - When blocking a seat</li>
+                <li><code>Reactivated seat [id]</code> - When unblocking a seat</li>
+                <li><code>Moving student [name] back to pool before deactivating seat</code> - When blocking occupied seat</li>
+                <li><code>Total deactivated seats: [count] [array]</code> - Shows all blocked seats</li>
+                <li><code>Cleared deactivated seats - class changed</code> - When changing classes</li>
+                <li><code>Cleared deactivated seats - layout changed</code> - When layout updates</li>
+                <li><code>Cannot drop on deactivated seat [id]</code> - When trying invalid drop</li>
+                <li><code>Seat [id] is deactivated - applying red styling</code> - During render</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>🎨 Visual Indicators</h2>
+        <div class="test-result info">
+            <h3>What to Look For:</h3>
+            <ul>
+                <li><strong>Deactivated Seat:</strong>
+                    <ul>
+                        <li>Background: Red (#ef4444)</li>
+                        <li>Border: Darker red (#dc2626)</li>
+                        <li>Content: White ✕ symbol</li>
+                        <li>Opacity: 0.7 (slightly transparent)</li>
+                        <li>Cursor: not-allowed</li>
+                    </ul>
+                </li>
+                <li><strong>Sidebar Help Section:</strong>
+                    <ul>
+                        <li>Yellow background tip box</li>
+                        <li>Shows: "Hold Shift + Click on any seat to block/unblock it"</li>
+                        <li>Counter: "[N] seat(s) blocked" when seats are deactivated</li>
+                    </ul>
+                </li>
+                <li><strong>Tooltips:</strong>
+                    <ul>
+                        <li>Blocked seat: "Seat [N] - BLOCKED (Shift+click to unblock)"</li>
+                        <li>Normal seat: "Seat [N]"</li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>⚠️ Known Limitations</h2>
+        <div class="test-result warning">
+            <p>This is the basic implementation. The following features are not yet included:</p>
+            <ul>
+                <li>Deactivated seats are not persisted to the database</li>
+                <li>No bulk deactivation tools</li>
+                <li>No visual indicator in the student pool showing reduced capacity</li>
+                <li>No API endpoint for saving/loading deactivated seats</li>
+                <li>Deactivated seats reset when page refreshes</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>✨ Success Criteria</h2>
+        <div class="test-result success">
+            <p>The implementation is successful if:</p>
+            <ul>
+                <li>✓ Shift+click toggles seat deactivation state</li>
+                <li>✓ Visual feedback clearly shows blocked seats</li>
+                <li>✓ Console logs confirm state changes</li>
+                <li>✓ Drag/drop is prevented on blocked seats</li>
+                <li>✓ State management is immutable (using new Set())</li>
+                <li>✓ Help text guides users on how to use the feature</li>
+                <li>✓ Counter accurately tracks blocked seats</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        console.log("Test guide loaded. Follow the instructions above to test seat deactivation.");
+        console.log("Remember to hold Shift while clicking seats to toggle deactivation!");
+    </script>
+</body>
+</html>

@@ -28,10 +28,14 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
   const [showAutofillDropdown, setShowAutofillDropdown] = useState(false);
   const [showViewDropdown, setShowViewDropdown] = useState(false);
   const [studentSortBy, setStudentSortBy] = useState("name"); // "name" or "gender"
+  const [deactivatedSeats, setDeactivatedSeats] = useState(new Set()); // Track deactivated seats
 
   // Load initial data
   useEffect(() => {
     loadClassData();
+    // Clear deactivated seats when class changes
+    setDeactivatedSeats(new Set());
+    console.log("Cleared deactivated seats - class changed");
   }, [classId]);
 
   // Close dropdowns when clicking outside
@@ -61,6 +65,14 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [hasUnsavedChanges]);
+
+  // Clear deactivated seats when layout changes
+  useEffect(() => {
+    if (layout) {
+      setDeactivatedSeats(new Set());
+      console.log("Cleared deactivated seats - layout changed");
+    }
+  }, [layout]);
 
   // Add this inside your SeatingEditor component for debugging:
   // Debug helper - expose to window for console access
@@ -1039,6 +1051,36 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
             )
           ),
           
+          // Help text for seat deactivation
+          React.createElement(
+            "div",
+            { 
+              className: "sidebar-section", 
+              style: { 
+                borderBottom: "1px solid #e5e7eb",
+                padding: "10px",
+                backgroundColor: "#fef3c7",
+                fontSize: "12px"
+              } 
+            },
+            React.createElement(
+              "div",
+              { style: { display: "flex", alignItems: "center", gap: "5px" } },
+              React.createElement("i", { className: "fas fa-info-circle", style: { color: "#f59e0b" } }),
+              React.createElement("strong", null, "Tip:")
+            ),
+            React.createElement(
+              "div",
+              { style: { marginTop: "5px" } },
+              "Hold Shift + Click on any seat to block/unblock it. Blocked seats cannot be assigned."
+            ),
+            deactivatedSeats.size > 0 && React.createElement(
+              "div",
+              { style: { marginTop: "5px", color: "#dc2626" } },
+              `${deactivatedSeats.size} seat(s) blocked`
+            )
+          ),
+          
           // Layout selector
           React.createElement(
             "div",
@@ -1158,8 +1200,53 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
               assignments: assignments,
               students: students,
               highlightMode: highlightMode,
-              onSeatClick: (tableId, seatNumber) => {
-                // existing code
+              onSeatClick: (tableId, seatNumber, event) => {
+                const seatId = `${tableId}-${seatNumber}`;
+                const isModifierPressed = event && event.shiftKey;
+                
+                if (isModifierPressed) {
+                  // Handle seat deactivation
+                  console.log(`Shift+click on seat ${seatId}`);
+                  
+                  const newDeactivatedSeats = new Set(deactivatedSeats);
+                  
+                  if (deactivatedSeats.has(seatId)) {
+                    // Reactivate the seat
+                    newDeactivatedSeats.delete(seatId);
+                    console.log(`Reactivated seat ${seatId}`);
+                  } else {
+                    // Deactivate the seat
+                    // First check if there's a student assigned
+                    const tableIdStr = String(tableId);
+                    const seatNumberStr = String(seatNumber);
+                    
+                    if (assignments[tableIdStr] && assignments[tableIdStr][seatNumberStr]) {
+                      // Move student back to unassigned
+                      const studentId = assignments[tableIdStr][seatNumberStr];
+                      const student = students.find(s => s.id === studentId);
+                      console.log(`Moving student ${student?.first_name} back to pool before deactivating seat`);
+                      
+                      // Remove the assignment
+                      const newAssignments = { ...assignments };
+                      delete newAssignments[tableIdStr][seatNumberStr];
+                      if (Object.keys(newAssignments[tableIdStr]).length === 0) {
+                        delete newAssignments[tableIdStr];
+                      }
+                      setAssignments(newAssignments);
+                      setHasUnsavedChanges(true);
+                    }
+                    
+                    // Add to deactivated seats
+                    newDeactivatedSeats.add(seatId);
+                    console.log(`Deactivated seat ${seatId}`);
+                  }
+                  
+                  setDeactivatedSeats(newDeactivatedSeats);
+                  console.log(`Total deactivated seats: ${newDeactivatedSeats.size}`, Array.from(newDeactivatedSeats));
+                } else {
+                  // Normal click - existing assignment logic would go here
+                  console.log(`Normal click on seat ${seatId}`);
+                }
               },
               onStudentDrop: handleSeatAssignment,
               onStudentUnassign: handleSeatUnassignment,
@@ -1167,6 +1254,7 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
               draggedStudent: draggedStudent,
               onDragStart: setDraggedStudent,
               onDragEnd: () => setDraggedStudent(null),
+              deactivatedSeats: deactivatedSeats,
             })
           )
         ),
@@ -1201,6 +1289,7 @@ const SeatingCanvas = ({
   draggedStudent,
   onDragStart,
   onDragEnd,
+  deactivatedSeats,
 }) => {
   // Get shared styles
   const { LayoutStyles } = window;
@@ -1306,6 +1395,10 @@ const SeatingCanvas = ({
             );
           }
 
+          // Check if seat is deactivated
+          const seatId = `${table.id}-${seat.seat_number}`;
+          const isDeactivated = deactivatedSeats && deactivatedSeats.has(seatId);
+          
           // Use shared seat styles
           const seatStyle = LayoutStyles.getSeatStyle(seat, {
             isOccupied: !!assignedStudent,
@@ -1315,8 +1408,16 @@ const SeatingCanvas = ({
             showName: !!assignedStudent
           });
 
-          // Force empty seat colors from shared styles
-          if (!assignedStudent) {
+          // Apply deactivation styling
+          if (isDeactivated) {
+            seatStyle.backgroundColor = '#ef4444';  // Red background
+            seatStyle.border = '2px solid #dc2626';  // Darker red border
+            seatStyle.color = '#ffffff';            // White text
+            seatStyle.opacity = 0.7;                // Slightly transparent
+            seatStyle.cursor = 'not-allowed';       // Show it's not usable
+            console.log(`Seat ${seatId} is deactivated - applying red styling`);
+          } else if (!assignedStudent) {
+            // Force empty seat colors from shared styles
             seatStyle.backgroundColor = '#e0f2fe';  // Very light blue
             seatStyle.border = '2px solid #7dd3fc';  // Light blue border
             seatStyle.color = '#0284c7';            // Blue text
@@ -1369,10 +1470,10 @@ const SeatingCanvas = ({
                 ...finalSeatStyle,
                 cursor: "pointer",
               },
-              onClick: () => onSeatClick(table.id, seat.seat_number),
+              onClick: (e) => onSeatClick(table.id, seat.seat_number, e),
 
               // ADD THESE NEW PROPERTIES FOR DRAGGING:
-              draggable: assignedStudent ? true : false,
+              draggable: assignedStudent && !isDeactivated ? true : false,
               onDragStart: assignedStudent
                 ? (e) => {
                     e.dataTransfer.effectAllowed = "move";
@@ -1395,6 +1496,12 @@ const SeatingCanvas = ({
                   }
                 : undefined,
               onDragOver: (e) => {
+                // Don't allow drops on deactivated seats
+                if (isDeactivated) {
+                  e.dataTransfer.dropEffect = "none";
+                  return;
+                }
+                
                 e.preventDefault();
                 e.dataTransfer.dropEffect = "move";
 
@@ -1411,6 +1518,12 @@ const SeatingCanvas = ({
                 e.currentTarget.classList.remove("drag-over", "swap-target");
               },
               onDrop: (e) => {
+                // Don't allow drops on deactivated seats
+                if (isDeactivated) {
+                  console.log(`Cannot drop on deactivated seat ${seatId}`);
+                  return;
+                }
+                
                 e.preventDefault();
                 e.currentTarget.classList.remove("drag-over");
 
@@ -1471,11 +1584,19 @@ const SeatingCanvas = ({
                   console.warn("Unexpected drop scenario");
                 }
               },
-              title: assignedStudent
+              title: isDeactivated 
+                ? `Seat ${seat.seat_number} - BLOCKED (Shift+click to unblock)`
+                : assignedStudent
                 ? `${assignedStudent.nickname || assignedStudent.first_name} ${assignedStudent.last_name}`
                 : `Seat ${seat.seat_number}`,
             },
-            assignedStudent
+            isDeactivated
+              ? React.createElement(
+                  "div",
+                  { style: { fontSize: "20px", fontWeight: "bold" } },
+                  "✕"
+                )
+              : assignedStudent
               ? (() => {
                   const { line1, line2 } = LayoutStyles.formatSeatName(
                     assignedStudent.nickname || assignedStudent.first_name,
