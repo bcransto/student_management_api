@@ -23,7 +23,7 @@ router.register(r"classes", views.ClassViewSet)
 router.register(r"roster", views.ClassRosterViewSet)
 
 # Layout models
-router.register(r"layouts", views.ClassroomLayoutViewSet)
+router.register(r"layouts", views.ClassroomLayoutViewSet, basename="classroomlayout")
 router.register(r"tables", views.ClassroomTableViewSet)
 router.register(r"seats", views.TableSeatViewSet)
 router.register(r"obstacles", views.LayoutObstacleViewSet)

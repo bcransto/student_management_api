@@ -108,14 +108,14 @@ class ClassRosterViewSet(viewsets.ModelViewSet):
 
 
 class ClassroomLayoutViewSet(viewsets.ModelViewSet):
-    queryset = ClassroomLayout.objects.all()
     serializer_class = ClassroomLayoutSerializer
     permission_classes = [IsAuthenticated]
-
+    
     def get_queryset(self):
         if self.request.user.is_superuser:
             return ClassroomLayout.objects.all()
-        return ClassroomLayout.objects.filter(models.Q(created_by=self.request.user) | models.Q(is_template=True))
+        # Only show layouts created by the current user
+        return ClassroomLayout.objects.filter(created_by=self.request.user)
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)

@@ -35,48 +35,8 @@ const Layouts = ({ data, navigateTo }) => {
       }
     } catch (err) {
       console.error("Error fetching layouts:", err);
-      // For now, use mock data if API fails
-      setLayouts([
-        {
-          id: 1,
-          name: "Traditional Rows",
-          description: "Classic classroom setup with rows of desks",
-          room_width: 10,
-          room_height: 8,
-          table_count: 20,
-          total_capacity: 20,
-          created_at: "2025-06-15T10:00:00Z",
-          updated_at: "2025-06-20T14:30:00Z",
-          is_default: true,
-          used_by_classes: 3,
-        },
-        {
-          id: 2,
-          name: "Group Tables",
-          description: "Collaborative setup with group seating",
-          room_width: 10,
-          room_height: 8,
-          table_count: 6,
-          total_capacity: 24,
-          created_at: "2025-06-10T09:00:00Z",
-          updated_at: "2025-06-18T11:15:00Z",
-          is_default: false,
-          used_by_classes: 2,
-        },
-        {
-          id: 3,
-          name: "U-Shape Configuration",
-          description: "U-shaped arrangement for discussions",
-          room_width: 12,
-          room_height: 10,
-          table_count: 15,
-          total_capacity: 30,
-          created_at: "2025-06-05T08:00:00Z",
-          updated_at: "2025-06-05T08:00:00Z",
-          is_default: false,
-          used_by_classes: 0,
-        },
-      ]);
+      setError("Failed to load layouts. Please try again.");
+      setLayouts([]);
     } finally {
       setLoading(false);
     }
@@ -200,6 +160,8 @@ const Layouts = ({ data, navigateTo }) => {
                 {
                   key: layout.id,
                   className: "layout-card",
+                  style: { cursor: "pointer" },
+                  onClick: () => handleEditLayout(layout.id, layout.name),
                 },
 
                 // Layout info
@@ -256,7 +218,7 @@ const Layouts = ({ data, navigateTo }) => {
                   )
                 ),
 
-                // Footer with date
+                // Footer with date and delete button
                 React.createElement(
                   "div",
                   { className: "layout-card-footer" },
@@ -265,42 +227,19 @@ const Layouts = ({ data, navigateTo }) => {
                     { className: "layout-date" },
                     React.createElement("i", { className: "fas fa-calendar" }),
                     `Modified: ${formatDate(layout.updated_at)}`
-                  )
-                ),
-
-                // Action buttons
-                React.createElement(
-                  "div",
-                  { className: "layout-card-actions" },
-
-                  React.createElement(
-                    "button",
-                    {
-                      className: "action-icon-btn view",
-                      onClick: () => handleViewLayout(layout.id, layout.name),
-                      "data-tooltip": "View Layout",
-                    },
-                    React.createElement("i", { className: "fas fa-eye" })
                   ),
-
-                  React.createElement(
-                    "button",
-                    {
-                      className: "action-icon-btn edit",
-                      onClick: () => handleEditLayout(layout.id, layout.name),
-                      "data-tooltip": "Edit Layout",
-                    },
-                    React.createElement("i", { className: "fas fa-edit" })
-                  ),
-
                   !layout.is_default &&
                     layout.used_by_classes === 0 &&
                     React.createElement(
                       "button",
                       {
                         className: "action-icon-btn delete",
-                        onClick: () => handleDeleteLayout(layout.id, layout.name),
+                        onClick: (e) => {
+                          e.stopPropagation();
+                          handleDeleteLayout(layout.id, layout.name);
+                        },
                         "data-tooltip": "Delete Layout",
+                        style: { marginLeft: "auto" }
                       },
                       React.createElement("i", { className: "fas fa-trash" })
                     )

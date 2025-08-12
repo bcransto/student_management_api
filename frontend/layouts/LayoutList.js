@@ -111,7 +111,7 @@ const LayoutList = ({ onNavigate }) => {
                 key: layout.id,
                 className:
                   "bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow cursor-pointer",
-                onClick: () => setSelectedLayout(layout),
+                onClick: () => handleEditLayout(layout.id),
               },
 
               // Layout preview
@@ -185,23 +185,10 @@ const LayoutList = ({ onNavigate }) => {
                     React.createElement("p", { className: "italic" }, layout.description)
                 ),
 
-                // Actions
+                // Delete button
                 React.createElement(
                   "div",
-                  { className: "flex gap-2 mt-4" },
-                  React.createElement(
-                    "button",
-                    {
-                      onClick: (e) => {
-                        e.stopPropagation();
-                        handleEditLayout(layout.id);
-                      },
-                      className:
-                        "flex-1 px-3 py-1 bg-purple-100 text-purple-600 rounded hover:bg-purple-200",
-                    },
-                    React.createElement("i", { className: "fas fa-edit mr-1" }),
-                    "Edit"
-                  ),
+                  { className: "flex justify-end mt-4" },
                   React.createElement(
                     "button",
                     {
@@ -211,7 +198,8 @@ const LayoutList = ({ onNavigate }) => {
                       },
                       className: "px-3 py-1 bg-red-100 text-red-600 rounded hover:bg-red-200",
                     },
-                    React.createElement("i", { className: "fas fa-trash" })
+                    React.createElement("i", { className: "fas fa-trash mr-1" }),
+                    "Delete"
                   )
                 )
               )
