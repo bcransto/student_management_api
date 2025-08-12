@@ -29,7 +29,7 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
   const [showViewDropdown, setShowViewDropdown] = useState(false);
   const [studentSortBy, setStudentSortBy] = useState("name"); // "name" or "gender"
   const [deactivatedSeats, setDeactivatedSeats] = useState(new Set()); // Track deactivated seats
-  const [currentLayoutId, setCurrentLayoutId] = useState(null); // Track layout ID for deactivation persistence
+  const [isViewingCurrentPeriod, setIsViewingCurrentPeriod] = useState(true); // Track if viewing the actual current period
 
   // Load initial data
   useEffect(() => {
@@ -67,31 +67,14 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [hasUnsavedChanges]);
 
-  // Manage deactivated seats when layout ID changes
+  // Clear deactivated seats when viewing non-current periods
   useEffect(() => {
-    if (layout) {
-      const newLayoutId = layout.id;
-      
-      // If the layout ID is actually changing (not just the object reference)
-      if (newLayoutId !== currentLayoutId) {
-        if (currentLayoutId === null) {
-          // First load, just set the ID
-          setCurrentLayoutId(newLayoutId);
-          console.log(`Initial layout set: ${newLayoutId}`);
-        } else if (newLayoutId === currentLayoutId) {
-          // Same layout ID, don't clear deactivated seats
-          console.log(`Same layout ID (${newLayoutId}), keeping deactivated seats`);
-        } else {
-          // Different layout ID, clear deactivated seats
-          console.log(`Layout ID changed from ${currentLayoutId} to ${newLayoutId}, clearing deactivated seats`);
-          setDeactivatedSeats(new Set());
-          setCurrentLayoutId(newLayoutId);
-        }
-      } else {
-        console.log(`Layout object changed but ID stayed ${newLayoutId}, keeping deactivated seats`);
-      }
+    if (!isViewingCurrentPeriod) {
+      // Clear deactivated seats when viewing historical periods
+      setDeactivatedSeats(new Set());
+      console.log("Cleared deactivated seats - viewing historical period");
     }
-  }, [layout, currentLayoutId]);
+  }, [isViewingCurrentPeriod]);
 
   // Add this inside your SeatingEditor component for debugging:
   // Debug helper - expose to window for console access
@@ -122,6 +105,12 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
       console.log("Class data loaded:", classData);
       setClassInfo(classData);
 
+      // Check if we're viewing the actual current period (one with no end_date)
+      const viewingCurrent = classData.current_seating_period && 
+                             classData.current_seating_period.end_date === null;
+      setIsViewingCurrentPeriod(viewingCurrent);
+      console.log(`Viewing current period: ${viewingCurrent}, Period end_date: ${classData.current_seating_period?.end_date}`);
+      
       // Load the layout from the current seating period (if exists) or class
       let currentLayout = null;
       if (classData.current_seating_period && classData.current_seating_period.layout_details) {
@@ -131,13 +120,11 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
           classData.current_seating_period.layout_details
         );
         currentLayout = classData.current_seating_period.layout_details;
-        console.log(`Setting layout with ID: ${currentLayout.id}, Previous ID: ${currentLayoutId}`);
         setLayout(currentLayout);
       } else if (classData.classroom_layout) {
         // Fallback to class layout for backward compatibility
         console.log("No period layout, using class layout:", classData.classroom_layout);
         currentLayout = classData.classroom_layout;
-        console.log(`Setting layout with ID: ${currentLayout.id}, Previous ID: ${currentLayoutId}`);
         setLayout(currentLayout);
       }
 
@@ -1072,8 +1059,8 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
             )
           ),
           
-          // Help text for seat deactivation
-          React.createElement(
+          // Help text for seat deactivation - only show for current period
+          isViewingCurrentPeriod && React.createElement(
             "div",
             { 
               className: "sidebar-section", 
@@ -1099,6 +1086,31 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
               "div",
               { style: { marginTop: "5px", color: "#dc2626" } },
               `${deactivatedSeats.size} seat(s) blocked`
+            )
+          ),
+          
+          // Notice for historical periods
+          !isViewingCurrentPeriod && React.createElement(
+            "div",
+            { 
+              className: "sidebar-section", 
+              style: { 
+                borderBottom: "1px solid #e5e7eb",
+                padding: "10px",
+                backgroundColor: "#dbeafe",
+                fontSize: "12px"
+              } 
+            },
+            React.createElement(
+              "div",
+              { style: { display: "flex", alignItems: "center", gap: "5px" } },
+              React.createElement("i", { className: "fas fa-history", style: { color: "#2563eb" } }),
+              React.createElement("strong", null, "Historical Period")
+            ),
+            React.createElement(
+              "div",
+              { style: { marginTop: "5px" } },
+              "You are viewing a past seating period. Seat deactivation is not available for historical periods."
             )
           ),
           
@@ -1225,8 +1237,8 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
                 const seatId = `${tableId}-${seatNumber}`;
                 const isModifierPressed = event && event.shiftKey;
                 
-                if (isModifierPressed) {
-                  // Handle seat deactivation
+                if (isModifierPressed && isViewingCurrentPeriod) {
+                  // Only allow deactivation when viewing the current period
                   console.log(`Shift+click on seat ${seatId}`);
                   
                   const newDeactivatedSeats = new Set(deactivatedSeats);
@@ -1264,6 +1276,10 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
                   
                   setDeactivatedSeats(newDeactivatedSeats);
                   console.log(`Total deactivated seats: ${newDeactivatedSeats.size}`, Array.from(newDeactivatedSeats));
+                } else if (isModifierPressed && !isViewingCurrentPeriod) {
+                  // Trying to deactivate in a historical period
+                  console.log(`Cannot deactivate seats in historical periods`);
+                  alert("Seat deactivation is only available for the current period");
                 } else {
                   // Normal click - existing assignment logic would go here
                   console.log(`Normal click on seat ${seatId}`);
@@ -1275,7 +1291,7 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
               draggedStudent: draggedStudent,
               onDragStart: setDraggedStudent,
               onDragEnd: () => setDraggedStudent(null),
-              deactivatedSeats: deactivatedSeats,
+              deactivatedSeats: isViewingCurrentPeriod ? deactivatedSeats : new Set(),
             })
           )
         ),
