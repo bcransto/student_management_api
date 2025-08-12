@@ -229,10 +229,19 @@ class ClassAdmin(admin.ModelAdmin):
 
 @admin.register(Student)
 class StudentAdmin(admin.ModelAdmin):
-    list_display = ["student_id", "first_name", "last_name", "email", "is_active", "enrollment_date", "class_count"]
-    list_filter = ["is_active", "enrollment_date"]
-    search_fields = ["student_id", "first_name", "last_name", "email"]
+    list_display = ["student_id", "first_name", "last_name", "nickname", "email", "gender", "is_active", "enrollment_date", "class_count"]
+    list_filter = ["is_active", "gender", "enrollment_date"]
+    search_fields = ["student_id", "first_name", "last_name", "nickname", "email"]
     readonly_fields = ["enrollment_date", "class_count"]
+    
+    fieldsets = (
+        ("Personal Information", {
+            "fields": ("student_id", "first_name", "last_name", "nickname", "email", "gender", "date_of_birth")
+        }),
+        ("Status", {
+            "fields": ("is_active", "enrollment_date", "class_count")
+        }),
+    )
 
     def class_count(self, obj):
         """Display number of active classes"""
