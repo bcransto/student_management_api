@@ -29,6 +29,7 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
   const [showViewDropdown, setShowViewDropdown] = useState(false);
   const [studentSortBy, setStudentSortBy] = useState("name"); // "name" or "gender"
   const [deactivatedSeats, setDeactivatedSeats] = useState(new Set()); // Track deactivated seats
+  const [currentLayoutId, setCurrentLayoutId] = useState(null); // Track layout ID for deactivation persistence
 
   // Load initial data
   useEffect(() => {
@@ -66,13 +67,31 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [hasUnsavedChanges]);
 
-  // Clear deactivated seats when layout changes
+  // Manage deactivated seats when layout ID changes
   useEffect(() => {
     if (layout) {
-      setDeactivatedSeats(new Set());
-      console.log("Cleared deactivated seats - layout changed");
+      const newLayoutId = layout.id;
+      
+      // If the layout ID is actually changing (not just the object reference)
+      if (newLayoutId !== currentLayoutId) {
+        if (currentLayoutId === null) {
+          // First load, just set the ID
+          setCurrentLayoutId(newLayoutId);
+          console.log(`Initial layout set: ${newLayoutId}`);
+        } else if (newLayoutId === currentLayoutId) {
+          // Same layout ID, don't clear deactivated seats
+          console.log(`Same layout ID (${newLayoutId}), keeping deactivated seats`);
+        } else {
+          // Different layout ID, clear deactivated seats
+          console.log(`Layout ID changed from ${currentLayoutId} to ${newLayoutId}, clearing deactivated seats`);
+          setDeactivatedSeats(new Set());
+          setCurrentLayoutId(newLayoutId);
+        }
+      } else {
+        console.log(`Layout object changed but ID stayed ${newLayoutId}, keeping deactivated seats`);
+      }
     }
-  }, [layout]);
+  }, [layout, currentLayoutId]);
 
   // Add this inside your SeatingEditor component for debugging:
   // Debug helper - expose to window for console access
@@ -112,11 +131,13 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
           classData.current_seating_period.layout_details
         );
         currentLayout = classData.current_seating_period.layout_details;
+        console.log(`Setting layout with ID: ${currentLayout.id}, Previous ID: ${currentLayoutId}`);
         setLayout(currentLayout);
       } else if (classData.classroom_layout) {
         // Fallback to class layout for backward compatibility
         console.log("No period layout, using class layout:", classData.classroom_layout);
         currentLayout = classData.classroom_layout;
+        console.log(`Setting layout with ID: ${currentLayout.id}, Previous ID: ${currentLayoutId}`);
         setLayout(currentLayout);
       }
 
