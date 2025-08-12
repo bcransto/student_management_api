@@ -30,6 +30,9 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
   const [studentSortBy, setStudentSortBy] = useState("name"); // "name" or "gender"
   const [deactivatedSeats, setDeactivatedSeats] = useState(new Set()); // Track deactivated seats
   const [isViewingCurrentPeriod, setIsViewingCurrentPeriod] = useState(true); // Track if viewing the actual current period
+  const [fillMode, setFillMode] = useState("random"); // "random", "matchGender", "balanceGender"
+  const [history, setHistory] = useState([]); // Undo history stack
+  const [historyIndex, setHistoryIndex] = useState(-1); // Current position in history
 
   // Load initial data
   useEffect(() => {
@@ -209,78 +212,87 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
   };
 
   const handleSeatAssignment = (studentId, tableId, seatNumber) => {
-    setAssignments((prev) => ({
-      ...prev,
+    const student = students.find(s => s.id === studentId);
+    const studentName = student ? `${student.first_name} ${student.last_name}` : "Student";
+    
+    const newAssignments = {
+      ...assignments,
       [tableId]: {
-        ...prev[tableId],
+        ...assignments[tableId],
         [seatNumber]: studentId,
       },
-    }));
-    setHasUnsavedChanges(true);
+    };
+    
+    addToHistory(newAssignments, `Place ${studentName}`);
   };
 
   const handleSeatSwap = (studentA, tableA, seatA, studentB, tableB, seatB) => {
-    setAssignments((prev) => {
-      const newAssignments = { ...prev };
+    const studentAObj = students.find(s => s.id === studentA);
+    const studentBObj = students.find(s => s.id === studentB);
+    const nameA = studentAObj ? `${studentAObj.first_name} ${studentAObj.last_name}` : "Student A";
+    const nameB = studentBObj ? `${studentBObj.first_name} ${studentBObj.last_name}` : "Student B";
+    
+    const newAssignments = { ...assignments };
 
-      // Special case: if swapping within the same table, handle it differently
-      if (tableA === tableB) {
-        // Just swap the values directly without deleting the table
-        if (newAssignments[tableA]) {
-          const tempStudent = newAssignments[tableA][seatA];
-          newAssignments[tableA][seatA] = newAssignments[tableA][seatB];
-          newAssignments[tableA][seatB] = tempStudent;
-        }
-        return newAssignments;
-      }
-
-      // Different tables: Remove both students from their current seats
+    // Special case: if swapping within the same table, handle it differently
+    if (tableA === tableB) {
+      // Just swap the values directly without deleting the table
       if (newAssignments[tableA]) {
-        delete newAssignments[tableA][seatA];
-        if (Object.keys(newAssignments[tableA]).length === 0) {
-          delete newAssignments[tableA];
-        }
+        const tempStudent = newAssignments[tableA][seatA];
+        newAssignments[tableA][seatA] = newAssignments[tableA][seatB];
+        newAssignments[tableA][seatB] = tempStudent;
       }
-      if (newAssignments[tableB]) {
-        delete newAssignments[tableB][seatB];
-        if (Object.keys(newAssignments[tableB]).length === 0) {
-          delete newAssignments[tableB];
-        }
+      addToHistory(newAssignments, `Swap ${nameA} and ${nameB}`);
+      return;
+    }
+
+    // Different tables: Remove both students from their current seats
+    if (newAssignments[tableA]) {
+      delete newAssignments[tableA][seatA];
+      if (Object.keys(newAssignments[tableA]).length === 0) {
+        delete newAssignments[tableA];
       }
+    }
+    if (newAssignments[tableB]) {
+      delete newAssignments[tableB][seatB];
+      if (Object.keys(newAssignments[tableB]).length === 0) {
+        delete newAssignments[tableB];
+      }
+    }
 
-      console.log("After removal:", JSON.parse(JSON.stringify(newAssignments)));
+    console.log("After removal:", JSON.parse(JSON.stringify(newAssignments)));
 
-      // Assign students to their new seats (swapped)
-      const result = {
-        ...newAssignments,
-        [tableA]: {
-          ...(newAssignments[tableA] || {}),
-          [seatA]: studentB,
-        },
-        [tableB]: {
-          ...(newAssignments[tableB] || {}),
-          [seatB]: studentA,
-        },
-      };
+    // Assign students to their new seats (swapped)
+    const result = {
+      ...newAssignments,
+      [tableA]: {
+        ...(newAssignments[tableA] || {}),
+        [seatA]: studentB,
+      },
+      [tableB]: {
+        ...(newAssignments[tableB] || {}),
+        [seatB]: studentA,
+      },
+    };
 
-      console.log("Final result:", JSON.parse(JSON.stringify(result)));
-      return result;
-    });
-    setHasUnsavedChanges(true);
+    console.log("Final result:", JSON.parse(JSON.stringify(result)));
+    addToHistory(result, `Swap ${nameA} and ${nameB}`);
   };
 
   const handleSeatUnassignment = (tableId, seatNumber) => {
-    setAssignments((prev) => {
-      const newAssignments = { ...prev };
-      if (newAssignments[tableId]) {
-        delete newAssignments[tableId][seatNumber];
-        if (Object.keys(newAssignments[tableId]).length === 0) {
-          delete newAssignments[tableId];
-        }
+    const studentId = assignments[tableId]?.[seatNumber];
+    const student = studentId ? students.find(s => s.id === studentId) : null;
+    const studentName = student ? `${student.first_name} ${student.last_name}` : "Student";
+    
+    const newAssignments = { ...assignments };
+    if (newAssignments[tableId]) {
+      delete newAssignments[tableId][seatNumber];
+      if (Object.keys(newAssignments[tableId]).length === 0) {
+        delete newAssignments[tableId];
       }
-      return newAssignments;
-    });
-    setHasUnsavedChanges(true);
+    }
+    
+    addToHistory(newAssignments, `Remove ${studentName}`);
   };
 
   const getAssignedStudentIds = () => {
@@ -328,6 +340,59 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
       setHasUnsavedChanges(true);
     }
   };
+
+  // History management functions for undo/redo
+  const addToHistory = (newAssignments, description = "action") => {
+    // Create a history entry
+    const entry = {
+      assignments: JSON.parse(JSON.stringify(assignments)), // Deep copy current state
+      newAssignments: JSON.parse(JSON.stringify(newAssignments)), // Deep copy new state
+      description: description,
+      timestamp: Date.now()
+    };
+    
+    // If we're not at the end of history, truncate everything after current position
+    const newHistory = history.slice(0, historyIndex + 1);
+    
+    // Add new entry and limit history size to prevent memory issues
+    newHistory.push(entry);
+    if (newHistory.length > 50) { // Keep max 50 undo levels
+      newHistory.shift();
+    }
+    
+    setHistory(newHistory);
+    setHistoryIndex(newHistory.length - 1);
+    
+    // Apply the new assignments
+    setAssignments(newAssignments);
+    setHasUnsavedChanges(true);
+    
+    console.log(`History: Added "${description}", stack size: ${newHistory.length}`);
+  };
+
+  const handleUndo = () => {
+    if (historyIndex >= 0 && history[historyIndex]) {
+      const entry = history[historyIndex];
+      setAssignments(entry.assignments); // Restore previous state
+      setHistoryIndex(historyIndex - 1);
+      setHasUnsavedChanges(true);
+      console.log(`Undo: "${entry.description}"`);
+    }
+  };
+
+  const handleRedo = () => {
+    if (historyIndex < history.length - 1) {
+      const nextIndex = historyIndex + 1;
+      const entry = history[nextIndex];
+      setAssignments(entry.newAssignments); // Apply the redone state
+      setHistoryIndex(nextIndex);
+      setHasUnsavedChanges(true);
+      console.log(`Redo: "${entry.description}"`);
+    }
+  };
+
+  const canUndo = historyIndex >= 0;
+  const canRedo = historyIndex < history.length - 1;
 
   // Navigate to previous/next seating period (VIEW ONLY - does not modify database)
   const handlePeriodNavigation = async (direction) => {
@@ -995,7 +1060,7 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
         "div",
         {
           className: "period-navigation",
-          style: { display: "flex", gap: "0.5rem", marginLeft: "1rem" },
+          style: { display: "flex", gap: "0.5rem", marginLeft: "auto" },
         },
         React.createElement(
           "button",
@@ -1083,11 +1148,23 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
               React.createElement(
                 "button",
                 {
+                  className: `btn btn-sm ${canUndo ? "btn-warning" : "btn-secondary"}`,
+                  style: { width: "100%" },
+                  onClick: handleUndo,
+                  disabled: !canUndo,
+                  title: canUndo ? `Undo: ${history[historyIndex]?.description}` : "Nothing to undo",
+                },
+                React.createElement("i", { className: "fas fa-undo" }),
+                " Undo"
+              ),
+              React.createElement(
+                "button",
+                {
                   className: "btn btn-sm btn-secondary",
                   style: { width: "100%" },
                   onClick: handleReset,
                 },
-                React.createElement("i", { className: "fas fa-undo" }),
+                React.createElement("i", { className: "fas fa-times" }),
                 " Reset"
               )
             )
@@ -1755,11 +1832,50 @@ const SeatingEditorSidebar = ({
       )
     ),
 
-    // Auto-fill options
+    // Fill options (renamed from Auto-fill)
     React.createElement(
       "div",
       { className: "sidebar-section" },
-      React.createElement("h3", null, "Auto-Fill Options"),
+      React.createElement("h3", null, "Fill"),
+      React.createElement(
+        "div",
+        { style: { marginBottom: "0.75rem" } },
+        React.createElement(
+          "label",
+          { 
+            style: { 
+              display: "block", 
+              marginBottom: "0.25rem",
+              fontSize: "0.875rem",
+              color: "#4b5563"
+            } 
+          },
+          "Mode:"
+        ),
+        React.createElement(
+          "select",
+          {
+            className: "form-select",
+            value: fillMode,
+            onChange: (e) => {
+              setFillMode(e.target.value);
+              console.log("Fill mode changed to:", e.target.value);
+            },
+            style: {
+              width: "100%",
+              padding: "0.375rem 0.75rem",
+              fontSize: "0.875rem",
+              border: "1px solid #d1d5db",
+              borderRadius: "0.375rem",
+              backgroundColor: "white"
+            }
+          },
+          React.createElement("option", { value: "random" }, "Random"),
+          React.createElement("option", { value: "matchGender" }, "Match Gender"),
+          React.createElement("option", { value: "balanceGender" }, "Balance Gender")
+        )
+      ),
+      // Keep existing buttons temporarily (Stage 1 - for fallback)
       React.createElement(
         "div",
         { className: "auto-fill-buttons" },
