@@ -310,6 +310,56 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
     return students.filter((student) => !assigned.has(student.id));
   };
 
+  // Get the gender of neighbors for a given seat
+  const getNeighborGenders = (tableId, seatNumber) => {
+    const tableIdStr = String(tableId);
+    const neighbors = [];
+    
+    // Get the table from the layout
+    const table = layout?.tables?.find(t => t.id === parseInt(tableId));
+    if (!table || !table.seats) return neighbors;
+    
+    // Find seats that are adjacent (simplified - just check seat numbers +/- 1)
+    const seatNum = parseInt(seatNumber);
+    const checkSeats = [seatNum - 1, seatNum + 1];
+    
+    checkSeats.forEach(num => {
+      const neighborSeat = table.seats.find(s => s.seat_number === num);
+      if (neighborSeat) {
+        const studentId = assignments[tableIdStr]?.[String(num)];
+        if (studentId) {
+          const student = students.find(s => s.id === studentId);
+          if (student && student.gender) {
+            neighbors.push(student.gender);
+          }
+        }
+      }
+    });
+    
+    return neighbors;
+  };
+
+  // Get current gender balance in the class
+  const getGenderBalance = () => {
+    const assigned = getAssignedStudentIds();
+    let maleCount = 0;
+    let femaleCount = 0;
+    
+    assigned.forEach(studentId => {
+      const student = students.find(s => s.id === studentId);
+      if (student && student.gender) {
+        const isFemale = student.gender === "female" || student.gender === "F" || student.gender === "Female";
+        if (isFemale) {
+          femaleCount++;
+        } else {
+          maleCount++;
+        }
+      }
+    });
+    
+    return { male: maleCount, female: femaleCount };
+  };
+
   // Handle click-to-fill for empty seats
   const handleClickToFill = (tableId, seatNumber) => {
     const tableIdStr = String(tableId);
@@ -343,9 +393,72 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
       const randomIndex = Math.floor(Math.random() * unassignedStudents.length);
       selectedStudent = unassignedStudents[randomIndex];
       console.log(`Random fill: Selected ${selectedStudent.first_name} ${selectedStudent.last_name}`);
+      
+    } else if (fillMode === "matchGender") {
+      // Match Gender - try to match neighboring students' gender
+      const neighborGenders = getNeighborGenders(tableId, seatNumber);
+      console.log(`Match Gender mode - Neighbor genders:`, neighborGenders);
+      
+      if (neighborGenders.length > 0) {
+        // Get the most common gender among neighbors
+        const targetGender = neighborGenders[0]; // Simple: use first neighbor's gender
+        
+        // Filter unassigned students by gender
+        const matchingStudents = unassignedStudents.filter(student => {
+          if (!student.gender) return false;
+          const isFemale = student.gender === "female" || student.gender === "F" || student.gender === "Female";
+          const targetIsFemale = targetGender === "female" || targetGender === "F" || targetGender === "Female";
+          return isFemale === targetIsFemale;
+        });
+        
+        if (matchingStudents.length > 0) {
+          // Random selection from matching gender
+          const randomIndex = Math.floor(Math.random() * matchingStudents.length);
+          selectedStudent = matchingStudents[randomIndex];
+          console.log(`Match Gender: Selected ${selectedStudent.first_name} ${selectedStudent.last_name} (${selectedStudent.gender}) to match neighbors`);
+        } else {
+          // No matching gender available, fall back to random
+          console.log("No students of matching gender available, using random");
+          const randomIndex = Math.floor(Math.random() * unassignedStudents.length);
+          selectedStudent = unassignedStudents[randomIndex];
+        }
+      } else {
+        // No neighbors to match, use random
+        console.log("No neighbors to match gender with, using random");
+        const randomIndex = Math.floor(Math.random() * unassignedStudents.length);
+        selectedStudent = unassignedStudents[randomIndex];
+      }
+      
+    } else if (fillMode === "balanceGender") {
+      // Balance Gender - try to balance overall gender distribution
+      const balance = getGenderBalance();
+      console.log(`Balance Gender mode - Current balance: Male=${balance.male}, Female=${balance.female}`);
+      
+      // Determine which gender we need more of
+      let targetIsFemale = balance.male > balance.female;
+      
+      // Filter unassigned students by the needed gender
+      const targetStudents = unassignedStudents.filter(student => {
+        if (!student.gender) return false;
+        const isFemale = student.gender === "female" || student.gender === "F" || student.gender === "Female";
+        return isFemale === targetIsFemale;
+      });
+      
+      if (targetStudents.length > 0) {
+        // Random selection from target gender
+        const randomIndex = Math.floor(Math.random() * targetStudents.length);
+        selectedStudent = targetStudents[randomIndex];
+        console.log(`Balance Gender: Selected ${selectedStudent.first_name} ${selectedStudent.last_name} (${selectedStudent.gender}) to balance distribution`);
+      } else {
+        // No students of needed gender, use any available
+        console.log("No students of needed gender for balance, using random");
+        const randomIndex = Math.floor(Math.random() * unassignedStudents.length);
+        selectedStudent = unassignedStudents[randomIndex];
+      }
+      
     } else {
-      // For now, other modes will also use random (will be implemented in Stage 3)
-      console.log(`Fill mode "${fillMode}" not yet implemented, using random`);
+      // Unknown mode, fall back to random
+      console.log(`Unknown fill mode "${fillMode}", using random`);
       const randomIndex = Math.floor(Math.random() * unassignedStudents.length);
       selectedStudent = unassignedStudents[randomIndex];
     }
@@ -1289,43 +1402,74 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
             )
           ),
           
-          // Auto-fill section
+          // Fill section (updated from Auto-fill)
           React.createElement(
             "div",
             { className: "sidebar-section", style: { borderBottom: "1px solid #e5e7eb" } },
-            React.createElement("h3", null, "Auto-fill"),
+            React.createElement("h3", null, "Fill"),
             React.createElement(
               "div",
               { style: { display: "flex", flexDirection: "column", gap: "0.5rem" } },
+              // Mode dropdown
               React.createElement(
-                "button",
-                {
-                  className: "btn btn-sm btn-secondary",
-                  style: { width: "100%", fontSize: "12px" },
-                  onClick: handleAutofillAlphabetical,
-                },
-                React.createElement("i", { className: "fas fa-sort-alpha-down", style: { fontSize: "10px" } }),
-                " ABC"
+                "div",
+                null,
+                React.createElement(
+                  "label",
+                  { 
+                    style: { 
+                      display: "block", 
+                      marginBottom: "0.25rem",
+                      fontSize: "11px",
+                      color: "#6b7280",
+                      textTransform: "uppercase",
+                      fontWeight: "600"
+                    } 
+                  },
+                  "Mode"
+                ),
+                React.createElement(
+                  "select",
+                  {
+                    className: "form-select",
+                    value: fillMode,
+                    onChange: (e) => {
+                      setFillMode(e.target.value);
+                      console.log("Fill mode changed to:", e.target.value);
+                    },
+                    style: {
+                      width: "100%",
+                      padding: "0.375rem 0.5rem",
+                      fontSize: "12px",
+                      border: "1px solid #d1d5db",
+                      borderRadius: "0.25rem",
+                      backgroundColor: "white",
+                      cursor: "pointer"
+                    }
+                  },
+                  React.createElement("option", { value: "random" }, "Random"),
+                  React.createElement("option", { value: "matchGender" }, "Match Gender"),
+                  React.createElement("option", { value: "balanceGender" }, "Balance Gender")
+                )
               ),
+              // Auto button
               React.createElement(
                 "button",
                 {
-                  className: "btn btn-sm btn-secondary",
-                  style: { width: "100%", fontSize: "12px" },
-                  onClick: handleAutofillRandom,
+                  className: "btn btn-sm btn-primary",
+                  style: { 
+                    width: "100%", 
+                    fontSize: "12px",
+                    marginTop: "0.5rem"
+                  },
+                  onClick: () => {
+                    console.log("Auto fill clicked with mode:", fillMode);
+                    // Will implement auto-fill all in Stage 4
+                    alert(`Auto-fill all with ${fillMode} mode - Coming in Stage 4!`);
+                  },
                 },
-                React.createElement("i", { className: "fas fa-random", style: { fontSize: "10px" } }),
-                " Random"
-              ),
-              React.createElement(
-                "button",
-                {
-                  className: "btn btn-sm btn-secondary",
-                  style: { width: "100%", fontSize: "12px" },
-                  onClick: handleAutofillBoyGirl,
-                },
-                React.createElement("i", { className: "fas fa-venus-mars", style: { fontSize: "10px" } }),
-                " Boy-Girl"
+                React.createElement("i", { className: "fas fa-magic", style: { fontSize: "10px" } }),
+                " Auto"
               )
             )
           ),
@@ -1892,83 +2036,6 @@ const SeatingEditorSidebar = ({
         null,
         React.createElement("strong", null, "Students: "),
         `${assignedCount} / ${totalStudents} seated`
-      )
-    ),
-
-    // Fill options (renamed from Auto-fill)
-    React.createElement(
-      "div",
-      { className: "sidebar-section" },
-      React.createElement("h3", null, "Fill"),
-      React.createElement(
-        "div",
-        { style: { marginBottom: "0.75rem" } },
-        React.createElement(
-          "label",
-          { 
-            style: { 
-              display: "block", 
-              marginBottom: "0.25rem",
-              fontSize: "0.875rem",
-              color: "#4b5563"
-            } 
-          },
-          "Mode:"
-        ),
-        React.createElement(
-          "select",
-          {
-            className: "form-select",
-            value: fillMode,
-            onChange: (e) => {
-              setFillMode(e.target.value);
-              console.log("Fill mode changed to:", e.target.value);
-            },
-            style: {
-              width: "100%",
-              padding: "0.375rem 0.75rem",
-              fontSize: "0.875rem",
-              border: "1px solid #d1d5db",
-              borderRadius: "0.375rem",
-              backgroundColor: "white"
-            }
-          },
-          React.createElement("option", { value: "random" }, "Random"),
-          React.createElement("option", { value: "matchGender" }, "Match Gender"),
-          React.createElement("option", { value: "balanceGender" }, "Balance Gender")
-        )
-      ),
-      // Keep existing buttons temporarily (Stage 1 - for fallback)
-      React.createElement(
-        "div",
-        { className: "auto-fill-buttons" },
-        React.createElement(
-          "button",
-          {
-            className: "btn btn-sm btn-outline",
-            onClick: () => onAutoFill("alphabetical"),
-          },
-          React.createElement("i", { className: "fas fa-sort-alpha-down" }),
-          " Alphabetical"
-        ),
-        React.createElement(
-          "button",
-          {
-            className: "btn btn-sm btn-outline",
-            onClick: () => onAutoFill("random"),
-          },
-          React.createElement("i", { className: "fas fa-random" }),
-          " Random"
-        ),
-        React.createElement(
-          "button",
-          {
-            className: "btn btn-sm btn-outline",
-            onClick: () => onAutoFill("boy-girl"),
-          },
-          React.createElement("i", { className: "fas fa-venus-mars" }),
-          " Boy-Girl"
-        )
       )
     ),
 
