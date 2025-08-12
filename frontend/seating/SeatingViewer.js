@@ -19,16 +19,41 @@ const SeatingViewer = ({ classId, onEdit, onBack }) => {
       // Load class info
       const classData = await window.ApiModule.request(`/classes/${classId}/`);
       console.log("Class data loaded:", classData);
+      
+      // If no current period, get the most recent period
+      let periodToShow = classData.current_seating_period;
+      
+      if (!periodToShow) {
+        // Get all periods and find the most recent one
+        const periodsResponse = await window.ApiModule.request(
+          `/seating-periods/?class_assigned=${classId}`
+        );
+        const periods = periodsResponse.results || [];
+        
+        if (periods.length > 0) {
+          // Sort by start date descending and take the first
+          periods.sort((a, b) => new Date(b.start_date) - new Date(a.start_date));
+          
+          // Get full details for the most recent period
+          const periodId = periods[0].id;
+          periodToShow = await window.ApiModule.request(`/seating-periods/${periodId}/`);
+          console.log("No current period, showing most recent:", periodToShow.name);
+          
+          // Add it to classData for consistency
+          classData.current_seating_period = periodToShow;
+        }
+      }
+      
       setClassInfo(classData);
 
-      // Load the layout from the current seating period (if exists) or class
+      // Load the layout from the period (if exists) or class
       let currentLayout = null;
-      if (classData.current_seating_period && classData.current_seating_period.layout_details) {
+      if (periodToShow && periodToShow.layout_details) {
         console.log(
           "Layout found in seating period:",
-          classData.current_seating_period.layout_details
+          periodToShow.layout_details
         );
-        currentLayout = classData.current_seating_period.layout_details;
+        currentLayout = periodToShow.layout_details;
         setLayout(currentLayout);
       } else if (classData.classroom_layout) {
         console.log("No period layout, using class layout:", classData.classroom_layout);
@@ -49,14 +74,14 @@ const SeatingViewer = ({ classId, onEdit, onBack }) => {
 
       // Load existing seating assignments if any
       if (
-        classData.current_seating_period?.seating_assignments &&
-        classData.current_seating_period.seating_assignments.length > 0 &&
+        periodToShow?.seating_assignments &&
+        periodToShow.seating_assignments.length > 0 &&
         currentLayout
       ) {
         console.log("Loading seating assignments");
         const assignmentMap = {};
 
-        classData.current_seating_period.seating_assignments.forEach((assignment) => {
+        periodToShow.seating_assignments.forEach((assignment) => {
           if (!currentLayout.tables) {
             console.warn("No tables in layout");
             return;

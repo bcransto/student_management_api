@@ -232,10 +232,10 @@ const Seating = ({ data, navigateTo }) => {
                 key: classItem.id,
                 className: "class-card floating-card",
                 onClick: () => {
-                  if (classItem.current_seating_period?.seating_assignments?.length > 0) {
+                  // Always go to viewer if we have a layout
+                  // The viewer will handle navigation between periods and creating new ones
+                  if (classItem.classroom_layout) {
                     handleViewChart(classItem.id, classItem.name);
-                  } else if (classItem.classroom_layout) {
-                    handleNewChart(classItem.id, classItem.name);
                   }
                 },
                 style: { cursor: classItem.classroom_layout ? "pointer" : "not-allowed" },
@@ -281,18 +281,20 @@ const Seating = ({ data, navigateTo }) => {
               React.createElement(
                 "div",
                 { className: "class-card-status" },
-                classItem.current_seating_period?.seating_assignments?.length > 0
+                classItem.current_seating_period
                   ? React.createElement(
                       "span",
                       { className: "status-badge active" },
                       React.createElement("i", { className: "fas fa-check-circle" }),
-                      " Active Chart"
+                      classItem.current_seating_period.seating_assignments?.length > 0
+                        ? ` ${classItem.current_seating_period.seating_assignments.length} Seated`
+                        : " Empty Period"
                     )
                   : React.createElement(
                       "span",
                       { className: "status-badge inactive" },
-                      React.createElement("i", { className: "fas fa-exclamation-circle" }),
-                      " No Chart"
+                      React.createElement("i", { className: "fas fa-calendar-times" }),
+                      " No Current Period"
                     )
               )
             )
