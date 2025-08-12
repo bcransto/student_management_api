@@ -1188,6 +1188,35 @@ const SeatingCanvas = ({
   
   console.log("SeatingCanvas render - highlightMode:", highlightMode);
   
+  // Use effect to force style updates when highlight mode changes
+  React.useEffect(() => {
+    if (highlightMode === "gender") {
+      console.log("Applying gender styles via DOM manipulation");
+      // Wait for next tick to ensure DOM is updated
+      setTimeout(() => {
+        // Find all occupied seats with gender classes
+        const femaleSeat = document.querySelectorAll('.seat.gender-female');
+        const maleSeats = document.querySelectorAll('.seat.gender-male');
+        
+        console.log(`Found ${femaleSeat.length} female seats and ${maleSeats.length} male seats`);
+        
+        femaleSeat.forEach(el => {
+          console.log("Setting female seat style directly on element");
+          el.style.setProperty('background-color', '#10b981', 'important');
+          el.style.setProperty('border', '2px solid #059669', 'important');
+          el.style.setProperty('color', 'white', 'important');
+        });
+        
+        maleSeats.forEach(el => {
+          console.log("Setting male seat style directly on element");
+          el.style.setProperty('background-color', '#3b82f6', 'important');
+          el.style.setProperty('border', '2px solid #2563eb', 'important');
+          el.style.setProperty('color', 'white', 'important');
+        });
+      }, 100);
+    }
+  }, [highlightMode, assignments]);
+  
   // This will render the layout with students assigned to seats
   return React.createElement(
     "div",
@@ -1241,6 +1270,15 @@ const SeatingCanvas = ({
             ? students.find((s) => s.id === assignedStudentId)
             : null;
 
+          // Debug logging for gender highlighting
+          if (assignedStudent && highlightMode === "gender") {
+            console.log("=== Gender Highlight Debug ===");
+            console.log("Assigned student full object:", assignedStudent);
+            console.log(`Student: ${assignedStudent.first_name} ${assignedStudent.last_name}`);
+            console.log(`Gender field value: "${assignedStudent.gender}"`);
+            console.log(`Highlight mode: ${highlightMode}`);
+          }
+
           // Debug: Check if we have a student ID but can't find the student
           if (assignedStudentId && !assignedStudent) {
             console.warn(
@@ -1264,33 +1302,51 @@ const SeatingCanvas = ({
             seatStyle.color = '#0284c7';            // Blue text
           }
 
-          // Override background color for gender highlighting if needed
+          // Determine gender class and create final styles
+          let genderClass = "";
+          let finalSeatStyle = {...seatStyle}; // Create a copy of the base style
+          
           if (assignedStudent && highlightMode === "gender") {
-            // Check for female gender (F or Female)
-            const isFemale = assignedStudent.gender === "F" || assignedStudent.gender === "Female";
-            console.log(`Gender highlighting - Student: ${assignedStudent.first_name}, Gender: ${assignedStudent.gender}, isFemale: ${isFemale}`);
+            // Check for female gender (female, F or Female)
+            const isFemale = assignedStudent.gender === "female" || assignedStudent.gender === "F" || assignedStudent.gender === "Female";
+            console.log(`Gender highlighting applied - Student: ${assignedStudent.first_name}, Gender: "${assignedStudent.gender}", isFemale: ${isFemale}`);
             
             if (isFemale) {
-              seatStyle.backgroundColor = "#10b981";  // Green for female (similar intensity to blue)
-              seatStyle.border = "2px solid #059669";  // Darker green border
-              seatStyle.color = "white";  // Keep white text
+              console.log("Applying FEMALE styling - green background");
+              genderClass = "gender-female";
+              // Override style properties in the copy
+              finalSeatStyle.backgroundColor = "#10b981";  // Green
+              finalSeatStyle.border = "2px solid #059669";
+              finalSeatStyle.color = "white";
             } else {
-              // Males keep default blue styling
-              seatStyle.backgroundColor = "#3b82f6";  // Blue for male (default)
-              seatStyle.border = "2px solid #2563eb";  // Darker blue border
-              seatStyle.color = "white";  // Keep white text
+              console.log("Applying MALE styling - blue background");
+              genderClass = "gender-male";
+              // Override style properties in the copy
+              finalSeatStyle.backgroundColor = "#3b82f6";  // Blue
+              finalSeatStyle.border = "2px solid #2563eb";
+              finalSeatStyle.color = "white";
             }
+            console.log("Gender class:", genderClass);
+            console.log("Final seatStyle backgroundColor:", finalSeatStyle.backgroundColor);
+            console.log("Final seatStyle border:", finalSeatStyle.border);
+            console.log("Final seatStyle with gender:", finalSeatStyle);
+          }
+
+          const finalClassName = `seat ${assignedStudent ? "occupied" : "empty"} ${
+            seat.is_accessible ? "accessible" : ""
+          } ${genderClass}`.trim();
+          
+          if (genderClass) {
+            console.log(`Seat ${table.id}-${seat.seat_number} final className: "${finalClassName}"`);
           }
 
           return React.createElement(
             "div",
             {
               key: seat.seat_number,
-              className: `seat ${assignedStudent ? "occupied" : "empty"} ${
-                seat.is_accessible ? "accessible" : ""
-              }`,
+              className: finalClassName,
               style: {
-                ...seatStyle,
+                ...finalSeatStyle,
                 cursor: "pointer",
               },
               onClick: () => onSeatClick(table.id, seat.seat_number),
@@ -1769,7 +1825,7 @@ const StudentPool = ({
       { className: "student-grid" },
       sortedStudents.map((student) => {
         // Determine if we should apply gender highlighting
-        const isFemale = student.gender === "F" || student.gender === "Female";
+        const isFemale = student.gender === "female" || student.gender === "Female" || student.gender === "F";
         const genderStyle = {};
         
         // Apply gender-specific styling when in gender highlight mode
@@ -1785,7 +1841,7 @@ const StudentPool = ({
             key: student.id,
             className: `student-card ${
               selectedStudent?.id === student.id ? "selected" : ""
-            } ${student.gender === "F" ? "female" : "male"}`,
+            } ${isFemale ? "female" : "male"}`,
             style: genderStyle,
             onClick: () => onSelectStudent(student),
             draggable: true,

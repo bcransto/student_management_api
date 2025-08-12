@@ -547,3 +547,16 @@ body.seating-editor-page .main-container {
 .seat.occupied.swap-target {
   cursor: grab !important;
 }
+
+/* Gender highlighting styles - use attribute selector for specificity */
+.seat.gender-female {
+  background-color: #10b981 !important;  /* Green for females */
+  border: 2px solid #059669 !important;
+  color: white !important;
+}
+
+.seat.gender-male {
+  background-color: #3b82f6 !important;  /* Blue for males */
+  border: 2px solid #2563eb !important;
+  color: white !important;
+}
