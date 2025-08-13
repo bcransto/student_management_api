@@ -28,6 +28,11 @@ const App = () => {
       return "student-edit";
     }
 
+    // Check for class view pattern
+    if (hash.startsWith("classes/view/")) {
+      return "class-view";
+    }
+
     const validViews = ["dashboard", "students", "classes", "seating", "layouts"];
     return validViews.includes(hash) ? hash : "dashboard";
   };
@@ -103,6 +108,12 @@ const App = () => {
         const id = hash.replace("students/edit/", "");
         setEditingStudentId(id);
         setCurrentView("student-edit");
+        return;
+      }
+
+      // Check for class view pattern
+      if (hash.startsWith("classes/view/")) {
+        setCurrentView("class-view");
         return;
       }
 
@@ -209,6 +220,13 @@ const App = () => {
       return;
     }
 
+    // Handle class view navigation
+    if (view.startsWith("classes/view/")) {
+      setCurrentView("class-view");
+      window.location.hash = view;
+      return;
+    }
+
     // Regular navigation
     setCurrentView(view);
     setEditingStudentId(null);
@@ -248,6 +266,15 @@ const App = () => {
         return React.createElement(Components.Classes, {
           data: appData,
           refreshData: fetchData,
+          navigateTo: handleNavigate,
+        });
+
+      case "class-view":
+        const classId = window.location.hash.replace("#classes/view/", "");
+        return React.createElement(window.ClassViewComponent, {
+          classId: classId,
+          navigateTo: handleNavigate,
+          data: appData,
         });
 
       case "seating":

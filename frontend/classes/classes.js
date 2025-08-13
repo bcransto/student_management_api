@@ -20,22 +20,16 @@ const Classes = ({ data, refreshData, navigateTo, currentParams }) => {
 
   const handleClassClick = (cls) => {
     console.log("Class card clicked:", cls.name);
-    
-    // NOTE: The app.js file needs to be updated to pass navigateTo prop to Classes component
-    // Line 248-251 in app.js should include: navigateTo: handleNavigate,
-    // For now, we use a fallback to hash navigation
+    console.log("navigateTo available:", !!navigateTo, typeof navigateTo);
     
     if (navigateTo && typeof navigateTo === 'function') {
       // Use the provided navigation function if available
-      navigateTo("classes", { action: "view", classId: cls.id });
+      console.log("Using navigateTo function");
+      navigateTo("classes/view/" + cls.id);
     } else {
       // Fallback: use hash navigation directly to show class details
-      // This will need to be handled by the app's routing logic
-      window.location.hash = `#classes/view/${cls.id}`;
       console.log("Using fallback navigation to:", `#classes/view/${cls.id}`);
-      
-      // Alternative: Navigate to seating view for this class
-      // window.location.hash = `#seating?classId=${cls.id}`;
+      window.location.hash = `#classes/view/${cls.id}`;
     }
   };
 
@@ -206,11 +200,12 @@ const ClassView = ({ classId, data, navigateTo }) => {
         console.log("Fetching details for class:", classId);
         
         // Fetch class details including roster
-        const response = await window.ApiModule.request(`/api/classes/${classId}/`, {
+        const response = await window.ApiModule.request(`/classes/${classId}/`, {
           method: 'GET'
         });
         
         console.log("Class details fetched:", response);
+        console.log("Roster data:", response.roster);
         setClassDetails(response);
         setError(null);
       } catch (err) {
@@ -365,22 +360,31 @@ const ClassView = ({ classId, data, navigateTo }) => {
         "div",
         { className: "roster-grid" },
         roster.map((entry) => {
-          const student = entry.student || entry;
+          // Debug what we're getting
+          console.log("Roster entry:", entry);
+          
+          // Use the flattened student fields from the serializer
+          const firstName = entry.student_nickname || entry.student_first_name || "Unknown";
+          const lastName = entry.student_last_name || "";
+          const studentId = entry.student_id || "N/A";
+          const email = entry.student_email || "";
+          const gender = entry.student_gender || "";
+          
           return React.createElement(
             "div",
-            { key: entry.id || student.id, className: "student-card" },
+            { key: entry.id, className: "student-card" },
             React.createElement(
               "div",
               { className: "student-card-header" },
               React.createElement(
                 "h4",
                 null,
-                student.nickname || student.first_name
+                firstName
               ),
               React.createElement(
                 "span",
                 { className: "student-last-name" },
-                student.last_name
+                lastName
               )
             ),
             React.createElement(
@@ -390,19 +394,25 @@ const ClassView = ({ classId, data, navigateTo }) => {
                 "div",
                 { className: "student-detail" },
                 React.createElement("i", { className: "fas fa-id-card" }),
-                React.createElement("span", null, student.student_id || "N/A")
+                React.createElement("span", null, studentId)
               ),
-              student.email && React.createElement(
+              email && React.createElement(
                 "div",
                 { className: "student-detail" },
                 React.createElement("i", { className: "fas fa-envelope" }),
-                React.createElement("span", null, student.email)
+                React.createElement("span", null, email)
               ),
-              student.gender && React.createElement(
+              gender && React.createElement(
                 "div",
                 { className: "student-detail" },
                 React.createElement("i", { className: "fas fa-user" }),
-                React.createElement("span", null, student.gender)
+                React.createElement("span", null, gender.charAt(0).toUpperCase() + gender.slice(1))
+              ),
+              entry.is_active && React.createElement(
+                "div",
+                { className: "student-detail" },
+                React.createElement("i", { className: "fas fa-check-circle", style: { color: "#10b981" } }),
+                React.createElement("span", null, "Active")
               )
             )
           );

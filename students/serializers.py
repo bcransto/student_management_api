@@ -215,6 +215,11 @@ class SeatingPeriodSerializer(serializers.ModelSerializer):
 class ClassRosterSerializer(serializers.ModelSerializer):
     student_name = serializers.CharField(source="student.get_full_name", read_only=True)
     student_id = serializers.CharField(source="student.student_id", read_only=True)
+    student_first_name = serializers.CharField(source="student.first_name", read_only=True)
+    student_last_name = serializers.CharField(source="student.last_name", read_only=True)
+    student_nickname = serializers.CharField(source="student.nickname", read_only=True)
+    student_email = serializers.CharField(source="student.email", read_only=True)
+    student_gender = serializers.CharField(source="student.gender", read_only=True)
     current_seating_assignment = serializers.SerializerMethodField()
     class_assigned_details = serializers.SerializerMethodField()
 
@@ -225,6 +230,11 @@ class ClassRosterSerializer(serializers.ModelSerializer):
             "student",
             "student_name",
             "student_id",
+            "student_first_name",
+            "student_last_name",
+            "student_nickname",
+            "student_email",
+            "student_gender",
             "class_assigned",
             "class_assigned_details",
             "is_active",

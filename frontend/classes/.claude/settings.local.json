@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python:*)",
+      "Bash(source:*)",
+      "Bash(lsof:*)",
+      "Bash(git -C /Users/bcransto/Documents/student_management_api diff --stat)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
