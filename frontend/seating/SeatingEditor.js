@@ -882,10 +882,7 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
 
   // Handle layout selection from modal
   const handleLayoutSelection = async (layoutId) => {
-    console.log("=== Layout Selection Started ===");
-    console.log("Selected layout ID:", layoutId);
-    console.log("Current layout ID:", layout?.id);
-    console.log("Current seating period:", classInfo?.current_seating_period);
+    console.log("Selecting layout:", layoutId);
     
     // Don't do anything if selecting the same layout
     if (layoutId === layout?.id) {
@@ -2349,7 +2346,34 @@ const LayoutSelectorModal = ({ onClose, onSelect, availableLayouts, setAvailable
             marginBottom: "20px",
           }
         },
-        React.createElement("h2", { style: { margin: 0 } }, "Select Layout"),
+        React.createElement(
+          "div",
+          { style: { display: "flex", alignItems: "center", gap: "10px" } },
+          React.createElement("h2", { style: { margin: 0 } }, "Select Layout"),
+          React.createElement(
+            "button",
+            {
+              onClick: () => {
+                setLoading(true);
+                loadLayouts();
+              },
+              disabled: loading,
+              style: {
+                background: "none",
+                border: "1px solid #e5e7eb",
+                borderRadius: "4px",
+                padding: "4px 8px",
+                cursor: loading ? "not-allowed" : "pointer",
+                fontSize: "14px",
+                color: loading ? "#9ca3af" : "#374151",
+              },
+              title: "Refresh layout list"
+            },
+            React.createElement("i", { 
+              className: loading ? "fas fa-spinner fa-spin" : "fas fa-sync-alt" 
+            })
+          )
+        ),
         React.createElement(
           "button",
           {
@@ -2446,10 +2470,14 @@ const LayoutSelectorModal = ({ onClose, onSelect, availableLayouts, setAvailable
           {
             className: "btn btn-primary",
             onClick: () => {
-              alert("New Layout - Coming soon!");
-              // TODO: Navigate to layout editor or open in new tab
+              // Open layout editor in new tab
+              const layoutEditorUrl = window.location.origin + "/#layouts";
+              window.open(layoutEditorUrl, "_blank");
+              // Close modal - user will need to refresh to see new layout
+              setShowLayoutSelector(false);
             },
-            style: { width: "100%" }
+            style: { width: "100%" },
+            title: "Create a new layout in the layout editor"
           },
           React.createElement("i", { className: "fas fa-plus" }),
           " New Layout"
