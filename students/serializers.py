@@ -30,6 +30,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         token = super().get_token(user)
 
         # Add custom claims to the token
+        token["user_id"] = user.id
         token["email"] = user.email
         token["first_name"] = user.first_name
         token["last_name"] = user.last_name
@@ -300,12 +301,18 @@ class StudentSerializer(serializers.ModelSerializer):
 
 
 class ClassSerializer(serializers.ModelSerializer):
+    teacher = serializers.PrimaryKeyRelatedField(read_only=True)
     teacher_name = serializers.CharField(source="teacher.get_full_name", read_only=True)
     current_enrollment = serializers.ReadOnlyField()
-    roster = ClassRosterSerializer(many=True, read_only=True)
+    roster = serializers.SerializerMethodField()
     classroom_layout = ClassroomLayoutSerializer(read_only=True)
     current_seating_period = SeatingPeriodSerializer(read_only=True)
     seating_periods = SeatingPeriodSerializer(many=True, read_only=True)
+
+    def get_roster(self, obj):
+        """Only return active roster entries"""
+        active_roster = obj.roster.filter(is_active=True)
+        return ClassRosterSerializer(active_roster, many=True).data
 
     class Meta:
         model = Class
@@ -315,6 +322,7 @@ class ClassSerializer(serializers.ModelSerializer):
             "description",
             "subject",
             "grade_level",
+            "teacher",
             "teacher_name",
             "current_enrollment",
             "classroom_layout",

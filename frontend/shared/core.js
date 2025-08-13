@@ -76,10 +76,11 @@ const AuthModule = {
 
     // Return user info with all available fields
     return {
+      id: decoded.user_id || decoded.id || null,
       email: decoded.email || decoded.user_email || decoded.sub || null,
       firstName: decoded.first_name || null,
       lastName: decoded.last_name || null,
-      userId: decoded.user_id || null,
+      userId: decoded.user_id || decoded.id || null,
       isTeacher: decoded.is_teacher || true,
     };
   },

@@ -192,6 +192,9 @@ const ClassView = ({ classId, data, navigateTo }) => {
   const [classDetails, setClassDetails] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState(null);
+  
+  // Get current user info
+  const currentUser = window.AuthModule?.getUserInfo();
 
   React.useEffect(() => {
     const fetchClassDetails = async () => {
@@ -226,6 +229,35 @@ const ClassView = ({ classId, data, navigateTo }) => {
       navigateTo("classes");
     } else {
       window.location.hash = "#classes";
+    }
+  };
+
+  const handleUnenroll = async (roster) => {
+    const studentName = roster.student_nickname || roster.student_first_name || roster.student_name || 'this student';
+    
+    // Simple confirm dialog
+    if (!window.confirm(`Are you sure you want to unenroll ${studentName} from this class?`)) {
+      return;
+    }
+    
+    try {
+      // Soft delete - set is_active to false instead of deleting
+      await window.ApiModule.request(`/roster/${roster.id}/`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_active: false })
+      });
+      
+      // Refresh class details to update the roster
+      const response = await window.ApiModule.request(`/classes/${classId}/`, {
+        method: 'GET'
+      });
+      
+      setClassDetails(response);
+      console.log(`Successfully unenrolled ${studentName}`);
+    } catch (err) {
+      console.error("Error unenrolling student:", err);
+      alert(`Failed to unenroll student: ${err.message || 'Unknown error'}`);
     }
   };
 
@@ -362,6 +394,9 @@ const ClassView = ({ classId, data, navigateTo }) => {
         roster.map((entry) => {
           // Debug what we're getting
           console.log("Roster entry:", entry);
+          console.log("Current user:", currentUser);
+          console.log("Class teacher ID:", classDetails?.teacher);
+          console.log("Permission check:", currentUser && classDetails.teacher && currentUser.id === classDetails.teacher);
           
           // Use the flattened student fields from the serializer
           const firstName = entry.student_nickname || entry.student_first_name || "Unknown";
@@ -414,6 +449,20 @@ const ClassView = ({ classId, data, navigateTo }) => {
                 React.createElement("i", { className: "fas fa-check-circle", style: { color: "#10b981" } }),
                 React.createElement("span", null, "Active")
               )
+            ),
+            // Unenroll button - only show if current user is the teacher
+            currentUser && classDetails.teacher && currentUser.id === classDetails.teacher && React.createElement(
+              "button",
+              {
+                className: "btn btn-danger btn-sm btn-unenroll",
+                onClick: (e) => {
+                  e.stopPropagation(); // Prevent card click if it becomes clickable
+                  handleUnenroll(entry);
+                },
+                title: "Unenroll student"
+              },
+              React.createElement("i", { className: "fas fa-user-minus" }),
+              " Unenroll"
             )
           );
         })
