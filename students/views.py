@@ -284,6 +284,56 @@ class SeatingPeriodViewSet(viewsets.ModelViewSet):
 
         return queryset
 
+    @action(detail=False, methods=["get"])
+    def previous_period(self, request):
+        """Get the most recent completed seating period for a class with all assignments."""
+        class_id = request.query_params.get("class_assigned")
+        
+        if not class_id:
+            return Response({"error": "class_assigned parameter is required"}, status=400)
+        
+        # Get the current active period (end_date is null)
+        current_period = SeatingPeriod.objects.filter(
+            class_assigned_id=class_id,
+            end_date__isnull=True
+        ).first()
+        
+        if not current_period:
+            return Response({"error": "No current period found"}, status=404)
+        
+        # Get the most recent completed period (has end_date) before the current one
+        previous_period = SeatingPeriod.objects.filter(
+            class_assigned_id=class_id,
+            end_date__isnull=False
+        ).order_by("-end_date").first()
+        
+        if not previous_period:
+            return Response(None)  # No previous period exists
+        
+        # Serialize with all related data
+        serializer = SeatingPeriodSerializer(previous_period)
+        data = serializer.data
+        
+        # Add all seating assignments for this period
+        assignments = SeatingAssignment.objects.filter(
+            seating_period=previous_period
+        ).select_related("roster_entry__student", "roster_entry__class_assigned")
+        
+        assignment_data = []
+        for assignment in assignments:
+            assignment_data.append({
+                "id": assignment.id,
+                "roster_entry": assignment.roster_entry.id,
+                "student_id": assignment.roster_entry.student.id,
+                "student_name": f"{assignment.roster_entry.student.first_name} {assignment.roster_entry.student.last_name}",
+                "table_number": assignment.table_number,
+                "seat_number": assignment.seat_number,
+            })
+        
+        data["assignments"] = assignment_data
+        
+        return Response(data)
+
 
 class SeatingAssignmentViewSet(viewsets.ModelViewSet):
     queryset = SeatingAssignment.objects.all()
