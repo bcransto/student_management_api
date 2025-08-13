@@ -1,5 +1,7 @@
 // SeatingViewer.js - Read-only seating chart viewer using standard app layout
-const SeatingViewer = ({ classId, onEdit, onBack }) => {
+const SeatingViewer = ({ classId, periodId, onEdit, onBack, navigateTo }) => {
+  // Use NavigationService if available
+  const nav = window.NavigationService || null;
   // Get utility functions from shared module
   const { formatStudentName, formatDate } = window.SharedUtils;
 
@@ -14,16 +16,25 @@ const SeatingViewer = ({ classId, onEdit, onBack }) => {
   const loadClassData = async () => {
     try {
       setLoading(true);
-      console.log("Loading data for class:", classId);
+      console.log("Loading data for class:", classId, "period:", periodId);
 
       // Load class info
       const classData = await window.ApiModule.request(`/classes/${classId}/`);
       console.log("Class data loaded:", classData);
       
-      // If no current period, get the most recent period
-      let periodToShow = classData.current_seating_period;
+      // If specific periodId provided, load that period
+      let periodToShow = null;
       
-      if (!periodToShow) {
+      if (periodId) {
+        // Load the specific period requested
+        periodToShow = await window.ApiModule.request(`/seating-periods/${periodId}/`);
+        console.log("Loading specific period:", periodToShow.name);
+      } else {
+        // Otherwise use current period or most recent
+        periodToShow = classData.current_seating_period;
+      }
+      
+      if (!periodToShow && !periodId) {
         // Get all periods and find the most recent one
         const periodsResponse = await window.ApiModule.request(
           `/seating-periods/?class_assigned=${classId}`
@@ -167,12 +178,18 @@ const SeatingViewer = ({ classId, onEdit, onBack }) => {
       // Get full details of the target period
       const fullTargetPeriod = await window.ApiModule.request(`/seating-periods/${targetPeriod.id}/`);
 
-      // Update the UI to show the target period WITHOUT modifying the database
-      // We're just changing what we're viewing, not which period is active
-      setClassInfo(prevInfo => ({
-        ...prevInfo,
-        current_seating_period: fullTargetPeriod
-      }));
+      // Update URL to reflect the new period being viewed
+      if (nav?.toSeatingViewPeriod) {
+        nav.toSeatingViewPeriod(classId, targetPeriod.id);
+      } else if (navigateTo) {
+        navigateTo(`seating/view/${classId}/period/${targetPeriod.id}`);
+      } else {
+        // Fallback: just update the UI state
+        setClassInfo(prevInfo => ({
+          ...prevInfo,
+          current_seating_period: fullTargetPeriod
+        }));
+      }
 
       // Load assignments for the target period
       if (fullTargetPeriod.seating_assignments && fullTargetPeriod.seating_assignments.length > 0 && layout) {
@@ -306,7 +323,7 @@ const SeatingViewer = ({ classId, onEdit, onBack }) => {
   // Initialize on mount
   React.useEffect(() => {
     loadClassData();
-  }, [classId]);
+  }, [classId, periodId]);
 
   if (loading) {
     return React.createElement(

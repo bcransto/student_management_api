@@ -3,7 +3,9 @@
 
 const { useState, useEffect, useMemo } = React;
 
-const SeatingEditor = ({ classId, onBack, onView }) => {
+const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
+  // Use NavigationService if available
+  const nav = window.NavigationService || null;
   // Get utility functions from shared module
   const { formatStudentName, formatStudentNameTwoLine, formatDate } = window.SharedUtils;
   // Core state

@@ -98,8 +98,20 @@ const NavigationService = {
     return this.navigate('seating');
   },
 
-  toSeatingPeriod(periodId) {
-    return this.navigate('seatingPeriod', { id: periodId });
+  toSeatingView(classId) {
+    return this.navigate('seatingView', { classId });
+  },
+
+  toSeatingViewPeriod(classId, periodId) {
+    return this.navigate('seatingViewPeriod', { classId, periodId });
+  },
+
+  toSeatingEdit(classId) {
+    return this.navigate('seatingEdit', { classId });
+  },
+
+  toSeatingEditPeriod(classId, periodId) {
+    return this.navigate('seatingEditPeriod', { classId, periodId });
   },
 
   toLayouts() {

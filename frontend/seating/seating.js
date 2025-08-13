@@ -1,13 +1,14 @@
 // frontend/seating/seating.js - Updated Seating Charts Management Component
 
-const Seating = ({ data, navigateTo }) => {
+const Seating = ({ data, navigateTo, initialView, classId, periodId }) => {
   // Use NavigationService if available, fallback to navigateTo prop
   const nav = window.NavigationService || null;
   const [classes, setClasses] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
-  const [currentView, setCurrentView] = React.useState("list"); // 'list', 'viewer', or 'editor'
-  const [selectedClassId, setSelectedClassId] = React.useState(null);
+  const [currentView, setCurrentView] = React.useState(initialView || "list"); // 'list', 'viewer', or 'editor'
+  const [selectedClassId, setSelectedClassId] = React.useState(classId || null);
+  const [selectedPeriodId, setSelectedPeriodId] = React.useState(periodId || null);
 
   React.useEffect(() => {
     console.log("Seating component mounted");
@@ -35,6 +36,16 @@ const Seating = ({ data, navigateTo }) => {
 
     fetchClassesWithSeatingCharts();
   }, []);
+
+  // Handle when component is loaded with initialView and classId from URL
+  React.useEffect(() => {
+    if (initialView && classId) {
+      console.log(`Seating loaded with view: ${initialView}, classId: ${classId}, periodId: ${periodId}`);
+      setCurrentView(initialView);
+      setSelectedClassId(classId);
+      setSelectedPeriodId(periodId);
+    }
+  }, [initialView, classId, periodId]);
 
   const fetchClassesWithSeatingCharts = async () => {
     try {
@@ -71,29 +82,58 @@ const Seating = ({ data, navigateTo }) => {
 
   const handleViewChart = (classId, className) => {
     console.log("View chart for class:", classId, className);
-    // Show viewer within the app
-    setSelectedClassId(classId);
-    setCurrentView("viewer");
+    // Update URL when viewing chart
+    if (nav?.toSeatingView) {
+      nav.toSeatingView(classId);
+    } else if (navigateTo) {
+      navigateTo(`seating/view/${classId}`);
+    } else {
+      // Fallback to internal state change
+      setSelectedClassId(classId);
+      setCurrentView("viewer");
+    }
   };
 
   const handleEditChart = (classId, className) => {
     console.log("Edit chart for class:", classId, className);
-    // Show editor within the app
-    setSelectedClassId(classId);
-    setCurrentView("editor");
+    // Update URL when editing chart
+    if (nav?.toSeatingEdit) {
+      nav.toSeatingEdit(classId);
+    } else if (navigateTo) {
+      navigateTo(`seating/edit/${classId}`);
+    } else {
+      // Fallback to internal state change
+      setSelectedClassId(classId);
+      setCurrentView("editor");
+    }
   };
 
   const handleNewChart = (classId, className) => {
     console.log("Create new chart for class:", classId, className);
-    // Show editor for new chart within the app
-    setSelectedClassId(classId);
-    setCurrentView("editor");
+    // Update URL when creating new chart
+    if (nav?.toSeatingEdit) {
+      nav.toSeatingEdit(classId);
+    } else if (navigateTo) {
+      navigateTo(`seating/edit/${classId}`);
+    } else {
+      // Fallback to internal state change
+      setSelectedClassId(classId);
+      setCurrentView("editor");
+    }
   };
 
   const handleBackToList = () => {
-    setCurrentView("list");
-    setSelectedClassId(null);
-    fetchClassesWithSeatingCharts(); // Refresh the list
+    // Navigate back to seating list
+    if (nav?.toSeating) {
+      nav.toSeating();
+    } else if (navigateTo) {
+      navigateTo("seating");
+    } else {
+      // Fallback to internal state change
+      setCurrentView("list");
+      setSelectedClassId(null);
+      fetchClassesWithSeatingCharts(); // Refresh the list
+    }
   };
 
   // Add/remove seating-editor-page class based on current view
@@ -116,8 +156,10 @@ const Seating = ({ data, navigateTo }) => {
     if (window.SeatingViewer) {
       return React.createElement(window.SeatingViewer, {
         classId: selectedClassId,
-        onEdit: () => setCurrentView("editor"),
+        periodId: selectedPeriodId,
+        onEdit: () => handleEditChart(selectedClassId, "Edit"),
         onBack: handleBackToList,
+        navigateTo: navigateTo,
       });
     } else {
       // Load SeatingViewer if not available
@@ -146,8 +188,10 @@ const Seating = ({ data, navigateTo }) => {
     if (window.SeatingEditor) {
       return React.createElement(window.SeatingEditor, {
         classId: selectedClassId,
+        periodId: selectedPeriodId,
         onBack: handleBackToList,
-        onView: () => setCurrentView("viewer"),
+        onView: () => handleViewChart(selectedClassId, "View"),
+        navigateTo: navigateTo,
       });
     } else {
       // Try loading again

@@ -38,6 +38,14 @@ const App = () => {
       return "class-add-students";
     }
 
+    // Check for seating patterns
+    if (hash.startsWith("seating/view/")) {
+      return "seating-view";
+    }
+    if (hash.startsWith("seating/edit/")) {
+      return "seating-edit";
+    }
+
     const validViews = ["dashboard", "students", "classes", "seating", "layouts"];
     return validViews.includes(hash) ? hash : "dashboard";
   };
@@ -125,6 +133,16 @@ const App = () => {
       // Check for class student manager pattern
       if (hash.includes("/add-students")) {
         setCurrentView("class-add-students");
+        return;
+      }
+
+      // Check for seating patterns
+      if (hash.startsWith("seating/view/")) {
+        setCurrentView("seating-view");
+        return;
+      }
+      if (hash.startsWith("seating/edit/")) {
+        setCurrentView("seating-edit");
         return;
       }
 
@@ -314,6 +332,35 @@ const App = () => {
         return React.createElement(Components.Seating, {
           data: appData,
           refreshData: fetchData,
+          navigateTo: handleNavigate,
+        });
+
+      case "seating-view":
+        // Parse class ID and optional period ID from hash
+        const seatingViewMatch = window.location.hash.match(/#seating\/view\/(\d+)(?:\/period\/(\d+))?/);
+        const viewClassId = seatingViewMatch?.[1];
+        const viewPeriodId = seatingViewMatch?.[2];
+        return React.createElement(Components.Seating, {
+          data: appData,
+          refreshData: fetchData,
+          navigateTo: handleNavigate,
+          initialView: "viewer",
+          classId: viewClassId,
+          periodId: viewPeriodId,
+        });
+
+      case "seating-edit":
+        // Parse class ID and optional period ID from hash
+        const seatingEditMatch = window.location.hash.match(/#seating\/edit\/(\d+)(?:\/period\/(\d+))?/);
+        const editClassId = seatingEditMatch?.[1];
+        const editPeriodId = seatingEditMatch?.[2];
+        return React.createElement(Components.Seating, {
+          data: appData,
+          refreshData: fetchData,
+          navigateTo: handleNavigate,
+          initialView: "editor",
+          classId: editClassId,
+          periodId: editPeriodId,
         });
 
       case "layouts":
