@@ -323,30 +323,30 @@ const App = () => {
 
       case "seating":
         // Parse the URL to determine view/edit mode and IDs
-        const hash = window.location.hash.slice(1);
-        let initialView = "list";
-        let classId = null;
-        let periodId = null;
+        const seatingHash = window.location.hash.slice(1);
+        let seatingInitialView = "list";
+        let seatingClassId = null;
+        let seatingPeriodId = null;
         
-        if (hash.startsWith("seating/view/")) {
-          const viewMatch = hash.match(/seating\/view\/(\d+)(?:\/period\/(\d+))?/);
-          initialView = "viewer";
-          classId = viewMatch?.[1];
-          periodId = viewMatch?.[2];
-        } else if (hash.startsWith("seating/edit/")) {
-          const editMatch = hash.match(/seating\/edit\/(\d+)(?:\/period\/(\d+))?/);
-          initialView = "editor";
-          classId = editMatch?.[1];
-          periodId = editMatch?.[2];
+        if (seatingHash.startsWith("seating/view/")) {
+          const viewMatch = seatingHash.match(/seating\/view\/(\d+)(?:\/period\/(\d+))?/);
+          seatingInitialView = "viewer";
+          seatingClassId = viewMatch?.[1];
+          seatingPeriodId = viewMatch?.[2];
+        } else if (seatingHash.startsWith("seating/edit/")) {
+          const editMatch = seatingHash.match(/seating\/edit\/(\d+)(?:\/period\/(\d+))?/);
+          seatingInitialView = "editor";
+          seatingClassId = editMatch?.[1];
+          seatingPeriodId = editMatch?.[2];
         }
         
         return React.createElement(Components.Seating, {
           data: appData,
           refreshData: fetchData,
           navigateTo: handleNavigate,
-          initialView: initialView,
-          classId: classId,
-          periodId: periodId,
+          initialView: seatingInitialView,
+          classId: seatingClassId,
+          periodId: seatingPeriodId,
         });
 
       case "layouts":
