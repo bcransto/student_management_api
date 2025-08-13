@@ -2124,7 +2124,7 @@ const LayoutSelectorModal = ({ onClose, onSelect, availableLayouts, setAvailable
   const loadLayouts = async () => {
     try {
       setLoading(true);
-      const layouts = await window.ApiModule.request("/classroom-layouts/");
+      const layouts = await window.ApiModule.request("/layouts/");
       console.log("Available layouts:", layouts);
       setAvailableLayouts(layouts);
     } catch (error) {

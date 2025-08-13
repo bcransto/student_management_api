@@ -74,15 +74,15 @@ const Classes = ({ data, navigateTo, currentParams }) => {
         
         return React.createElement(
           "div",
-          { key: cls.id, className: "class-card" },
+          { key: cls.id, className: "classes-list-card" },
           // Card Header
           React.createElement(
             "div",
-            { className: "class-card-header" },
-            React.createElement("h3", { className: "class-card-title" }, cls.name),
+            { className: "classes-list-card-header" },
+            React.createElement("h3", { className: "classes-list-card-title" }, cls.name),
             React.createElement(
               "span",
-              { className: `class-card-badge ${cls.subject ? cls.subject.toLowerCase().replace(/\s+/g, '-') : ''}` },
+              { className: `classes-list-card-badge ${cls.subject ? cls.subject.toLowerCase().replace(/\s+/g, '-') : ''}` },
               cls.subject || "General"
             )
           ),
@@ -90,10 +90,10 @@ const Classes = ({ data, navigateTo, currentParams }) => {
           // Card Body
           React.createElement(
             "div",
-            { className: "class-card-body" },
+            { className: "classes-list-card-body" },
             cls.description && React.createElement(
               "p",
-              { className: "class-card-description" },
+              { className: "classes-list-card-description" },
               cls.description
             ),
             
@@ -176,7 +176,7 @@ const Classes = ({ data, navigateTo, currentParams }) => {
           // Card Footer with Actions
           React.createElement(
             "div",
-            { className: "class-card-footer" },
+            { className: "classes-list-card-footer" },
             React.createElement(
               "button",
               {
