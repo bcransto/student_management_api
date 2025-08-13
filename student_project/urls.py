@@ -6,7 +6,7 @@ from django.contrib import admin
 from django.http import Http404, HttpResponse
 from django.urls import include, path
 
-from students.views import frontend_view, layout_editor_view, modular_layout_editor_view, test_view
+from students.views import frontend_view, test_view
 
 
 def serve_frontend_file(request, file_path):
@@ -58,10 +58,8 @@ def serve_frontend_file(request, file_path):
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/", include("students.urls")),
-    path("layout-editor/", layout_editor_view, name="layout_editor"),
-    path("layout-editor-new/", modular_layout_editor_view, name="modular_layout_editor"),
-    # Serve layout editor static files
-    path("frontend/layouts/editor/", lambda request: serve_frontend_file(request, "layouts/editor/index.html"), name="layout_editor_new_location"),
+    # Single layout editor route - serves the frontend editor
+    path("layout-editor/", lambda request: serve_frontend_file(request, "layouts/editor/index.html"), name="layout_editor"),
     # Serve frontend static files
     path("frontend/<path:file_path>", serve_frontend_file, name="frontend_static"),
     path("test/", test_view, name="test"),

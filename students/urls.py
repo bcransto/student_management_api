@@ -32,6 +32,10 @@ router.register(r"obstacles", views.LayoutObstacleViewSet)
 router.register(r"seating-periods", views.SeatingPeriodViewSet)
 router.register(r"seating-assignments", views.SeatingAssignmentViewSet)
 
+# Add snake_case aliases for consistency (both hyphenated and snake_case work)
+router.register(r"seating_periods", views.SeatingPeriodViewSet, basename="seating_periods")
+router.register(r"seating_assignments", views.SeatingAssignmentViewSet, basename="seating_assignments")
+
 urlpatterns = [
     # JWT Authentication endpoints - FIXED to use custom serializer
     path("token/", CustomTokenObtainPairView.as_view(), name="token_obtain_pair"),
