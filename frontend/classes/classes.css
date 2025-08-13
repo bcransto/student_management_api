@@ -468,6 +468,8 @@
   border-radius: 16px;
   padding: 2rem;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  overflow: visible;
+  min-width: 0;
 }
 
 .roster-header {
@@ -495,65 +497,106 @@
   font-weight: 600;
 }
 
-/* Student Grid */
+/* Student Grid - Fixed Layout */
 .roster-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 1.5rem;
+  padding: 1rem 0;
+  width: 100%;
+}
+
+.roster-grid > * {
+  flex: 1 1 calc(50% - 0.75rem);
+  min-width: 300px;
+  max-width: calc(50% - 0.75rem);
+}
+
+@media (max-width: 768px) {
+  .roster-grid > * {
+    flex: 1 1 100%;
+    max-width: 100%;
+  }
 }
 
 .student-card {
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  padding: 1.25rem;
+  background: white !important;
+  border: 2px solid #e5e7eb !important;
+  border-radius: 12px !important;
+  padding: 1.5rem !important;
   transition: all 0.2s ease;
+  min-height: 200px;
+  display: block !important;
+  position: static !important;
+  margin: 0 !important;
+  width: auto !important;
+  height: auto !important;
 }
 
 .student-card:hover {
-  background: white;
+  background: #f9fafb;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   transform: translateY(-2px);
+  border-color: #667eea;
 }
 
 .student-card-header {
-  margin-bottom: 1rem;
-  padding-bottom: 0.75rem;
-  border-bottom: 1px solid #e5e7eb;
+  margin-bottom: 1rem !important;
+  padding-bottom: 0.75rem !important;
+  border-bottom: 2px solid #e5e7eb !important;
+  display: block !important;
+  position: static !important;
 }
 
 .student-card-header h4 {
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: #1f2937;
-  margin: 0;
-  margin-bottom: 0.25rem;
+  font-size: 1.25rem !important;
+  font-weight: 700 !important;
+  color: #1f2937 !important;
+  margin: 0 0 0.25rem 0 !important;
+  word-wrap: break-word;
+  display: block !important;
 }
 
 .student-last-name {
-  font-size: 0.875rem;
-  color: #6b7280;
-  font-weight: 500;
+  font-size: 1rem !important;
+  color: #6b7280 !important;
+  font-weight: 500 !important;
+  display: block !important;
+  margin: 0 !important;
 }
 
 .student-card-details {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+  display: block !important;
+  margin-top: 0.75rem !important;
+  position: static !important;
 }
 
 .student-detail {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  font-size: 0.875rem;
-  color: #4b5563;
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 0.75rem !important;
+  font-size: 0.875rem !important;
+  color: #4b5563 !important;
+  line-height: 1.4 !important;
+  margin-bottom: 0.5rem !important;
+  position: static !important;
 }
 
 .student-detail i {
-  width: 20px;
-  color: #9ca3af;
-  text-align: center;
+  width: 20px !important;
+  min-width: 20px !important;
+  color: #9ca3af !important;
+  text-align: center !important;
+  margin-top: 2px !important;
+  flex-shrink: 0 !important;
+  display: inline-block !important;
+}
+
+.student-detail span {
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  flex: 1 !important;
+  display: inline-block !important;
 }
 
 .no-roster {
@@ -564,9 +607,9 @@
 }
 
 /* Responsive Design for Class View */
-@media (max-width: 1024px) {
+@media (max-width: 1200px) {
   .roster-grid {
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 
@@ -587,10 +630,30 @@
   
   .roster-grid {
     grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .student-card {
+    padding: 1rem;
+    min-height: 150px;
   }
   
   .class-info-card,
   .roster-card {
     padding: 1.25rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .student-card-header h4 {
+    font-size: 1.1rem;
+  }
+  
+  .student-last-name {
+    font-size: 0.9rem;
+  }
+  
+  .student-detail {
+    font-size: 0.8rem;
   }
 }

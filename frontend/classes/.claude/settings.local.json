@@ -4,7 +4,9 @@
       "Bash(python:*)",
       "Bash(source:*)",
       "Bash(lsof:*)",
-      "Bash(git -C /Users/bcransto/Documents/student_management_api diff --stat)"
+      "Bash(git -C /Users/bcransto/Documents/student_management_api diff --stat)",
+      "Bash(git -C /Users/bcransto/Documents/student_management_api add -A)",
+      "Bash(git -C /Users/bcransto/Documents/student_management_api push origin main)"
     ],
     "deny": [],
     "ask": []
