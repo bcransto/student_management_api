@@ -31,8 +31,8 @@ const Students = ({ data, navigateTo, apiModule }) => {
   if (!students) {
     return React.createElement(
       "div",
-      { className: "loading" },
-      React.createElement("div", { className: "spinner" }),
+      { className: "students-loading" },
+      React.createElement("div", { className: "students-spinner" }),
       "Loading students..."
     );
   }
@@ -56,7 +56,7 @@ const Students = ({ data, navigateTo, apiModule }) => {
     React.createElement(
       "div",
       { 
-        className: "search-container",
+        className: "students-search-container",
         style: { 
           marginBottom: "20px",
           padding: "0 20px"
@@ -64,7 +64,7 @@ const Students = ({ data, navigateTo, apiModule }) => {
       },
       React.createElement("input", {
         type: "text",
-        className: "form-control",
+        className: "students-search-input",
         placeholder: "Search by name, nickname, student ID, or email...",
         value: searchTerm,
         onChange: (e) => setSearchTerm(e.target.value),
@@ -91,10 +91,10 @@ const Students = ({ data, navigateTo, apiModule }) => {
     // Students Table
     React.createElement(
       "div",
-      { className: "table-container" },
+      { className: "students-table-container" },
       React.createElement(
         "table",
-        { className: "table" },
+        { className: "students-table" },
         // Table Header
         React.createElement(
           "thead",
