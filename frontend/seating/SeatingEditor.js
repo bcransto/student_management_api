@@ -2124,9 +2124,11 @@ const LayoutSelectorModal = ({ onClose, onSelect, availableLayouts, setAvailable
   const loadLayouts = async () => {
     try {
       setLoading(true);
-      const layouts = await window.ApiModule.request("/layouts/");
-      console.log("Available layouts:", layouts);
-      setAvailableLayouts(layouts);
+      const response = await window.ApiModule.request("/layouts/");
+      console.log("Available layouts:", response);
+      // Handle paginated response
+      const layouts = response.results || response;
+      setAvailableLayouts(Array.isArray(layouts) ? layouts : []);
     } catch (error) {
       console.error("Failed to load layouts:", error);
       alert("Failed to load layouts");
