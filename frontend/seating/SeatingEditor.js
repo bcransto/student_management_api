@@ -1315,12 +1315,12 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
       tomorrow.setDate(tomorrow.getDate() + 1);
       const startDate = tomorrow.toISOString().split("T")[0];
 
-      // Auto-generate period name
-      const periodName = `Period starting ${tomorrow.toLocaleDateString("en-US", {
-        month: "numeric",
-        day: "numeric",
-        year: "2-digit",
-      })}`;
+      // Get all periods for this class to determine the chart number
+      const allPeriods = await window.ApiModule.request(`/seating-periods/?class_assigned=${classId}`);
+      const chartNumber = allPeriods.length + 1;
+      
+      // Auto-generate period name as "Chart N"
+      const periodName = `Chart ${chartNumber}`;
 
       // Create new period with layout from previous period or class
       const layoutId =
