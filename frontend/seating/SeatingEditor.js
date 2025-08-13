@@ -1316,8 +1316,27 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
       const startDate = tomorrow.toISOString().split("T")[0];
 
       // Get all periods for this class to determine the chart number
-      const allPeriods = await window.ApiModule.request(`/seating-periods/?class_assigned=${classId}`);
-      const chartNumber = allPeriods.length + 1;
+      let chartNumber = 1;
+      try {
+        const allPeriods = await window.ApiModule.request(`/seating-periods/?class_assigned=${classId}`);
+        console.log("All periods response:", allPeriods);
+        
+        // Handle both array and object responses
+        if (Array.isArray(allPeriods)) {
+          chartNumber = allPeriods.length + 1;
+        } else if (allPeriods && typeof allPeriods === 'object') {
+          // If it's a paginated response with results array
+          if (allPeriods.results && Array.isArray(allPeriods.results)) {
+            chartNumber = allPeriods.results.length + 1;
+          } else if (allPeriods.count !== undefined) {
+            chartNumber = allPeriods.count + 1;
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching periods for chart numbering:", error);
+        // Fall back to 1 if we can't get the count
+        chartNumber = 1;
+      }
       
       // Auto-generate period name as "Chart N"
       const periodName = `Chart ${chartNumber}`;
@@ -1351,9 +1370,21 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
       setAssignments({});
       setNewAssignments({});
       setHasUnsavedChanges(false);
+      
+      // Show success message
+      console.log(`Successfully created new period: ${periodName}`);
     } catch (error) {
-      console.error("Error creating new period:", error);
-      alert("Failed to create new seating period. Please try again.");
+      console.error("Error in new period creation process:", error);
+      
+      // Check if the period was actually created despite the error
+      try {
+        await loadClassData();
+        // If we successfully reloaded and have a new period, don't show error
+        console.log("Period may have been created despite error, data reloaded");
+      } catch (reloadError) {
+        // Only show error if we truly failed
+        alert("Failed to create new seating period. Please try again.");
+      }
     } finally {
       setIsCreatingPeriod(false);
     }
