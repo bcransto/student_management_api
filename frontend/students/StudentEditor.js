@@ -467,7 +467,21 @@ const StudentEditor = ({ studentId, navigateTo, apiModule }) => {
                   "div",
                   {
                     key: roster.id,
-                    className: "class-card",
+                    className: "class-card clickable-class-card",
+                    onClick: () => {
+                      // Navigate to the class view
+                      const classId = roster.class_assigned;
+                      if (classId) {
+                        if (navigateTo && typeof navigateTo === 'function') {
+                          navigateTo(`classes/view/${classId}`);
+                        } else {
+                          // Fallback to direct hash navigation
+                          window.location.hash = `#classes/view/${classId}`;
+                        }
+                      }
+                    },
+                    style: { cursor: "pointer" },
+                    title: "Click to view class details"
                   },
                   React.createElement(
                     "div",
@@ -495,7 +509,13 @@ const StudentEditor = ({ studentId, navigateTo, apiModule }) => {
                         null,
                         "Teacher: ",
                         roster.class_assigned_details.teacher_name
-                      )
+                      ),
+                    React.createElement(
+                      "div",
+                      { className: "class-link-indicator" },
+                      React.createElement("i", { className: "fas fa-arrow-right" }),
+                      " View Class"
+                    )
                   )
                 )
               )
