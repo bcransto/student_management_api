@@ -8,6 +8,9 @@ const Classes = ({ data, refreshData, navigateTo, currentParams }) => {
 
   const { classes } = data || {};
   console.log("Classes array:", classes);
+  
+  // State for create modal
+  const [showCreateModal, setShowCreateModal] = React.useState(false);
 
   if (!classes || !Array.isArray(classes)) {
     return React.createElement(
@@ -35,8 +38,24 @@ const Classes = ({ data, refreshData, navigateTo, currentParams }) => {
 
   const handleNewClass = () => {
     console.log("New class button clicked");
-    // TODO: Implement new class creation modal or navigation
-    alert("New class creation coming soon!");
+    setShowCreateModal(true);
+  };
+  
+  const handleCreateSuccess = (newClass) => {
+    console.log("New class created:", newClass);
+    setShowCreateModal(false);
+    
+    // Navigate to the new class view
+    if (navigateTo && typeof navigateTo === 'function') {
+      navigateTo(`classes/view/${newClass.id}`);
+    } else {
+      window.location.hash = `#classes/view/${newClass.id}`;
+    }
+    
+    // Refresh data to show new class in list
+    if (refreshData) {
+      refreshData();
+    }
   };
 
   return React.createElement(
@@ -183,7 +202,14 @@ const Classes = ({ data, refreshData, navigateTo, currentParams }) => {
           )
         );
       })
-    )
+    ),
+    
+    // Create Class Modal
+    React.createElement(window.ClassCreateModalComponent, {
+      isOpen: showCreateModal,
+      onClose: () => setShowCreateModal(false),
+      onSuccess: handleCreateSuccess
+    })
   );
 };
 

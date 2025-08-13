@@ -57,6 +57,10 @@ class ClassViewSet(viewsets.ModelViewSet):
         if self.request.user.is_superuser:
             return Class.objects.all()
         return Class.objects.filter(teacher=self.request.user)
+    
+    def perform_create(self, serializer):
+        """Auto-set the teacher to the current user when creating a class"""
+        serializer.save(teacher=self.request.user)
 
     @action(detail=True, methods=["get"])
     def seating_chart(self, request, pk=None):
