@@ -39,11 +39,8 @@ const App = () => {
     }
 
     // Check for seating patterns
-    if (hash.startsWith("seating/view/")) {
-      return "seating-view";
-    }
-    if (hash.startsWith("seating/edit/")) {
-      return "seating-edit";
+    if (hash.startsWith("seating/view/") || hash.startsWith("seating/edit/")) {
+      return "seating";
     }
 
     const validViews = ["dashboard", "students", "classes", "seating", "layouts"];
@@ -136,13 +133,9 @@ const App = () => {
         return;
       }
 
-      // Check for seating patterns
-      if (hash.startsWith("seating/view/")) {
-        setCurrentView("seating-view");
-        return;
-      }
-      if (hash.startsWith("seating/edit/")) {
-        setCurrentView("seating-edit");
+      // Check for seating patterns (pass to seating component to handle)
+      if (hash.startsWith("seating/view/") || hash.startsWith("seating/edit/")) {
+        setCurrentView("seating");
         return;
       }
 
@@ -329,38 +322,31 @@ const App = () => {
         });
 
       case "seating":
+        // Parse the URL to determine view/edit mode and IDs
+        const hash = window.location.hash.slice(1);
+        let initialView = "list";
+        let classId = null;
+        let periodId = null;
+        
+        if (hash.startsWith("seating/view/")) {
+          const viewMatch = hash.match(/seating\/view\/(\d+)(?:\/period\/(\d+))?/);
+          initialView = "viewer";
+          classId = viewMatch?.[1];
+          periodId = viewMatch?.[2];
+        } else if (hash.startsWith("seating/edit/")) {
+          const editMatch = hash.match(/seating\/edit\/(\d+)(?:\/period\/(\d+))?/);
+          initialView = "editor";
+          classId = editMatch?.[1];
+          periodId = editMatch?.[2];
+        }
+        
         return React.createElement(Components.Seating, {
           data: appData,
           refreshData: fetchData,
           navigateTo: handleNavigate,
-        });
-
-      case "seating-view":
-        // Parse class ID and optional period ID from hash
-        const seatingViewMatch = window.location.hash.match(/#seating\/view\/(\d+)(?:\/period\/(\d+))?/);
-        const viewClassId = seatingViewMatch?.[1];
-        const viewPeriodId = seatingViewMatch?.[2];
-        return React.createElement(Components.Seating, {
-          data: appData,
-          refreshData: fetchData,
-          navigateTo: handleNavigate,
-          initialView: "viewer",
-          classId: viewClassId,
-          periodId: viewPeriodId,
-        });
-
-      case "seating-edit":
-        // Parse class ID and optional period ID from hash
-        const seatingEditMatch = window.location.hash.match(/#seating\/edit\/(\d+)(?:\/period\/(\d+))?/);
-        const editClassId = seatingEditMatch?.[1];
-        const editPeriodId = seatingEditMatch?.[2];
-        return React.createElement(Components.Seating, {
-          data: appData,
-          refreshData: fetchData,
-          navigateTo: handleNavigate,
-          initialView: "editor",
-          classId: editClassId,
-          periodId: editPeriodId,
+          initialView: initialView,
+          classId: classId,
+          periodId: periodId,
         });
 
       case "layouts":
