@@ -1881,8 +1881,9 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
               {
                 className: "btn btn-sm btn-secondary",
                 style: { width: "100%" },
-                onClick: () => alert("Layout selector coming soon"),
-                title: "Select classroom layout",
+                onClick: () => setShowLayoutSelector(true),
+                disabled: !isViewingCurrentPeriod,
+                title: isViewingCurrentPeriod ? "Select classroom layout" : "Cannot change layout for historical periods",
               },
               React.createElement("i", { className: "fas fa-th" }),
               " Select Layout"
@@ -2094,6 +2095,176 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
           onSortChange: setStudentSortBy,
           highlightMode: highlightMode,
         })
+      )
+    ),
+    
+    // Layout Selector Modal
+    showLayoutSelector && React.createElement(LayoutSelectorModal, {
+      onClose: () => setShowLayoutSelector(false),
+      onSelect: (layoutId) => {
+        console.log("Selected layout:", layoutId);
+        setShowLayoutSelector(false);
+        // TODO: Apply layout change
+      },
+      availableLayouts: availableLayouts,
+      setAvailableLayouts: setAvailableLayouts,
+    })
+  );
+};
+
+// Layout Selector Modal Component
+const LayoutSelectorModal = ({ onClose, onSelect, availableLayouts, setAvailableLayouts }) => {
+  const [loading, setLoading] = useState(true);
+
+  // Load available layouts when modal opens
+  useEffect(() => {
+    loadLayouts();
+  }, []);
+
+  const loadLayouts = async () => {
+    try {
+      setLoading(true);
+      const layouts = await window.ApiModule.request("/classroom-layouts/");
+      console.log("Available layouts:", layouts);
+      setAvailableLayouts(layouts);
+    } catch (error) {
+      console.error("Failed to load layouts:", error);
+      alert("Failed to load layouts");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return React.createElement(
+    "div",
+    {
+      className: "modal-overlay",
+      onClick: onClose,
+      style: {
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: "rgba(0, 0, 0, 0.5)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 1000,
+      }
+    },
+    React.createElement(
+      "div",
+      {
+        className: "modal-content",
+        onClick: (e) => e.stopPropagation(),
+        style: {
+          backgroundColor: "white",
+          borderRadius: "8px",
+          padding: "24px",
+          maxWidth: "500px",
+          width: "90%",
+          maxHeight: "70vh",
+          display: "flex",
+          flexDirection: "column",
+        }
+      },
+      // Modal Header
+      React.createElement(
+        "div",
+        {
+          style: {
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: "20px",
+          }
+        },
+        React.createElement("h2", { style: { margin: 0 } }, "Select Layout"),
+        React.createElement(
+          "button",
+          {
+            onClick: onClose,
+            style: {
+              background: "none",
+              border: "none",
+              fontSize: "24px",
+              cursor: "pointer",
+              padding: "0",
+              color: "#666",
+            }
+          },
+          "×"
+        )
+      ),
+      
+      // Modal Body
+      React.createElement(
+        "div",
+        {
+          style: {
+            flex: 1,
+            overflowY: "auto",
+            marginBottom: "20px",
+          }
+        },
+        loading
+          ? React.createElement("div", { style: { textAlign: "center", padding: "20px" } }, "Loading layouts...")
+          : availableLayouts.length === 0
+          ? React.createElement("div", { style: { textAlign: "center", padding: "20px", color: "#666" } }, 
+              "No layouts available. Create a new layout to get started.")
+          : React.createElement(
+              "div",
+              { style: { display: "flex", flexDirection: "column", gap: "8px" } },
+              availableLayouts.map(layout =>
+                React.createElement(
+                  "div",
+                  {
+                    key: layout.id,
+                    onClick: () => onSelect(layout.id),
+                    style: {
+                      padding: "12px",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: "4px",
+                      cursor: "pointer",
+                      transition: "background-color 0.2s",
+                    },
+                    onMouseEnter: (e) => e.currentTarget.style.backgroundColor = "#f3f4f6",
+                    onMouseLeave: (e) => e.currentTarget.style.backgroundColor = "white",
+                  },
+                  React.createElement("div", { style: { fontWeight: "500" } }, layout.name),
+                  layout.description && React.createElement(
+                    "div", 
+                    { style: { fontSize: "0.875rem", color: "#6b7280", marginTop: "4px" } }, 
+                    layout.description
+                  )
+                )
+              )
+            )
+      ),
+      
+      // Modal Footer with New Layout button
+      React.createElement(
+        "div",
+        {
+          style: {
+            borderTop: "1px solid #e5e7eb",
+            paddingTop: "16px",
+          }
+        },
+        React.createElement(
+          "button",
+          {
+            className: "btn btn-primary",
+            onClick: () => {
+              alert("New Layout - Coming soon!");
+              // TODO: Navigate to layout editor or open in new tab
+            },
+            style: { width: "100%" }
+          },
+          React.createElement("i", { className: "fas fa-plus" }),
+          " New Layout"
+        )
       )
     )
   );

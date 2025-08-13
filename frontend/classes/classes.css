@@ -3,19 +3,223 @@
 
 .classes-container {
   /* Container specific to classes page */
+  padding: 1rem;
 }
 
-.classes-page-header {
-  /* Classes page header styling */
+/* Header with New Class button */
+.classes-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.classes-header-content {
+  flex: 1;
+}
+
+.btn-new-class {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.btn-new-class:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(102, 126, 234, 0.3);
+}
+
+/* Classes Grid Layout */
+.classes-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
   margin-bottom: 2rem;
 }
 
-.classes-table-container {
-  /* Classes table container */
+/* Class Card Styles */
+.class-card {
   background: white;
   border-radius: 16px;
   overflow: hidden;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #e5e7eb;
+}
+
+.class-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+  border-color: #cbd5e1;
+}
+
+/* Card Header */
+.class-card-header {
+  padding: 1.5rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.class-card-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0;
+  color: white;
+  flex: 1;
+  margin-right: 1rem;
+}
+
+.class-card-badge {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  backdrop-filter: blur(10px);
+  white-space: nowrap;
+}
+
+/* Subject-specific badge colors */
+.class-card-badge.math { background: rgba(239, 68, 68, 0.2); }
+.class-card-badge.science { background: rgba(34, 197, 94, 0.2); }
+.class-card-badge.english { background: rgba(59, 130, 246, 0.2); }
+.class-card-badge.history { background: rgba(245, 158, 11, 0.2); }
+.class-card-badge.art { background: rgba(236, 72, 153, 0.2); }
+
+/* Card Body */
+.class-card-body {
+  padding: 1.5rem;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.class-card-description {
+  color: #6b7280;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* Class Info Grid */
+.class-info-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.class-info-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.class-info-item i {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f3f4f6;
+  border-radius: 8px;
+  color: #6b7280;
+  font-size: 0.875rem;
+}
+
+.class-info-item > div {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.class-info-label {
+  font-size: 0.75rem;
+  color: #9ca3af;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.class-info-value {
+  font-size: 1rem;
+  color: #374151;
+  font-weight: 600;
+}
+
+.class-info-value.has-layout {
+  color: #10b981;
+}
+
+.class-info-value.no-layout {
+  color: #ef4444;
+}
+
+/* Enrollment Progress Bar */
+.class-enrollment-progress {
+  margin-top: 1rem;
+}
+
+.class-enrollment-bar {
+  height: 8px;
+  background: #f3f4f6;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+
+.class-enrollment-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #10b981 0%, #059669 100%);
+  transition: width 0.3s ease;
+  border-radius: 4px;
+}
+
+.class-enrollment-text {
+  font-size: 0.75rem;
+  color: #6b7280;
+  font-weight: 600;
+}
+
+/* Card Footer */
+.class-card-footer {
+  padding: 1rem 1.5rem;
+  background: #f9fafb;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  gap: 0.75rem;
+}
+
+.class-action-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  transition: all 0.2s ease;
+}
+
+.class-action-btn:hover {
+  transform: translateY(-1px);
+}
+
+/* Remove old table styles */
+.classes-table-container {
+  display: none;
 }
 
 .classes-table {
@@ -124,226 +328,55 @@
   margin-bottom: 1rem;
 }
 
-/* ==========================================================================
-   SEATING CHART STYLES
-   ========================================================================== */
-
-.seating-chart-container {
-  background: white;
-  border-radius: 16px;
-  padding: 2rem;
-  margin-bottom: 2rem;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
-}
-
-.seating-chart-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 2rem;
-}
-
-.seating-chart-title {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: #1f2937;
-}
-
-.seating-chart-stats {
-  display: flex;
-  gap: 2rem;
-  margin-bottom: 2rem;
-}
-
-.seating-stat {
-  text-align: center;
-}
-
-.seating-stat-value {
-  font-size: 2rem;
-  font-weight: 700;
-  color: #1f2937;
-  margin-bottom: 0.25rem;
-}
-
-.seating-stat-label {
-  color: #6b7280;
-  font-size: 0.875rem;
-  font-weight: 500;
-}
-
-.seating-grid {
-  display: grid;
-  gap: 1rem;
-  margin: 2rem 0;
-  justify-content: center;
-  position: relative;
-  background: #f8fafc;
-  border: 2px dashed #cbd5e1;
-  border-radius: 12px;
-  padding: 2rem;
-  min-height: 400px;
-}
-
-.seating-table {
-  position: absolute;
-  background: #3b82f6;
-  border-radius: 8px;
-  border: 2px solid #1d4ed8;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  padding: 0.5rem;
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
-}
-
-.seating-table.round {
-  border-radius: 50%;
-}
-
-.seating-table.u_shaped {
-  border-radius: 16px 16px 4px 4px;
-}
-
-.seating-seat {
-  width: 40px;
-  height: 40px;
-  margin: 2px;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 600;
-  font-size: 0.7rem;
-  text-align: center;
-  transition: all 0.3s ease;
-  cursor: pointer;
-  border: 2px solid transparent;
-  line-height: 1;
-  word-break: break-all;
-  overflow: hidden;
-}
-
-.seating-seat.occupied {
-  background: #10b981;
-  color: white;
-  border-color: #059669;
-}
-
-.seating-seat.empty {
-  background: #f3f4f6;
-  color: #9ca3af;
-  border-color: #d1d5db;
-}
-
-.seating-seat:hover {
-  transform: scale(1.1);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-  z-index: 10;
-  position: relative;
-}
-
-.seating-obstacle {
-  position: absolute;
-  background: #ef4444;
-  border: 2px solid #dc2626;
-  border-radius: 4px;
-  opacity: 0.7;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-weight: 600;
-  font-size: 0.75rem;
-}
-
-.seating-legend {
-  display: flex;
-  gap: 2rem;
-  margin-top: 1rem;
-  justify-content: center;
-  flex-wrap: wrap;
-}
-
-.seating-legend-item {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.875rem;
-  color: #6b7280;
-}
-
-.seating-legend-color {
-  width: 16px;
-  height: 16px;
-  border-radius: 4px;
-  border: 1px solid #d1d5db;
-}
-
-.no-layout-message {
-  text-align: center;
-  padding: 3rem;
-  color: #6b7280;
-}
-
-.no-layout-message i {
-  font-size: 3rem;
-  margin-bottom: 1rem;
-  color: #d1d5db;
-}
-
-.no-layout-message h3 {
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: #374151;
-  margin-bottom: 0.5rem;
-}
-
-.no-layout-message p {
-  margin-bottom: 0.5rem;
-}
 
 /* Responsive design for classes */
+@media (max-width: 1024px) {
+  .classes-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 768px) {
-  .classes-table {
-    font-size: 0.875rem;
+  .classes-container {
+    padding: 0.5rem;
   }
-
-  .classes-table th,
-  .classes-table td {
-    padding: 0.75rem 0.5rem;
-  }
-
-  /* Hide less important columns on mobile */
-  .classes-table .hide-mobile {
-    display: none;
-  }
-
-  .class-actions {
-    flex-direction: column;
-    gap: 0.25rem;
-  }
-
-  .seating-chart-stats {
+  
+  .classes-header {
     flex-direction: column;
     gap: 1rem;
-    text-align: center;
   }
-
-  .seating-grid {
+  
+  .classes-header-content {
+    width: 100%;
+  }
+  
+  .btn-new-class {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .classes-grid {
+    gap: 1rem;
+  }
+  
+  .class-card-header {
     padding: 1rem;
   }
-
-  .seating-seat {
-    width: 32px;
-    height: 32px;
-    font-size: 0.6rem;
+  
+  .class-card-title {
+    font-size: 1.1rem;
   }
-
-  .seating-legend {
+  
+  .class-card-body {
+    padding: 1rem;
+  }
+  
+  .class-card-footer {
     flex-direction: column;
-    gap: 1rem;
-    align-items: center;
+    padding: 0.75rem;
+  }
+  
+  .class-action-btn {
+    width: 100%;
   }
 }
