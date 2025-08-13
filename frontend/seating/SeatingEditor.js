@@ -221,7 +221,7 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
     return duplicates;
   };
 
-  const loadClassData = async () => {
+  const loadClassData = async (preservedAssignments = null) => {
     try {
       setLoading(true);
       console.log("Loading data for class:", classId);
@@ -342,8 +342,16 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
         setHasUnsavedChanges(false);
       } else {
         console.log("No seating assignments found");
-        setInitialAssignments({});
-        setHasUnsavedChanges(false);
+        // If we have preserved assignments to apply, use them
+        if (preservedAssignments) {
+          console.log("Applying preserved assignments:", preservedAssignments);
+          setAssignments(preservedAssignments);
+          setInitialAssignments({});
+          setHasUnsavedChanges(true);
+        } else {
+          setInitialAssignments({});
+          setHasUnsavedChanges(false);
+        }
       }
     } catch (error) {
       console.error("Failed to load class data:", error);
@@ -967,22 +975,16 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
         console.log("Collected assignments to remap:", oldAssignments);
       }
       
-      // Reload class data to get updated period with new layout
-      await loadClassData();
+      // Get the new layout data to build remapped assignments
+      let remappedAssignments = {};
       
-      // Get the fresh layout data directly after reload
-      const newLayoutData = await window.ApiModule.request(`/layouts/${layoutId}/`);
-      console.log("Fresh layout data:", newLayoutData);
-      
-      // Stage 6: Apply sequential mapping to new layout
-      // Use setTimeout to ensure state updates from loadClassData are complete
-      setTimeout(() => {
-        if (oldAssignments.length > 0 && newLayoutData?.tables) {
-          console.log("Applying sequential mapping to new layout");
-          console.log("Using layout data:", newLayoutData);
-          
-          // Collect all available seats in the new layout
-          const availableSeats = [];
+      if (oldAssignments.length > 0) {
+        const newLayoutData = await window.ApiModule.request(`/layouts/${layoutId}/`);
+        console.log("New layout data for mapping:", newLayoutData);
+        
+        // Collect all available seats in the new layout
+        const availableSeats = [];
+        if (newLayoutData?.tables) {
           newLayoutData.tables.forEach(table => {
             const seats = table.seats || [];
             seats.sort((a, b) => a.seat_number - b.seat_number);
@@ -1007,34 +1009,29 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
           console.log("Available seats in new layout:", availableSeats.length);
           
           // Map students sequentially
-          const newAssignments = {};
           const mappedCount = Math.min(oldAssignments.length, availableSeats.length);
           
           for (let i = 0; i < mappedCount; i++) {
             const student = oldAssignments[i];
             const seat = availableSeats[i];
             
-            if (!newAssignments[seat.tableId]) {
-              newAssignments[seat.tableId] = {};
+            if (!remappedAssignments[seat.tableId]) {
+              remappedAssignments[seat.tableId] = {};
             }
-            newAssignments[seat.tableId][seat.seatNumber] = student.studentId;
+            remappedAssignments[seat.tableId][seat.seatNumber] = student.studentId;
           }
           
-          console.log(`Mapped ${mappedCount} students to new layout`);
-          console.log("New assignments:", newAssignments);
+          console.log(`Mapped ${mappedCount} students to remappedAssignments`);
+          console.log("Remapped assignments:", remappedAssignments);
+          
           if (oldAssignments.length > availableSeats.length) {
             console.log(`${oldAssignments.length - availableSeats.length} students returned to pool (not enough seats)`);
           }
-          
-          setAssignments(newAssignments);
-          setHasUnsavedChanges(mappedCount > 0);
-        } else {
-          // No assignments to map
-          console.log("No assignments to map or no layout tables");
-          setAssignments({});
-          setHasUnsavedChanges(false);
         }
-      }, 100); // Small delay to ensure state is settled
+      }
+      
+      // Reload class data with the remapped assignments
+      await loadClassData(remappedAssignments);
       
       console.log("=== Layout Selection Complete ===");
       

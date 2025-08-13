@@ -193,8 +193,232 @@ const Classes = ({ data, refreshData, navigateTo, currentParams }) => {
   );
 };
 
-// Export the Classes component (SeatingChart component removed - now in seating module)
+// ClassView component for displaying individual class details with roster
+const ClassView = ({ classId, data, navigateTo }) => {
+  const [classDetails, setClassDetails] = React.useState(null);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState(null);
+
+  React.useEffect(() => {
+    const fetchClassDetails = async () => {
+      try {
+        setLoading(true);
+        console.log("Fetching details for class:", classId);
+        
+        // Fetch class details including roster
+        const response = await window.ApiModule.request(`/api/classes/${classId}/`, {
+          method: 'GET'
+        });
+        
+        console.log("Class details fetched:", response);
+        setClassDetails(response);
+        setError(null);
+      } catch (err) {
+        console.error("Error fetching class details:", err);
+        setError("Failed to load class details");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (classId) {
+      fetchClassDetails();
+    }
+  }, [classId]);
+
+  const handleBack = () => {
+    if (navigateTo && typeof navigateTo === 'function') {
+      navigateTo("classes");
+    } else {
+      window.location.hash = "#classes";
+    }
+  };
+
+  if (loading) {
+    return React.createElement(
+      "div",
+      { className: "loading-container" },
+      React.createElement("div", { className: "spinner" }),
+      React.createElement("p", null, "Loading class details...")
+    );
+  }
+
+  if (error) {
+    return React.createElement(
+      "div",
+      { className: "error-container" },
+      React.createElement("h2", null, "Error"),
+      React.createElement("p", null, error),
+      React.createElement(
+        "button",
+        { className: "btn btn-primary", onClick: handleBack },
+        "Back to Classes"
+      )
+    );
+  }
+
+  if (!classDetails) {
+    return React.createElement(
+      "div",
+      null,
+      React.createElement("p", null, "No class details found"),
+      React.createElement(
+        "button",
+        { className: "btn btn-primary", onClick: handleBack },
+        "Back to Classes"
+      )
+    );
+  }
+
+  // Fetch roster entries for this class
+  const roster = classDetails.roster || [];
+
+  return React.createElement(
+    "div",
+    { className: "class-view-container" },
+    
+    // Header with back button
+    React.createElement(
+      "div",
+      { className: "class-view-header" },
+      React.createElement(
+        "button",
+        { 
+          className: "btn btn-secondary btn-back",
+          onClick: handleBack
+        },
+        React.createElement("i", { className: "fas fa-arrow-left" }),
+        " Back"
+      ),
+      React.createElement(
+        "div",
+        { className: "class-view-title-section" },
+        React.createElement("h1", { className: "class-view-title" }, classDetails.name),
+        classDetails.subject && React.createElement(
+          "span",
+          { className: "class-view-subject" },
+          classDetails.subject
+        )
+      )
+    ),
+
+    // Class Information Card
+    React.createElement(
+      "div",
+      { className: "class-info-card" },
+      React.createElement("h2", null, "Class Information"),
+      React.createElement(
+        "div",
+        { className: "class-details-grid" },
+        React.createElement(
+          "div",
+          { className: "detail-item" },
+          React.createElement("label", null, "Grade Level:"),
+          React.createElement("span", null, classDetails.grade_level || "N/A")
+        ),
+        React.createElement(
+          "div",
+          { className: "detail-item" },
+          React.createElement("label", null, "Description:"),
+          React.createElement("span", null, classDetails.description || "No description")
+        ),
+        React.createElement(
+          "div",
+          { className: "detail-item" },
+          React.createElement("label", null, "Enrollment:"),
+          React.createElement(
+            "span",
+            null,
+            `${classDetails.current_enrollment || 0} students`,
+            classDetails.max_enrollment && ` (Max: ${classDetails.max_enrollment})`
+          )
+        ),
+        React.createElement(
+          "div",
+          { className: "detail-item" },
+          React.createElement("label", null, "Layout:"),
+          React.createElement(
+            "span",
+            null,
+            classDetails.classroom_layout ? "Configured" : "Not configured"
+          )
+        )
+      )
+    ),
+
+    // Roster Section
+    React.createElement(
+      "div",
+      { className: "roster-card" },
+      React.createElement(
+        "div",
+        { className: "roster-header" },
+        React.createElement("h2", null, "Class Roster"),
+        React.createElement(
+          "span",
+          { className: "roster-count" },
+          `${roster.length} students`
+        )
+      ),
+      
+      roster.length > 0 ? React.createElement(
+        "div",
+        { className: "roster-grid" },
+        roster.map((entry) => {
+          const student = entry.student || entry;
+          return React.createElement(
+            "div",
+            { key: entry.id || student.id, className: "student-card" },
+            React.createElement(
+              "div",
+              { className: "student-card-header" },
+              React.createElement(
+                "h4",
+                null,
+                student.nickname || student.first_name
+              ),
+              React.createElement(
+                "span",
+                { className: "student-last-name" },
+                student.last_name
+              )
+            ),
+            React.createElement(
+              "div",
+              { className: "student-card-details" },
+              React.createElement(
+                "div",
+                { className: "student-detail" },
+                React.createElement("i", { className: "fas fa-id-card" }),
+                React.createElement("span", null, student.student_id || "N/A")
+              ),
+              student.email && React.createElement(
+                "div",
+                { className: "student-detail" },
+                React.createElement("i", { className: "fas fa-envelope" }),
+                React.createElement("span", null, student.email)
+              ),
+              student.gender && React.createElement(
+                "div",
+                { className: "student-detail" },
+                React.createElement("i", { className: "fas fa-user" }),
+                React.createElement("span", null, student.gender)
+              )
+            )
+          );
+        })
+      ) : React.createElement(
+        "p",
+        { className: "no-roster" },
+        "No students enrolled in this class yet."
+      )
+    )
+  );
+};
+
+// Export both components
 if (typeof window !== "undefined") {
   window.ClassesComponent = Classes;
-  console.log("Classes component (cleaned up - no SeatingChart) loaded");
+  window.ClassViewComponent = ClassView;
+  console.log("Classes components loaded: Classes (list) and ClassView (detail)");
 }
