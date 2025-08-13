@@ -1,9 +1,10 @@
 // classes.js - Updated to remove SeatingChart component (now in seating module)
 console.log("Loading classes component - cleaned up version...");
 
-const Classes = ({ data, navigateTo, currentParams }) => {
+const Classes = ({ data, refreshData, navigateTo, currentParams }) => {
   console.log("Classes component rendering with data:", data);
   console.log("Current params:", currentParams);
+  console.log("navigateTo prop:", navigateTo);
 
   const { classes } = data || {};
   console.log("Classes array:", classes);
@@ -19,8 +20,23 @@ const Classes = ({ data, navigateTo, currentParams }) => {
 
   const handleClassClick = (cls) => {
     console.log("Class card clicked:", cls.name);
-    // Navigate to class view page with class details
-    navigateTo("classes", { action: "view", classId: cls.id });
+    
+    // NOTE: The app.js file needs to be updated to pass navigateTo prop to Classes component
+    // Line 248-251 in app.js should include: navigateTo: handleNavigate,
+    // For now, we use a fallback to hash navigation
+    
+    if (navigateTo && typeof navigateTo === 'function') {
+      // Use the provided navigation function if available
+      navigateTo("classes", { action: "view", classId: cls.id });
+    } else {
+      // Fallback: use hash navigation directly to show class details
+      // This will need to be handled by the app's routing logic
+      window.location.hash = `#classes/view/${cls.id}`;
+      console.log("Using fallback navigation to:", `#classes/view/${cls.id}`);
+      
+      // Alternative: Navigate to seating view for this class
+      // window.location.hash = `#seating?classId=${cls.id}`;
+    }
   };
 
   const handleNewClass = () => {

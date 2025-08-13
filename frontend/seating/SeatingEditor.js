@@ -971,60 +971,66 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
       await loadClassData();
       
       // Stage 6: Apply sequential mapping to new layout
-      if (oldAssignments.length > 0 && layout?.tables) {
-        console.log("Applying sequential mapping to new layout");
-        
-        // Collect all available seats in the new layout
-        const availableSeats = [];
-        layout.tables.forEach(table => {
-          const seats = table.seats || [];
-          seats.sort((a, b) => a.seat_number - b.seat_number);
+      // Use setTimeout to ensure state updates from loadClassData are complete
+      setTimeout(() => {
+        if (oldAssignments.length > 0 && layout?.tables) {
+          console.log("Applying sequential mapping to new layout");
+          console.log("Current layout after reload:", layout);
           
-          seats.forEach(seat => {
-            availableSeats.push({
-              tableId: String(table.id),
-              seatNumber: String(seat.seat_number),
-              tableNumber: table.table_number,
+          // Collect all available seats in the new layout
+          const availableSeats = [];
+          layout.tables.forEach(table => {
+            const seats = table.seats || [];
+            seats.sort((a, b) => a.seat_number - b.seat_number);
+            
+            seats.forEach(seat => {
+              availableSeats.push({
+                tableId: String(table.id),
+                seatNumber: String(seat.seat_number),
+                tableNumber: table.table_number,
+              });
             });
           });
-        });
-        
-        // Sort available seats by table number, then seat number
-        availableSeats.sort((a, b) => {
-          if (a.tableNumber !== b.tableNumber) {
-            return a.tableNumber - b.tableNumber;
-          }
-          return parseInt(a.seatNumber) - parseInt(b.seatNumber);
-        });
-        
-        console.log("Available seats in new layout:", availableSeats.length);
-        
-        // Map students sequentially
-        const newAssignments = {};
-        const mappedCount = Math.min(oldAssignments.length, availableSeats.length);
-        
-        for (let i = 0; i < mappedCount; i++) {
-          const student = oldAssignments[i];
-          const seat = availableSeats[i];
           
-          if (!newAssignments[seat.tableId]) {
-            newAssignments[seat.tableId] = {};
+          // Sort available seats by table number, then seat number
+          availableSeats.sort((a, b) => {
+            if (a.tableNumber !== b.tableNumber) {
+              return a.tableNumber - b.tableNumber;
+            }
+            return parseInt(a.seatNumber) - parseInt(b.seatNumber);
+          });
+          
+          console.log("Available seats in new layout:", availableSeats.length);
+          
+          // Map students sequentially
+          const newAssignments = {};
+          const mappedCount = Math.min(oldAssignments.length, availableSeats.length);
+          
+          for (let i = 0; i < mappedCount; i++) {
+            const student = oldAssignments[i];
+            const seat = availableSeats[i];
+            
+            if (!newAssignments[seat.tableId]) {
+              newAssignments[seat.tableId] = {};
+            }
+            newAssignments[seat.tableId][seat.seatNumber] = student.studentId;
           }
-          newAssignments[seat.tableId][seat.seatNumber] = student.studentId;
+          
+          console.log(`Mapped ${mappedCount} students to new layout`);
+          console.log("New assignments:", newAssignments);
+          if (oldAssignments.length > availableSeats.length) {
+            console.log(`${oldAssignments.length - availableSeats.length} students returned to pool (not enough seats)`);
+          }
+          
+          setAssignments(newAssignments);
+          setHasUnsavedChanges(mappedCount > 0);
+        } else {
+          // No assignments to map
+          console.log("No assignments to map or no layout tables");
+          setAssignments({});
+          setHasUnsavedChanges(false);
         }
-        
-        console.log(`Mapped ${mappedCount} students to new layout`);
-        if (oldAssignments.length > availableSeats.length) {
-          console.log(`${oldAssignments.length - availableSeats.length} students returned to pool (not enough seats)`);
-        }
-        
-        setAssignments(newAssignments);
-        setHasUnsavedChanges(mappedCount > 0);
-      } else {
-        // No assignments to map
-        setAssignments({});
-        setHasUnsavedChanges(false);
-      }
+      }, 100); // Small delay to ensure state is settled
       
       console.log("=== Layout Selection Complete ===");
       
