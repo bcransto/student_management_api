@@ -970,16 +970,20 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
       // Reload class data to get updated period with new layout
       await loadClassData();
       
+      // Get the fresh layout data directly after reload
+      const newLayoutData = await window.ApiModule.request(`/layouts/${layoutId}/`);
+      console.log("Fresh layout data:", newLayoutData);
+      
       // Stage 6: Apply sequential mapping to new layout
       // Use setTimeout to ensure state updates from loadClassData are complete
       setTimeout(() => {
-        if (oldAssignments.length > 0 && layout?.tables) {
+        if (oldAssignments.length > 0 && newLayoutData?.tables) {
           console.log("Applying sequential mapping to new layout");
-          console.log("Current layout after reload:", layout);
+          console.log("Using layout data:", newLayoutData);
           
           // Collect all available seats in the new layout
           const availableSeats = [];
-          layout.tables.forEach(table => {
+          newLayoutData.tables.forEach(table => {
             const seats = table.seats || [];
             seats.sort((a, b) => a.seat_number - b.seat_number);
             
