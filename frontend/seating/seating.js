@@ -1,6 +1,8 @@
 // frontend/seating/seating.js - Updated Seating Charts Management Component
 
 const Seating = ({ data, navigateTo }) => {
+  // Use NavigationService if available, fallback to navigateTo prop
+  const nav = window.NavigationService || null;
   const [classes, setClasses] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");

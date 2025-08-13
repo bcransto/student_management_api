@@ -2,6 +2,8 @@
 // Student Editor View Component
 
 const StudentEditor = ({ studentId, navigateTo, apiModule }) => {
+  // Use NavigationService if available, fallback to navigateTo prop
+  const nav = window.NavigationService || null;
   const [student, setStudent] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
@@ -139,7 +141,7 @@ const StudentEditor = ({ studentId, navigateTo, apiModule }) => {
       console.log("Student updated successfully:", updatedStudent);
 
       // Success - navigate back to students list
-      navigateTo("students");
+      nav?.toStudents ? nav.toStudents() : navigateTo("students");
     } catch (error) {
       console.error("Error saving student:", error);
       setErrors({ save: error.message || "Failed to save student" });
@@ -164,7 +166,7 @@ const StudentEditor = ({ studentId, navigateTo, apiModule }) => {
       console.log("Student deleted (soft delete) successfully");
 
       // Success - navigate back to students list
-      navigateTo("students");
+      nav?.toStudents ? nav.toStudents() : navigateTo("students");
     } catch (error) {
       console.error("Error deleting student:", error);
       setErrors({ delete: error.message || "Failed to delete student" });
@@ -175,7 +177,7 @@ const StudentEditor = ({ studentId, navigateTo, apiModule }) => {
   };
 
   const handleCancel = () => {
-    navigateTo("students");
+    nav?.toStudents ? nav.toStudents() : navigateTo("students");
   };
 
   // Render loading state
@@ -472,11 +474,13 @@ const StudentEditor = ({ studentId, navigateTo, apiModule }) => {
                       // Navigate to the class view
                       const classId = roster.class_assigned;
                       if (classId) {
-                        if (navigateTo && typeof navigateTo === 'function') {
+                        if (nav?.toClassView) {
+                          nav.toClassView(classId);
+                        } else if (navigateTo && typeof navigateTo === 'function') {
                           navigateTo(`classes/view/${classId}`);
                         } else {
                           // Fallback to direct hash navigation
-                          window.location.hash = `#classes/view/${classId}`;
+                          window.location.hash = Router?.buildHash ? Router.buildHash('classView', {id: classId}) : `#classes/view/${classId}`;
                         }
                       }
                     },

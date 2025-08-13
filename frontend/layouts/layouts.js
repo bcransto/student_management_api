@@ -2,6 +2,9 @@
 // Now with hash-based routing for the editor
 
 const Layouts = ({ data, navigateTo }) => {
+  // Use NavigationService if available, fallback to navigateTo prop
+  const nav = window.NavigationService || null;
+  
   // Get formatDateLong from shared utils for layouts date display
   const formatDate = window.SharedUtils.formatDateLong;
 

@@ -2,13 +2,20 @@
 // Students Component - Extracted from frontend.html
 
 const Students = ({ data, navigateTo, apiModule }) => {
+  // Use NavigationService if available, fallback to navigateTo prop
+  const nav = window.NavigationService || null;
+  
   const { students } = data;
   const [searchTerm, setSearchTerm] = React.useState("");
 
   // Handle student row click - navigate to edit view
   const handleStudentClick = (studentId) => {
     console.log("Navigating to edit student:", studentId);
-    navigateTo("student-edit", { studentId });
+    if (nav?.toStudentEdit) {
+      nav.toStudentEdit(studentId);
+    } else {
+      navigateTo("student-edit", { studentId });
+    }
   };
 
   // Filter students based on search term

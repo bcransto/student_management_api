@@ -216,21 +216,14 @@ Frontend auto-detects production environment via hostname.
 
 ## URL Structure
 
-**Django URLs**:
-- `/` - Main SPA
-- `/api/` - REST endpoints
-- `/admin/` - Django admin
-- `/frontend/<path>` - Static files served via Django
+See `ROUTING.md` for comprehensive routing documentation.
 
-**Frontend Hash Routes**:
-- `#dashboard` - Main view
-- `#students` - Student list with search
-- `#students/edit/{id}` - Edit student
-- `#classes` - Classes list view
-- `#classes/view/{id}` - Individual class details with roster
-- `#classes/{id}/add-students` - Bulk student enrollment manager
-- `#seating` - Seating editor
-- `#layouts` - Layout management (user's layouts only)
+**Key Routes**:
+- Frontend uses hash-based routing (e.g., `#dashboard`, `#classes/view/123`)
+- Backend API at `/api/` with REST endpoints
+- Router utility at `frontend/shared/router.js` provides consistent URL generation
+- NavigationService at `frontend/shared/navigation.js` offers unified navigation API
+- Both hyphenated and snake_case API routes supported for seating endpoints
 
 ## Critical Files to Understand
 

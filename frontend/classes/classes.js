@@ -2,6 +2,9 @@
 console.log("Loading classes component - cleaned up version...");
 
 const Classes = ({ data, refreshData, navigateTo, currentParams }) => {
+  // Use NavigationService if available, fallback to navigateTo prop
+  const nav = window.NavigationService || null;
+  
   console.log("Classes component rendering with data:", data);
   console.log("Current params:", currentParams);
   console.log("navigateTo prop:", navigateTo);
@@ -25,7 +28,10 @@ const Classes = ({ data, refreshData, navigateTo, currentParams }) => {
     console.log("Class card clicked:", cls.name);
     console.log("navigateTo available:", !!navigateTo, typeof navigateTo);
     
-    if (navigateTo && typeof navigateTo === 'function') {
+    if (nav?.toClassView) {
+      console.log("Using NavigationService");
+      nav.toClassView(cls.id);
+    } else if (navigateTo && typeof navigateTo === 'function') {
       // Use the provided navigation function if available
       console.log("Using navigateTo function");
       navigateTo("classes/view/" + cls.id);
@@ -46,10 +52,12 @@ const Classes = ({ data, refreshData, navigateTo, currentParams }) => {
     setShowCreateModal(false);
     
     // Navigate to the new class view
-    if (navigateTo && typeof navigateTo === 'function') {
+    if (nav?.toClassView) {
+      nav.toClassView(newClass.id);
+    } else if (navigateTo && typeof navigateTo === 'function') {
       navigateTo(`classes/view/${newClass.id}`);
     } else {
-      window.location.hash = `#classes/view/${newClass.id}`;
+      window.location.hash = Router?.buildHash ? Router.buildHash('classView', {id: newClass.id}) : `#classes/view/${newClass.id}`;
     }
     
     // Refresh data to show new class in list
@@ -215,6 +223,8 @@ const Classes = ({ data, refreshData, navigateTo, currentParams }) => {
 
 // ClassView component for displaying individual class details with roster
 const ClassView = ({ classId, data, navigateTo }) => {
+  // Use NavigationService if available, fallback to navigateTo prop
+  const nav = window.NavigationService || null;
   const [classDetails, setClassDetails] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState(null);
@@ -251,7 +261,9 @@ const ClassView = ({ classId, data, navigateTo }) => {
   }, [classId]);
 
   const handleBack = () => {
-    if (navigateTo && typeof navigateTo === 'function') {
+    if (nav?.toClasses) {
+      nav.toClasses();
+    } else if (navigateTo && typeof navigateTo === 'function') {
       navigateTo("classes");
     } else {
       window.location.hash = "#classes";
@@ -423,10 +435,12 @@ const ClassView = ({ classId, data, navigateTo }) => {
             className: "btn btn-primary",
             onClick: () => {
               // Navigate to student manager page for this class
-              if (navigateTo && typeof navigateTo === 'function') {
+              if (nav?.toClassAddStudents) {
+                nav.toClassAddStudents(classId);
+              } else if (navigateTo && typeof navigateTo === 'function') {
                 navigateTo(`classes/${classId}/add-students`);
               } else {
-                window.location.hash = `#classes/${classId}/add-students`;
+                window.location.hash = Router?.buildHash ? Router.buildHash('classAddStudents', {id: classId}) : `#classes/${classId}/add-students`;
               }
             }
           },

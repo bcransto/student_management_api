@@ -2,6 +2,8 @@
 console.log("Loading ClassStudentManager component...");
 
 const ClassStudentManager = ({ classId, navigateTo }) => {
+  // Use NavigationService if available, fallback to navigateTo prop
+  const nav = window.NavigationService || null;
   const [classDetails, setClassDetails] = React.useState(null);
   const [allStudents, setAllStudents] = React.useState([]);
   const [searchQuery, setSearchQuery] = React.useState("");
@@ -58,10 +60,12 @@ const ClassStudentManager = ({ classId, navigateTo }) => {
   }, [classId]);
 
   const handleBack = () => {
-    if (navigateTo && typeof navigateTo === 'function') {
+    if (nav?.toClassView) {
+      nav.toClassView(classId);
+    } else if (navigateTo && typeof navigateTo === 'function') {
       navigateTo(`classes/view/${classId}`);
     } else {
-      window.location.hash = `#classes/view/${classId}`;
+      window.location.hash = Router?.buildHash ? Router.buildHash('classView', {id: classId}) : `#classes/view/${classId}`;
     }
   };
 
