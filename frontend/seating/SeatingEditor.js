@@ -1,7 +1,7 @@
 // frontend/seating/SeatingEditor.js
 // Integrated Seating Chart Editor
 
-const { useState, useEffect } = React;
+const { useState, useEffect, useMemo } = React;
 
 const SeatingEditor = ({ classId, onBack, onView }) => {
   // Get utility functions from shared module
@@ -33,6 +33,8 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
   const [fillMode, setFillMode] = useState("random"); // "random", "matchGender", "balanceGender"
   const [history, setHistory] = useState([]); // Undo history stack
   const [historyIndex, setHistoryIndex] = useState(-1); // Current position in history
+  const [previousPeriodData, setPreviousPeriodData] = useState(null); // Previous period for duplicate detection
+  const [duplicateWarning, setDuplicateWarning] = useState(null); // Warning message for duplicate seating
 
   // Load initial data
   useEffect(() => {
@@ -98,6 +100,104 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
     };
   }, [assignments, classInfo, layout, students]);
 
+  // Create lookup structures for previous period data
+  const previousPeriodLookup = useMemo(() => {
+    if (!previousPeriodData?.assignments) {
+      return {
+        studentToSeat: {}, // {studentId: {table_number, seat_number}}
+        seatToStudent: {}, // {"table-seat": studentId}
+        tableStudents: {}, // {table_number: Set of studentIds}
+      };
+    }
+
+    const lookup = {
+      studentToSeat: {},
+      seatToStudent: {},
+      tableStudents: {},
+    };
+
+    previousPeriodData.assignments.forEach((assignment) => {
+      const { student_id, table_number, seat_number } = assignment;
+      
+      // Map student to their previous seat
+      lookup.studentToSeat[student_id] = {
+        table_number,
+        seat_number,
+      };
+      
+      // Map seat to student (for exact seat check)
+      const seatKey = `${table_number}-${seat_number}`;
+      lookup.seatToStudent[seatKey] = student_id;
+      
+      // Track all students at each table
+      if (!lookup.tableStudents[table_number]) {
+        lookup.tableStudents[table_number] = new Set();
+      }
+      lookup.tableStudents[table_number].add(student_id);
+    });
+
+    console.log("Previous period lookup structures created:", lookup);
+    return lookup;
+  }, [previousPeriodData]);
+
+  // Check for duplicate seating from previous period
+  const checkForDuplicates = (studentId, tableNumber, seatNumber) => {
+    if (!previousPeriodLookup || !previousPeriodData) {
+      return { sameSeat: false, sameTablemates: [] };
+    }
+
+    const duplicates = {
+      sameSeat: false,
+      sameTablemates: [],
+    };
+
+    // Check if student is in the exact same seat
+    const seatKey = `${tableNumber}-${seatNumber}`;
+    if (previousPeriodLookup.seatToStudent[seatKey] === studentId) {
+      duplicates.sameSeat = true;
+      console.log(`Duplicate detected: Student ${studentId} in same seat as previous period`);
+    }
+
+    // Find current tablemates at the target table
+    const currentTablemates = new Set();
+    
+    // Find table by table_number to get its ID
+    const table = layout?.tables?.find(t => t.table_number === tableNumber);
+    if (table) {
+      const tableId = String(table.id);
+      const tableAssignments = assignments[tableId] || {};
+      
+      Object.entries(tableAssignments).forEach(([seat, sid]) => {
+        if (sid !== studentId) { // Don't include the student themselves
+          currentTablemates.add(sid);
+        }
+      });
+    }
+
+    // Check if any current tablemates were also tablemates in previous period
+    const previousTablemates = previousPeriodLookup.tableStudents[tableNumber] || new Set();
+    
+    currentTablemates.forEach(currentMateId => {
+      if (previousTablemates.has(currentMateId) && previousTablemates.has(studentId)) {
+        // Both students were at the same table in the previous period
+        const student = students.find(s => s.id === currentMateId);
+        if (student) {
+          duplicates.sameTablemates.push({
+            id: currentMateId,
+            name: `${student.first_name} ${student.last_name}`,
+          });
+        }
+      }
+    });
+
+    if (duplicates.sameTablemates.length > 0) {
+      console.log(`Duplicate detected: Student ${studentId} has same tablemates as previous period:`, 
+                  duplicates.sameTablemates.map(s => s.name));
+    }
+
+    return duplicates;
+  };
+
   const loadClassData = async () => {
     try {
       setLoading(true);
@@ -142,6 +242,25 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
         const fullStudentData = await Promise.all(studentPromises);
         console.log("Student data loaded:", fullStudentData.length);
         setStudents(fullStudentData);
+      }
+
+      // Load previous period data for duplicate detection
+      try {
+        const previousPeriod = await window.ApiModule.request(
+          `/seating-periods/previous_period/?class_assigned=${classId}`
+        );
+        
+        if (previousPeriod) {
+          console.log("Previous period loaded:", previousPeriod.id);
+          console.log("Previous period assignments:", previousPeriod.assignments?.length || 0);
+          setPreviousPeriodData(previousPeriod);
+        } else {
+          console.log("No previous period exists for this class");
+          setPreviousPeriodData(null);
+        }
+      } catch (error) {
+        console.error("Error loading previous period:", error);
+        setPreviousPeriodData(null);
       }
 
       // Load existing seating assignments if any
@@ -224,6 +343,35 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
     };
     
     addToHistory(newAssignments, `Place ${studentName}`);
+    
+    // Check for duplicates AFTER placement
+    // Find table number from table ID
+    const table = layout?.tables?.find(t => String(t.id) === String(tableId));
+    if (table) {
+      const duplicates = checkForDuplicates(studentId, table.table_number, seatNumber);
+      
+      if (duplicates.sameSeat || duplicates.sameTablemates.length > 0) {
+        // Build warning message
+        let warningMsg = `⚠️ ${studentName} `;
+        
+        if (duplicates.sameSeat) {
+          warningMsg += "is in the same seat as the previous period";
+          if (duplicates.sameTablemates.length > 0) {
+            warningMsg += " and ";
+          }
+        }
+        
+        if (duplicates.sameTablemates.length > 0) {
+          const names = duplicates.sameTablemates.map(s => s.name).join(", ");
+          warningMsg += `is seated with the same tablemate${duplicates.sameTablemates.length > 1 ? 's' : ''} as before: ${names}`;
+        }
+        
+        setDuplicateWarning(warningMsg);
+        
+        // Auto-clear warning after 5 seconds
+        setTimeout(() => setDuplicateWarning(null), 5000);
+      }
+    }
   };
 
   const handleSeatSwap = (studentA, tableA, seatA, studentB, tableB, seatB) => {
@@ -277,6 +425,49 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
 
     console.log("Final result:", JSON.parse(JSON.stringify(result)));
     addToHistory(result, `Swap ${nameA} and ${nameB}`);
+    
+    // Check for duplicates for both swapped students
+    const tableAObj = layout?.tables?.find(t => String(t.id) === String(tableA));
+    const tableBObj = layout?.tables?.find(t => String(t.id) === String(tableB));
+    
+    const warnings = [];
+    
+    if (tableAObj) {
+      const duplicatesB = checkForDuplicates(studentB, tableAObj.table_number, seatA);
+      if (duplicatesB.sameSeat || duplicatesB.sameTablemates.length > 0) {
+        let msg = `${nameB} `;
+        if (duplicatesB.sameSeat) {
+          msg += "is in the same seat as the previous period";
+        }
+        if (duplicatesB.sameTablemates.length > 0) {
+          if (duplicatesB.sameSeat) msg += " and ";
+          const names = duplicatesB.sameTablemates.map(s => s.name).join(", ");
+          msg += `is with the same tablemate${duplicatesB.sameTablemates.length > 1 ? 's' : ''}: ${names}`;
+        }
+        warnings.push(msg);
+      }
+    }
+    
+    if (tableBObj) {
+      const duplicatesA = checkForDuplicates(studentA, tableBObj.table_number, seatB);
+      if (duplicatesA.sameSeat || duplicatesA.sameTablemates.length > 0) {
+        let msg = `${nameA} `;
+        if (duplicatesA.sameSeat) {
+          msg += "is in the same seat as the previous period";
+        }
+        if (duplicatesA.sameTablemates.length > 0) {
+          if (duplicatesA.sameSeat) msg += " and ";
+          const names = duplicatesA.sameTablemates.map(s => s.name).join(", ");
+          msg += `is with the same tablemate${duplicatesA.sameTablemates.length > 1 ? 's' : ''}: ${names}`;
+        }
+        warnings.push(msg);
+      }
+    }
+    
+    if (warnings.length > 0) {
+      setDuplicateWarning(`⚠️ ${warnings.join(". ")}`);
+      setTimeout(() => setDuplicateWarning(null), 5000);
+    }
   };
 
   const handleSeatUnassignment = (tableId, seatNumber) => {
@@ -1459,6 +1650,36 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
           " New Period"
         )
       )
+    ),
+
+    // Duplicate warning display
+    duplicateWarning && React.createElement(
+      "div",
+      {
+        className: "duplicate-warning",
+        style: {
+          backgroundColor: "#fef3c7",
+          color: "#92400e",
+          padding: "0.75rem 1rem",
+          borderRadius: "0.375rem",
+          marginTop: "0.5rem",
+          marginBottom: "0.5rem",
+          marginLeft: "1rem",
+          marginRight: "1rem",
+          display: "flex",
+          alignItems: "center",
+          gap: "0.5rem",
+          fontSize: "0.95rem",
+          fontWeight: "500",
+          boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+          animation: "slideDown 0.3s ease-out",
+        }
+      },
+      React.createElement("i", { 
+        className: "fas fa-exclamation-triangle",
+        style: { color: "#f59e0b" }
+      }),
+      duplicateWarning
     ),
 
     // Main content area with left sidebar, canvas in center, pool on right
