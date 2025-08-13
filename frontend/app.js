@@ -251,6 +251,14 @@ const App = () => {
     window.location.hash = view;
   };
 
+  // Initialize NavigationService with handleNavigate
+  useEffect(() => {
+    if (window.NavigationService && typeof handleNavigate === 'function') {
+      window.NavigationService.init(handleNavigate);
+      console.log("NavigationService initialized with app navigation");
+    }
+  });
+
   // Render the current view
   const renderCurrentView = () => {
     if (isLoading) {

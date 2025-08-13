@@ -1,6 +1,9 @@
 // frontend/dashboard/dashboard.js
 
 const Dashboard = ({ data, navigateTo }) => {
+  // Use NavigationService if available, fallback to navigateTo prop
+  const nav = window.NavigationService || null;
+  
   // Get formatDateLong from shared utils for dashboard date display
   const formatDate = window.SharedUtils.formatDateLong;
 
@@ -47,7 +50,7 @@ const Dashboard = ({ data, navigateTo }) => {
         "div",
         {
           className: "dashboard-stat-card",
-          onClick: () => navigateTo("classes"),
+          onClick: () => nav?.toClasses ? nav.toClasses() : navigateTo("classes"),
           title: "Click to view all classes",
         },
         React.createElement(
@@ -68,7 +71,7 @@ const Dashboard = ({ data, navigateTo }) => {
         "div",
         {
           className: "dashboard-stat-card",
-          onClick: () => navigateTo("students"),
+          onClick: () => nav?.toStudents ? nav.toStudents() : navigateTo("students"),
           title: "Click to view all students",
         },
         React.createElement(
@@ -109,7 +112,7 @@ const Dashboard = ({ data, navigateTo }) => {
         "div",
         {
           className: "dashboard-stat-card",
-          onClick: () => navigateTo("layouts"),
+          onClick: () => nav?.toLayouts ? nav.toLayouts() : navigateTo("layouts"),
           title: "Click to view classroom layouts",
         },
         React.createElement(
@@ -138,7 +141,7 @@ const Dashboard = ({ data, navigateTo }) => {
           "button",
           {
             className: "btn btn-secondary",
-            onClick: () => navigateTo("classes"),
+            onClick: () => nav?.toClasses ? nav.toClasses() : navigateTo("classes"),
           },
           React.createElement("i", { className: "fas fa-arrow-right" }),
           " View All"
@@ -155,7 +158,7 @@ const Dashboard = ({ data, navigateTo }) => {
                 {
                   key: cls.id,
                   className: "recent-class-card",
-                  onClick: () => navigateTo("classes", { action: "view", classId: cls.id }),
+                  onClick: () => nav?.toClassView ? nav.toClassView(cls.id) : navigateTo("classes", { action: "view", classId: cls.id }),
                 },
                 React.createElement(
                   "div",
@@ -246,7 +249,7 @@ const Dashboard = ({ data, navigateTo }) => {
           "button",
           {
             className: "quick-action-btn",
-            onClick: () => navigateTo("seating"),
+            onClick: () => nav?.toSeating ? nav.toSeating() : navigateTo("seating"),
           },
           React.createElement("i", { className: "fas fa-chair" }),
           React.createElement("span", null, "Manage Seating")
@@ -256,7 +259,7 @@ const Dashboard = ({ data, navigateTo }) => {
           "button",
           {
             className: "quick-action-btn",
-            onClick: () => window.open("/layout-editor/", "_blank"),
+            onClick: () => nav?.toLayoutEditor ? nav.toLayoutEditor() : window.open("/layout-editor/", "_blank"),
           },
           React.createElement("i", { className: "fas fa-edit" }),
           React.createElement("span", null, "Layout Editor")
