@@ -230,7 +230,7 @@ const Seating = ({ data, navigateTo }) => {
               "div",
               {
                 key: classItem.id,
-                className: "class-card floating-card",
+                className: "seating-class-card floating-card",
                 onClick: () => {
                   // Always go to viewer if we have a layout
                   // The viewer will handle navigation between periods and creating new ones
@@ -244,11 +244,11 @@ const Seating = ({ data, navigateTo }) => {
               // Class info
               React.createElement(
                 "div",
-                { className: "class-card-header" },
+                { className: "seating-class-card-header" },
                 React.createElement("h3", null, classItem.name),
                 React.createElement(
                   "span",
-                  { className: "class-period" },
+                  { className: "seating-class-period" },
                   classItem.grade_level
                     ? `Grade ${classItem.grade_level}`
                     : classItem.subject || "N/A"
@@ -258,7 +258,7 @@ const Seating = ({ data, navigateTo }) => {
               // Stats
               React.createElement(
                 "div",
-                { className: "class-card-stats" },
+                { className: "seating-class-card-stats" },
                 React.createElement(
                   "div",
                   { className: "stat" },
@@ -280,7 +280,7 @@ const Seating = ({ data, navigateTo }) => {
               // Status
               React.createElement(
                 "div",
-                { className: "class-card-status" },
+                { className: "seating-class-card-status" },
                 classItem.current_seating_period
                   ? React.createElement(
                       "span",

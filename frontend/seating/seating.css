@@ -37,8 +37,8 @@
   }
 }
 
-/* Class Cards */
-.class-card {
+/* Seating Class Cards */
+.seating-class-card {
   background: white;
   border-radius: 12px;
   padding: 1.5rem;
@@ -47,37 +47,37 @@
   border: 2px solid transparent;
 }
 
-.class-card:hover {
+.seating-class-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
   border-color: #3b82f6;
 }
 
-.class-card.floating-card {
+.seating-class-card.floating-card {
   /* Already styled by shared CSS */
 }
 
-.class-card-header {
+.seating-class-card-header {
   margin-bottom: 1rem;
   padding-bottom: 1rem;
   border-bottom: 1px solid #e5e7eb;
 }
 
-.class-card-header h3 {
+.seating-class-card-header h3 {
   font-size: 1.25rem;
   font-weight: 600;
   color: #1f2937;
   margin: 0;
 }
 
-.class-period {
+.seating-class-period {
   display: inline-block;
   margin-top: 0.25rem;
   font-size: 0.875rem;
   color: #6b7280;
 }
 
-.class-card-stats {
+.seating-class-card-stats {
   display: flex;
   gap: 1.5rem;
   margin-bottom: 1rem;
@@ -95,7 +95,7 @@
   color: #9ca3af;
 }
 
-.class-card-status {
+.seating-class-card-status {
   margin-top: 1rem;
 }
 

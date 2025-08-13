@@ -872,6 +872,61 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
     }
   };
 
+  // Handle layout selection from modal
+  const handleLayoutSelection = async (layoutId) => {
+    console.log("Selected layout:", layoutId);
+    
+    // Check if there are existing assignments
+    const hasAssignments = Object.keys(assignments).length > 0;
+    
+    if (hasAssignments) {
+      // Stage 4: Warning for existing assignments
+      const confirmChange = window.confirm(
+        "Current seat assignments might be lost. Continue?"
+      );
+      if (!confirmChange) {
+        return; // User cancelled
+      }
+    }
+    
+    try {
+      // Close modal immediately for better UX
+      setShowLayoutSelector(false);
+      
+      // Stage 3: Update the seating period with new layout
+      if (!classInfo?.current_seating_period?.id) {
+        alert("No current seating period to update");
+        return;
+      }
+      
+      console.log("Updating period with new layout:", layoutId);
+      
+      // PATCH the seating period with new layout
+      await window.ApiModule.request(
+        `/seating-periods/${classInfo.current_seating_period.id}/`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ layout: layoutId }),
+        }
+      );
+      
+      console.log("Layout updated successfully");
+      
+      // Reload class data to get new layout with tables/seats
+      await loadClassData();
+      
+      // Clear assignments for fresh start with new layout
+      // (Stage 5-6 will handle mapping instead of clearing)
+      setAssignments({});
+      setHasUnsavedChanges(false);
+      
+    } catch (error) {
+      console.error("Failed to update layout:", error);
+      alert("Failed to update layout. Please try again.");
+    }
+  };
+
   // Build the title string
   const getEditorTitle = () => {
     if (!classInfo) return "Loading...";
@@ -2101,19 +2156,16 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
     // Layout Selector Modal
     showLayoutSelector && React.createElement(LayoutSelectorModal, {
       onClose: () => setShowLayoutSelector(false),
-      onSelect: (layoutId) => {
-        console.log("Selected layout:", layoutId);
-        setShowLayoutSelector(false);
-        // TODO: Apply layout change
-      },
+      onSelect: handleLayoutSelection,
       availableLayouts: availableLayouts,
       setAvailableLayouts: setAvailableLayouts,
+      currentLayoutId: layout?.id,
     })
   );
 };
 
 // Layout Selector Modal Component
-const LayoutSelectorModal = ({ onClose, onSelect, availableLayouts, setAvailableLayouts }) => {
+const LayoutSelectorModal = ({ onClose, onSelect, availableLayouts, setAvailableLayouts, currentLayoutId }) => {
   const [loading, setLoading] = useState(true);
 
   // Load available layouts when modal opens
@@ -2218,30 +2270,50 @@ const LayoutSelectorModal = ({ onClose, onSelect, availableLayouts, setAvailable
           : React.createElement(
               "div",
               { style: { display: "flex", flexDirection: "column", gap: "8px" } },
-              availableLayouts.map(layout =>
-                React.createElement(
+              availableLayouts.map(layout => {
+                const isCurrent = layout.id === currentLayoutId;
+                return React.createElement(
                   "div",
                   {
                     key: layout.id,
-                    onClick: () => onSelect(layout.id),
+                    onClick: () => !isCurrent && onSelect(layout.id),
                     style: {
                       padding: "12px",
-                      border: "1px solid #e5e7eb",
+                      border: isCurrent ? "2px solid #3b82f6" : "1px solid #e5e7eb",
                       borderRadius: "4px",
-                      cursor: "pointer",
+                      cursor: isCurrent ? "default" : "pointer",
                       transition: "background-color 0.2s",
+                      backgroundColor: isCurrent ? "#eff6ff" : "white",
+                      position: "relative",
                     },
-                    onMouseEnter: (e) => e.currentTarget.style.backgroundColor = "#f3f4f6",
-                    onMouseLeave: (e) => e.currentTarget.style.backgroundColor = "white",
+                    onMouseEnter: (e) => !isCurrent && (e.currentTarget.style.backgroundColor = "#f3f4f6"),
+                    onMouseLeave: (e) => !isCurrent && (e.currentTarget.style.backgroundColor = "white"),
                   },
-                  React.createElement("div", { style: { fontWeight: "500" } }, layout.name),
+                  React.createElement(
+                    "div", 
+                    { style: { display: "flex", alignItems: "center", gap: "8px" } },
+                    React.createElement("div", { style: { fontWeight: "500" } }, layout.name),
+                    isCurrent && React.createElement(
+                      "span",
+                      { 
+                        style: { 
+                          fontSize: "0.75rem", 
+                          backgroundColor: "#3b82f6",
+                          color: "white",
+                          padding: "2px 6px",
+                          borderRadius: "4px",
+                        } 
+                      },
+                      "Current"
+                    )
+                  ),
                   layout.description && React.createElement(
                     "div", 
                     { style: { fontSize: "0.875rem", color: "#6b7280", marginTop: "4px" } }, 
                     layout.description
                   )
-                )
-              )
+                );
+              })
             )
       ),
       
