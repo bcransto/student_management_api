@@ -874,10 +874,21 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
 
   // Handle layout selection from modal
   const handleLayoutSelection = async (layoutId) => {
-    console.log("Selected layout:", layoutId);
+    console.log("=== Layout Selection Started ===");
+    console.log("Selected layout ID:", layoutId);
+    console.log("Current layout ID:", layout?.id);
+    console.log("Current seating period:", classInfo?.current_seating_period);
+    
+    // Don't do anything if selecting the same layout
+    if (layoutId === layout?.id) {
+      console.log("Same layout selected, no change needed");
+      setShowLayoutSelector(false);
+      return;
+    }
     
     // Check if there are existing assignments
     const hasAssignments = Object.keys(assignments).length > 0;
+    console.log("Has assignments:", hasAssignments, assignments);
     
     if (hasAssignments) {
       // Stage 4: Warning for existing assignments
@@ -885,6 +896,7 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
         "Current seat assignments might be lost. Continue?"
       );
       if (!confirmChange) {
+        console.log("User cancelled layout change");
         return; // User cancelled
       }
     }
@@ -895,15 +907,17 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
       
       // Stage 3: Update the seating period with new layout
       if (!classInfo?.current_seating_period?.id) {
+        console.error("No current seating period found!");
         alert("No current seating period to update");
         return;
       }
       
-      console.log("Updating period with new layout:", layoutId);
+      const periodId = classInfo.current_seating_period.id;
+      console.log(`Updating period ${periodId} with new layout ${layoutId}`);
       
       // PATCH the seating period with new layout
-      await window.ApiModule.request(
-        `/seating-periods/${classInfo.current_seating_period.id}/`,
+      const response = await window.ApiModule.request(
+        `/seating-periods/${periodId}/`,
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -911,18 +925,113 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
         }
       );
       
+      console.log("PATCH response:", response);
       console.log("Layout updated successfully");
       
-      // Reload class data to get new layout with tables/seats
+      // Stage 5: Collect current assignments before reload
+      const oldAssignments = [];
+      if (hasAssignments && layout?.tables) {
+        // Collect all seated students in order (by table number, then seat number)
+        layout.tables.forEach(table => {
+          const tableId = String(table.id);
+          const tableAssignments = assignments[tableId] || {};
+          
+          // Get seats for this table and sort by seat number
+          const seats = table.seats || [];
+          seats.sort((a, b) => a.seat_number - b.seat_number);
+          
+          seats.forEach(seat => {
+            const seatNumber = String(seat.seat_number);
+            const studentId = tableAssignments[seatNumber];
+            if (studentId) {
+              oldAssignments.push({
+                studentId,
+                oldTable: table.table_number,
+                oldSeat: seat.seat_number,
+              });
+            }
+          });
+        });
+        
+        // Sort by table number, then seat number
+        oldAssignments.sort((a, b) => {
+          if (a.oldTable !== b.oldTable) {
+            return a.oldTable - b.oldTable;
+          }
+          return a.oldSeat - b.oldSeat;
+        });
+        
+        console.log("Collected assignments to remap:", oldAssignments);
+      }
+      
+      // Get the new layout details first
+      const newLayoutResponse = await window.ApiModule.request(`/layouts/${layoutId}/`);
+      console.log("New layout details:", newLayoutResponse);
+      
+      // Reload class data to get updated period
       await loadClassData();
       
-      // Clear assignments for fresh start with new layout
-      // (Stage 5-6 will handle mapping instead of clearing)
-      setAssignments({});
-      setHasUnsavedChanges(false);
+      // Stage 6: Apply sequential mapping to new layout
+      if (oldAssignments.length > 0 && layout?.tables) {
+        console.log("Applying sequential mapping to new layout");
+        
+        // Collect all available seats in the new layout
+        const availableSeats = [];
+        layout.tables.forEach(table => {
+          const seats = table.seats || [];
+          seats.sort((a, b) => a.seat_number - b.seat_number);
+          
+          seats.forEach(seat => {
+            availableSeats.push({
+              tableId: String(table.id),
+              seatNumber: String(seat.seat_number),
+              tableNumber: table.table_number,
+            });
+          });
+        });
+        
+        // Sort available seats by table number, then seat number
+        availableSeats.sort((a, b) => {
+          if (a.tableNumber !== b.tableNumber) {
+            return a.tableNumber - b.tableNumber;
+          }
+          return parseInt(a.seatNumber) - parseInt(b.seatNumber);
+        });
+        
+        console.log("Available seats in new layout:", availableSeats.length);
+        
+        // Map students sequentially
+        const newAssignments = {};
+        const mappedCount = Math.min(oldAssignments.length, availableSeats.length);
+        
+        for (let i = 0; i < mappedCount; i++) {
+          const student = oldAssignments[i];
+          const seat = availableSeats[i];
+          
+          if (!newAssignments[seat.tableId]) {
+            newAssignments[seat.tableId] = {};
+          }
+          newAssignments[seat.tableId][seat.seatNumber] = student.studentId;
+        }
+        
+        console.log(`Mapped ${mappedCount} students to new layout`);
+        if (oldAssignments.length > availableSeats.length) {
+          console.log(`${oldAssignments.length - availableSeats.length} students returned to pool (not enough seats)`);
+        }
+        
+        setAssignments(newAssignments);
+        setHasUnsavedChanges(mappedCount > 0);
+      } else {
+        // No assignments to map
+        setAssignments({});
+        setHasUnsavedChanges(false);
+      }
+      
+      console.log("=== Layout Selection Complete ===");
       
     } catch (error) {
       console.error("Failed to update layout:", error);
+      console.error("Error details:", error.message, error.response);
       alert("Failed to update layout. Please try again.");
     }
   };
