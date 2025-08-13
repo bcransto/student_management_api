@@ -390,9 +390,6 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
         }
         
         setDuplicateWarning(warningMsg);
-        
-        // Auto-clear warning after 5 seconds
-        setTimeout(() => setDuplicateWarning(null), 5000);
       }
     }
   };
@@ -489,7 +486,6 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
     
     if (warnings.length > 0) {
       setDuplicateWarning(`⚠️ ${warnings.join(". ")}`);
-      setTimeout(() => setDuplicateWarning(null), 5000);
     }
   };
 
@@ -1696,13 +1692,36 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
           fontWeight: "500",
           boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
           animation: "slideDown 0.3s ease-out",
-        }
+          cursor: "pointer",
+        },
+        onClick: () => setDuplicateWarning(null),
+        title: "Click to dismiss"
       },
       React.createElement("i", { 
         className: "fas fa-exclamation-triangle",
         style: { color: "#f59e0b" }
       }),
-      duplicateWarning
+      React.createElement("span", { style: { flex: 1 } }, duplicateWarning),
+      React.createElement(
+        "button",
+        {
+          style: {
+            background: "none",
+            border: "none",
+            color: "#92400e",
+            fontSize: "1.2rem",
+            cursor: "pointer",
+            padding: "0 0 0 0.5rem",
+            opacity: "0.7",
+          },
+          onClick: (e) => {
+            e.stopPropagation();
+            setDuplicateWarning(null);
+          },
+          title: "Dismiss warning"
+        },
+        "×"
+      )
     ),
 
     // Main content area with left sidebar, canvas in center, pool on right

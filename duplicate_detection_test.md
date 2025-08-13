@@ -66,9 +66,10 @@ Open browser console to see:
 ## Warning Display
 - Yellow background with warning icon
 - Appears below toolbar
-- Auto-dismisses after 5 seconds
+- Requires manual dismissal (click anywhere on warning or X button)
 - Smooth slide-down animation
 - Non-blocking (doesn't prevent further actions)
+- Persists until user acknowledges it
 
 ## Edge Cases Handled
 - No previous period exists (new class)
