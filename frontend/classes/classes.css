@@ -52,13 +52,32 @@
   transition: all 0.3s ease;
   display: flex;
   flex-direction: column;
-  border: 1px solid #e5e7eb;
+  border: 2px solid #e5e7eb;
+  cursor: pointer;
+  position: relative;
+}
+
+.classes-list-card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, transparent, rgba(102, 126, 234, 0.05));
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
 }
 
 .classes-list-card:hover {
   transform: translateY(-4px);
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
-  border-color: #cbd5e1;
+  border-color: #667eea;
+}
+
+.classes-list-card:hover::after {
+  opacity: 1;
 }
 
 /* Card Header */
@@ -102,6 +121,7 @@
 /* Card Body */
 .classes-list-card-body {
   padding: 1.5rem;
+  padding-bottom: 1.75rem;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -194,28 +214,6 @@
   font-weight: 600;
 }
 
-/* Card Footer */
-.classes-list-card-footer {
-  padding: 1rem 1.5rem;
-  background: #f9fafb;
-  border-top: 1px solid #e5e7eb;
-  display: flex;
-  gap: 0.75rem;
-}
-
-.class-action-btn {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  transition: all 0.2s ease;
-}
-
-.class-action-btn:hover {
-  transform: translateY(-1px);
-}
 
 /* Remove old table styles */
 .classes-table-container {
@@ -369,14 +367,6 @@
   
   .classes-list-card-body {
     padding: 1rem;
-  }
-  
-  .classes-list-card-footer {
-    flex-direction: column;
-    padding: 0.75rem;
-  }
-  
-  .class-action-btn {
-    width: 100%;
+    padding-bottom: 1.25rem;
   }
 }

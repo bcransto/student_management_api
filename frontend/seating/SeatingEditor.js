@@ -930,11 +930,14 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
       
       // Stage 5: Collect current assignments before reload
       const oldAssignments = [];
-      if (hasAssignments && layout?.tables) {
+      const preservedAssignments = { ...assignments }; // Save a copy
+      const preservedLayout = layout; // Save current layout reference
+      
+      if (hasAssignments && preservedLayout?.tables) {
         // Collect all seated students in order (by table number, then seat number)
-        layout.tables.forEach(table => {
+        preservedLayout.tables.forEach(table => {
           const tableId = String(table.id);
-          const tableAssignments = assignments[tableId] || {};
+          const tableAssignments = preservedAssignments[tableId] || {};
           
           // Get seats for this table and sort by seat number
           const seats = table.seats || [];
@@ -964,11 +967,7 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
         console.log("Collected assignments to remap:", oldAssignments);
       }
       
-      // Get the new layout details first
-      const newLayoutResponse = await window.ApiModule.request(`/layouts/${layoutId}/`);
-      console.log("New layout details:", newLayoutResponse);
-      
-      // Reload class data to get updated period
+      // Reload class data to get updated period with new layout
       await loadClassData();
       
       // Stage 6: Apply sequential mapping to new layout
