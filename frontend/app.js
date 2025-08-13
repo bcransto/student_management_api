@@ -32,6 +32,11 @@ const App = () => {
     if (hash.startsWith("classes/view/")) {
       return "class-view";
     }
+    
+    // Check for class student manager pattern
+    if (hash.includes("/add-students")) {
+      return "class-add-students";
+    }
 
     const validViews = ["dashboard", "students", "classes", "seating", "layouts"];
     return validViews.includes(hash) ? hash : "dashboard";
@@ -114,6 +119,12 @@ const App = () => {
       // Check for class view pattern
       if (hash.startsWith("classes/view/")) {
         setCurrentView("class-view");
+        return;
+      }
+      
+      // Check for class student manager pattern
+      if (hash.includes("/add-students")) {
+        setCurrentView("class-add-students");
         return;
       }
 
@@ -226,6 +237,13 @@ const App = () => {
       window.location.hash = view;
       return;
     }
+    
+    // Handle class student manager navigation
+    if (view.includes("/add-students")) {
+      setCurrentView("class-add-students");
+      window.location.hash = view;
+      return;
+    }
 
     // Regular navigation
     setCurrentView(view);
@@ -275,6 +293,13 @@ const App = () => {
           classId: classId,
           navigateTo: handleNavigate,
           data: appData,
+        });
+        
+      case "class-add-students":
+        const classIdForStudents = window.location.hash.match(/classes\/(\d+)\/add-students/)?.[1];
+        return React.createElement(window.ClassStudentManagerComponent, {
+          classId: classIdForStudents,
+          navigateTo: handleNavigate,
         });
 
       case "seating":

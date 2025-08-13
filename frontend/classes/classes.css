@@ -481,6 +481,12 @@
   border-bottom: 1px solid #e5e7eb;
 }
 
+.roster-header-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
 .roster-header h2 {
   font-size: 1.5rem;
   font-weight: 600;

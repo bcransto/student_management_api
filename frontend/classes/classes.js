@@ -380,11 +380,32 @@ const ClassView = ({ classId, data, navigateTo }) => {
       React.createElement(
         "div",
         { className: "roster-header" },
-        React.createElement("h2", null, "Class Roster"),
         React.createElement(
-          "span",
-          { className: "roster-count" },
-          `${roster.length} students`
+          "div",
+          { className: "roster-header-left" },
+          React.createElement("h2", null, "Class Roster"),
+          React.createElement(
+            "span",
+            { className: "roster-count" },
+            `${roster.length} students`
+          )
+        ),
+        // Add Students button - only show if current user is the teacher
+        currentUser && classDetails.teacher && currentUser.id === classDetails.teacher && React.createElement(
+          "button",
+          {
+            className: "btn btn-primary",
+            onClick: () => {
+              // Navigate to student manager page for this class
+              if (navigateTo && typeof navigateTo === 'function') {
+                navigateTo(`classes/${classId}/add-students`);
+              } else {
+                window.location.hash = `#classes/${classId}/add-students`;
+              }
+            }
+          },
+          React.createElement("i", { className: "fas fa-user-plus" }),
+          " Add Students"
         )
       ),
       

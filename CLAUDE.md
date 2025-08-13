@@ -103,6 +103,13 @@ React.createElement("div", { className: "example" }, children)
    - Layouts can be templates (`is_template` flag)
    - Tables contain seats with relative positioning
 
+4. **Classes Components**
+   - ClassView shows individual class with roster management
+   - Soft delete for roster entries (is_active field) preserves history
+   - ClassStudentManager handles bulk enrollment with search/filter
+   - Re-enrollment capability for previously enrolled students
+   - Permission-based UI - only class teacher sees management controls
+
 ### API Patterns
 
 **ApiModule.request() - MUST use options object**:
@@ -123,6 +130,8 @@ await ApiModule.request(url, method, body)  // ❌
 - Student.nickname defaults to first_name when empty
 - API responses may be paginated: check for `results` key
 - ClassRoomLayout ViewSet filters by `created_by` user (except superusers)
+- ClassSerializer.roster only returns active entries (is_active=True)
+- JWT token includes user_id for permission checks
 
 ### History & Undo System
 
@@ -176,6 +185,12 @@ element.style.setProperty('background-color', '#10b981', 'important');
 - Frontend `formatStudentName()` prefers nickname
 - Search includes nickname in all filtering
 
+**ClassRoster Soft Delete**:
+- Unenroll sets is_active=False (soft delete)
+- Preserves attendance_notes, enrollment history, seating assignments
+- Re-enrollment reactivates existing roster entry
+- current_enrollment property filters by is_active=True
+
 ## Testing Strategy
 
 ```bash
@@ -211,14 +226,19 @@ Frontend auto-detects production environment via hostname.
 - `#dashboard` - Main view
 - `#students` - Student list with search
 - `#students/edit/{id}` - Edit student
+- `#classes` - Classes list view
+- `#classes/view/{id}` - Individual class details with roster
+- `#classes/{id}/add-students` - Bulk student enrollment manager
 - `#seating` - Seating editor
 - `#layouts` - Layout management (user's layouts only)
 
 ## Critical Files to Understand
 
 1. `students/models.py` - Model relationships and save() overrides
-2. `frontend/shared/core.js` - ApiModule request pattern
+2. `frontend/shared/core.js` - ApiModule request pattern and JWT auth
 3. `frontend/seating/SeatingEditor.js` - Complex state management
 4. `students/views.py` - ViewSet filtering and permissions
 5. `frontend/shared/utils.js` - formatStudentNameTwoLine() for unified name display
 6. `frontend/shared/layoutStyles.js` - formatSeatName() for canvas rendering
+7. `frontend/classes/ClassStudentManager.js` - Bulk enrollment interface
+8. `students/serializers.py` - Custom roster filtering and JWT claims
