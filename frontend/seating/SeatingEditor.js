@@ -153,7 +153,13 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
 
     // Check if student is in the exact same seat
     const seatKey = `${tableNumber}-${seatNumber}`;
-    if (previousPeriodLookup.seatToStudent[seatKey] === studentId) {
+    // Convert both to numbers for comparison to handle type mismatches
+    const previousStudentId = previousPeriodLookup.seatToStudent[seatKey];
+    
+    console.log(`Checking duplicate for student ${studentId} at Table ${tableNumber}, Seat ${seatNumber}`);
+    console.log(`  Seat key: ${seatKey}, Previous student at this seat: ${previousStudentId}`);
+    
+    if (previousStudentId && Number(previousStudentId) === Number(studentId)) {
       duplicates.sameSeat = true;
       console.log(`Duplicate detected: Student ${studentId} in same seat as previous period`);
     }
@@ -178,8 +184,25 @@ const SeatingEditor = ({ classId, onBack, onView }) => {
     const previousTablemates = previousPeriodLookup.tableStudents[tableNumber] || new Set();
     
     currentTablemates.forEach(currentMateId => {
-      if (previousTablemates.has(currentMateId) && previousTablemates.has(studentId)) {
-        // Both students were at the same table in the previous period
+      // Convert IDs to numbers for comparison
+      const currentMateNum = Number(currentMateId);
+      const studentNum = Number(studentId);
+      
+      // Check if both students were at the same table in previous period
+      let wereTogether = false;
+      previousTablemates.forEach(prevId => {
+        if (Number(prevId) === currentMateNum) {
+          // This tablemate was at the table before
+          // Now check if our current student was also there
+          previousTablemates.forEach(prevId2 => {
+            if (Number(prevId2) === studentNum) {
+              wereTogether = true;
+            }
+          });
+        }
+      });
+      
+      if (wereTogether) {
         const student = students.find(s => s.id === currentMateId);
         if (student) {
           duplicates.sameTablemates.push({

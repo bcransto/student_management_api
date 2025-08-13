@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Duplicate Detection</title>
+</head>
+<body>
+    <h1>Testing Duplicate Detection</h1>
+    <div id="output"></div>
+    
+    <script>
+        // Test data matching what the frontend would see
+        const previousPeriodData = {
+            id: 12,
+            assignments: [
+                {
+                    id: 1,
+                    student_id: 2,  // Charlotte
+                    student_name: "Charlotte Anderson",
+                    table_number: 1,
+                    seat_number: 1
+                }
+            ]
+        };
+        
+        // Create lookup structures like the frontend does
+        const previousPeriodLookup = {
+            studentToSeat: {},
+            seatToStudent: {},
+            tableStudents: {},
+        };
+        
+        previousPeriodData.assignments.forEach((assignment) => {
+            const { student_id, table_number, seat_number } = assignment;
+            
+            // Map student to their previous seat
+            previousPeriodLookup.studentToSeat[student_id] = {
+                table_number,
+                seat_number,
+            };
+            
+            // Map seat to student (for exact seat check)
+            const seatKey = `${table_number}-${seat_number}`;
+            previousPeriodLookup.seatToStudent[seatKey] = student_id;
+            
+            // Track all students at each table
+            if (!previousPeriodLookup.tableStudents[table_number]) {
+                previousPeriodLookup.tableStudents[table_number] = new Set();
+            }
+            previousPeriodLookup.tableStudents[table_number].add(student_id);
+        });
+        
+        console.log("Lookup structures:", previousPeriodLookup);
+        
+        // Test duplicate detection
+        function checkForDuplicates(studentId, tableNumber, seatNumber) {
+            const duplicates = {
+                sameSeat: false,
+                sameTablemates: [],
+            };
+            
+            // Check if student is in the exact same seat
+            const seatKey = `${tableNumber}-${seatNumber}`;
+            if (previousPeriodLookup.seatToStudent[seatKey] === studentId) {
+                duplicates.sameSeat = true;
+                console.log(`Duplicate detected: Student ${studentId} in same seat as previous period`);
+            }
+            
+            return duplicates;
+        }
+        
+        // Test: Charlotte (ID 2) placed at Table 1, Seat 1
+        console.log("\nTest 1: Charlotte at Table 1, Seat 1 (same as before)");
+        const result1 = checkForDuplicates(2, 1, 1);
+        console.log("Result:", result1);
+        document.getElementById('output').innerHTML += `<p>Test 1 - Same seat detected: ${result1.sameSeat}</p>`;
+        
+        // Test: Charlotte at Table 1, Seat 2 (different seat)
+        console.log("\nTest 2: Charlotte at Table 1, Seat 2 (different seat)");
+        const result2 = checkForDuplicates(2, 1, 2);
+        console.log("Result:", result2);
+        document.getElementById('output').innerHTML += `<p>Test 2 - Same seat detected: ${result2.sameSeat}</p>`;
+    </script>
+</body>
+</html>
