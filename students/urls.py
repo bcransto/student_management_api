@@ -1,9 +1,10 @@
 # students/urls.py - Fixed to use custom token serializer
+from django.contrib.auth import views as auth_views
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
-from . import views
+from . import password_reset, views
 from .serializers import CustomTokenObtainPairSerializer
 
 # Create a custom token view that uses our custom serializer
@@ -40,6 +41,12 @@ urlpatterns = [
     # JWT Authentication endpoints - FIXED to use custom serializer
     path("token/", CustomTokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
+    
+    # Password reset endpoints
+    path("password-reset/", password_reset.password_reset_request, name="password_reset_request"),
+    path("password-reset/confirm/", password_reset.password_reset_confirm, name="password_reset_confirm"),
+    path("password-reset/validate/", password_reset.password_reset_validate, name="password_reset_validate"),
+    
     # API endpoints
     path("", include(router.urls)),
 ]

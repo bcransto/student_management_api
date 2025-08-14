@@ -2,6 +2,7 @@
 import os
 
 from django.conf import settings
+from django.core.mail import send_mail
 from django.db import models
 from django.http import HttpResponse
 from django.shortcuts import render
@@ -164,7 +165,17 @@ class UserViewSet(viewsets.ModelViewSet):
             user.set_password(serializer.validated_data['new_password'])
             user.save()
             
-            # TODO: Send confirmation email
+            # Send confirmation email
+            try:
+                send_mail(
+                    'Password Changed Successfully',
+                    f'Your password for {user.email} has been changed successfully. If you did not make this change, please contact support immediately.',
+                    settings.DEFAULT_FROM_EMAIL,
+                    [user.email],
+                    fail_silently=True,
+                )
+            except Exception:
+                pass  # Don't fail if email doesn't send
             
             return Response({"message": "Password changed successfully"})
         
@@ -179,7 +190,36 @@ class UserViewSet(viewsets.ModelViewSet):
         # Get the temporary password if one was generated
         temp_password = getattr(user, 'temp_password', None)
         
-        # TODO: Send welcome email with temp_password
+        # Send welcome email with temp_password
+        if temp_password:
+            subject = 'Welcome to the Student Management System'
+            message = f"""
+            Welcome to the Student Management System!
+            
+            Your account has been created with the following details:
+            Email: {user.email}
+            Temporary Password: {temp_password}
+            
+            Please log in and change your password as soon as possible.
+            
+            Login at: {'https://bcranston.pythonanywhere.com' if settings.PRODUCTION else 'http://127.0.0.1:8000'}
+            """
+            
+            try:
+                send_mail(
+                    subject,
+                    message,
+                    settings.DEFAULT_FROM_EMAIL,
+                    [user.email],
+                    fail_silently=False,
+                )
+            except Exception as e:
+                # In development, print to console
+                if not settings.PRODUCTION:
+                    print(f"\n{'='*50}")
+                    print(f"Welcome Email for {user.email}")
+                    print(f"Temporary Password: {temp_password}")
+                    print(f"{'='*50}\n")
         
         # Return user data without password
         response_serializer = UserDetailSerializer(user)
