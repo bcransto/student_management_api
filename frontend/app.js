@@ -9,6 +9,8 @@ const Components = {
   Classes: window.ClassesComponent,
   Seating: window.SeatingComponent,
   Layouts: window.LayoutsComponent,
+  Users: window.UsersModule?.UsersList,
+  UserEditor: window.UsersModule?.UserEditor,
   Header: window.Header,
   Sidebar: window.Sidebar,
 };
@@ -33,6 +35,17 @@ const App = () => {
       return "student-edit";
     }
 
+    // Check for user patterns
+    if (hash === "users") {
+      return "users";
+    }
+    if (hash.startsWith("users/edit/")) {
+      return "user-edit";
+    }
+    if (hash === "profile") {
+      return "user-edit"; // Profile is user editing self
+    }
+
     // Check for class view pattern
     if (hash.startsWith("classes/view/")) {
       return "class-view";
@@ -48,7 +61,7 @@ const App = () => {
       return "seating";
     }
 
-    const validViews = ["dashboard", "students", "classes", "seating", "layouts"];
+    const validViews = ["dashboard", "students", "classes", "seating", "layouts", "users"];
     return validViews.includes(hash) ? hash : "dashboard";
   };
 
@@ -126,6 +139,20 @@ const App = () => {
         return;
       }
 
+      // Check for user patterns
+      if (hash === "users") {
+        setCurrentView("users");
+        return;
+      }
+      if (hash.startsWith("users/edit/")) {
+        setCurrentView("user-edit");
+        return;
+      }
+      if (hash === "profile") {
+        setCurrentView("user-edit");
+        return;
+      }
+
       // Check for class view pattern
       if (hash.startsWith("classes/view/")) {
         setCurrentView("class-view");
@@ -147,7 +174,7 @@ const App = () => {
       // Clear editing state if navigating away
       setEditingStudentId(null);
 
-      const validViews = ["dashboard", "students", "classes", "seating", "layouts"];
+      const validViews = ["dashboard", "students", "classes", "seating", "layouts", "users"];
       if (validViews.includes(hash)) {
         setCurrentView(hash);
       } else {
@@ -390,6 +417,23 @@ const App = () => {
       case "layouts":
         return React.createElement(Components.Layouts, {
           data: appData,
+          refreshData: fetchData,
+        });
+
+      case "users":
+        return React.createElement(Components.Users, {
+          data: appData,
+          refreshData: fetchData,
+        });
+
+      case "user-edit":
+        const hash = window.location.hash.slice(1);
+        let userId = "me"; // Default to current user
+        if (hash.startsWith("users/edit/")) {
+          userId = hash.replace("users/edit/", "");
+        }
+        return React.createElement(Components.UserEditor, {
+          userId: userId,
           refreshData: fetchData,
         });
 
