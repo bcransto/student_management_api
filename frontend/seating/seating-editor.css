@@ -13,34 +13,39 @@
 }
 
 /* Override global container styles for seating editor */
+body.seating-editor-page {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
 body.seating-editor-page .sidebar {
   display: none;
 }
 
 body.seating-editor-page .content-area {
   max-height: none;
-  height: auto;
+  height: 100vh;
   padding: 0;
-  overflow: visible;
+  overflow: hidden;
   width: 100%;
   max-width: none;
 }
 
 body.seating-editor-page .main-container {
   max-width: 100%;
-  padding: 20px;
+  padding: 0;
   width: 100%;
+  height: 100vh;
 }
 
 /* Main Layout */
 .seating-editor-integrated {
-  height: 800px;
+  height: 100vh;
   display: flex;
   flex-direction: column;
   background: white;
-  border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
 /* Dropdown Menus */
@@ -112,13 +117,16 @@ body.seating-editor-page .main-container {
 }
 
 .editor-left-sidebar {
-  width: 125px;
-  background: white;
+  width: 125px !important;
+  min-width: 125px !important;
+  max-width: 125px !important;
+  background: #f9fafb;
   border-right: 1px solid #e5e7eb;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow-y: auto;
   flex-shrink: 0;
+  height: 100%;
 }
 
 .editor-left-sidebar .sidebar-section {
@@ -186,23 +194,26 @@ body.seating-editor-page .main-container {
   background: #f9fafb;
 }
 
-/* Student Pool - moved to right side */
+/* Student Pool - fixed width on right side */
 .student-pool {
-  width: 250px;
-  background: white;
+  width: 250px !important;
+  min-width: 250px !important;
+  max-width: 250px !important;
+  background: #f9fafb;
   border-left: 1px solid #e5e7eb;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   flex-shrink: 0;
+  height: 100%;
 }
 
 .student-grid {
   flex: 1;
-  padding: 1rem;
+  padding: 0.5rem;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 0.75rem;
+  gap: 0.5rem;
   overflow-y: auto;
   overflow-x: hidden;
   align-content: start;
@@ -229,7 +240,7 @@ body.seating-editor-page .main-container {
 
 /* Pool actions at top */
 .pool-actions {
-  padding: 1rem;
+  padding: 0.5rem;
   border-bottom: 1px solid #e5e7eb;
   display: flex;
   gap: 0.5rem;

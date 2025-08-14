@@ -1919,7 +1919,15 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
 
   return React.createElement(
     "div",
-    { className: "seating-editor-integrated" },
+    { 
+      className: "seating-editor-integrated",
+      style: {
+        display: "flex",
+        flexDirection: "column",
+        height: "100vh",
+        overflow: "hidden",
+      }
+    },
 
     // Top toolbar
     React.createElement(
@@ -2066,16 +2074,41 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
     // Main content area with left sidebar, canvas in center, pool on right
     React.createElement(
       "div",
-      { className: "editor-main-area" },
+      { 
+        className: "editor-main-area",
+        style: {
+          display: "flex",
+          flex: 1,
+          overflow: "hidden",
+        }
+      },
 
       React.createElement(
         "div",
-        { className: "editor-content-wrapper" },
+        { 
+          className: "editor-content-wrapper",
+          style: {
+            display: "flex",
+            flex: 1,
+            overflow: "hidden",
+            position: "relative",
+          }
+        },
 
-        // Left sidebar with controls
+        // Left sidebar with controls - fixed width
         React.createElement(
           "div",
-          { className: "editor-left-sidebar" },
+          { 
+            className: "editor-left-sidebar",
+            style: {
+              width: "125px",
+              flexShrink: 0,
+              overflowY: "auto",
+              borderRight: "1px solid #e5e7eb",
+              backgroundColor: "#f9fafb",
+              padding: 0,
+            }
+          },
           
           // Actions section with Save/Reset
           React.createElement(
@@ -2314,13 +2347,34 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
           )
         ),
 
-        // Canvas section (center)
+        // Canvas section (center) - with proper flex layout
         React.createElement(
           "div",
-          { className: "editor-canvas-section" },
+          { 
+            className: "editor-canvas-section",
+            style: {
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              overflow: "auto",
+              position: "relative",
+              minWidth: 0, // Important for flex shrinking
+            }
+          },
           React.createElement(
             "div",
-            { className: "seating-canvas-container" },
+            { 
+              className: "seating-canvas-container",
+              style: {
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "20px",
+                width: "100%",
+                height: "100%",
+              }
+            },
             React.createElement(SeatingCanvas, {
               layout: layout,
               assignments: assignments,
@@ -2645,7 +2699,53 @@ const SeatingCanvas = ({
 }) => {
   // Get shared styles
   const { LayoutStyles } = window;
-  const gridSize = 80; // Grid size for editor
+  const [gridSize, setGridSize] = React.useState(80); // Dynamic grid size
+  const canvasRef = React.useRef(null);
+  
+  // Calculate optimal grid size to fit the available space
+  React.useEffect(() => {
+    const calculateOptimalGridSize = () => {
+      // Get the canvas section element
+      const canvasSection = document.querySelector('.editor-canvas-section');
+      if (!canvasSection || !layout) return;
+      
+      // Get available dimensions
+      const rect = canvasSection.getBoundingClientRect();
+      // Account for padding and margins (40px total)
+      const availableWidth = rect.width - 40;
+      const availableHeight = rect.height - 80; // Extra space for toolbar
+      
+      // Calculate grid size needed to fit width and height
+      const gridSizeByWidth = Math.floor(availableWidth / layout.room_width);
+      const gridSizeByHeight = Math.floor(availableHeight / layout.room_height);
+      
+      // Use the smaller of the two to ensure entire grid fits
+      const optimalGridSize = Math.min(gridSizeByWidth, gridSizeByHeight);
+      
+      // Clamp between min and max values
+      const finalGridSize = Math.max(40, Math.min(optimalGridSize, 120));
+      
+      console.log('Grid calculation:', {
+        available: { width: availableWidth, height: availableHeight },
+        room: { width: layout.room_width, height: layout.room_height },
+        gridSizes: { byWidth: gridSizeByWidth, byHeight: gridSizeByHeight },
+        final: finalGridSize
+      });
+      
+      setGridSize(finalGridSize);
+    };
+    
+    // Calculate on mount and when layout changes
+    calculateOptimalGridSize();
+    
+    // Recalculate on window resize
+    const handleResize = () => {
+      calculateOptimalGridSize();
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [layout]);
   
   console.log("SeatingCanvas render - highlightMode:", highlightMode);
   
@@ -2682,8 +2782,13 @@ const SeatingCanvas = ({
   return React.createElement(
     "div",
     {
+      ref: canvasRef,
       className: `seating-canvas ${draggedStudent ? "drag-active" : ""}`,
-      style: LayoutStyles.getCanvasContainerStyle(layout.room_width, layout.room_height, gridSize),
+      style: {
+        ...LayoutStyles.getCanvasContainerStyle(layout.room_width, layout.room_height, gridSize),
+        position: "relative",
+        margin: "auto",
+      },
     },
 
     // Grid background (optional)
@@ -3177,6 +3282,15 @@ const StudentPool = ({
     "div",
     {
       className: "student-pool",
+      style: {
+        width: "250px",
+        flexShrink: 0,
+        overflowY: "auto",
+        borderLeft: "1px solid #e5e7eb",
+        backgroundColor: "#f9fafb",
+        padding: 0,
+        height: "100%",
+      },
       // NEW DRAG HANDLERS FOR ACCEPTING DROPS:
       onDragOver: (e) => {
         e.preventDefault();
@@ -3213,7 +3327,7 @@ const StudentPool = ({
       { 
         className: "pool-actions",
         style: {
-          padding: "1rem",
+          padding: "0.5rem",
           borderBottom: "1px solid #e5e7eb",
           display: "flex",
           flexDirection: "column",
