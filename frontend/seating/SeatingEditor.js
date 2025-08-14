@@ -1071,7 +1071,9 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
 
   // Build the title string
   const getEditorTitle = () => {
-    if (!classInfo) return "Loading...";
+    if (!classInfo) {
+      return React.createElement("span", null, "Loading...");
+    }
 
     const className = classInfo.name || "Unknown Class";
 
@@ -1080,11 +1082,81 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
       const periodName = period.name || "Untitled Period";
       const startDate = formatDate(period.start_date);
       const endDate = formatDate(period.end_date) || "Present";
-      return `${className}: ${periodName} (${startDate} - ${endDate})`;
+      
+      // Return a two-line element
+      return React.createElement(
+        "div",
+        { 
+          style: { 
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+            alignItems: "flex-start",
+            lineHeight: "1.2"
+          } 
+        },
+        // Top line - Period name (large)
+        React.createElement(
+          "div",
+          { 
+            style: { 
+              fontSize: "1.25rem",
+              fontWeight: "600",
+              color: "#1f2937"
+            } 
+          },
+          periodName
+        ),
+        // Bottom line - Class name and dates (small)
+        React.createElement(
+          "div",
+          { 
+            style: { 
+              fontSize: "0.875rem",
+              color: "#6b7280",
+              fontWeight: "400"
+            } 
+          },
+          `${className} • ${startDate} - ${endDate}`
+        )
+      );
     }
 
     // No current period yet
-    return `${className}: New Seating Chart`;
+    return React.createElement(
+      "div",
+      { 
+        style: { 
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          alignItems: "flex-start",
+          lineHeight: "1.2"
+        } 
+      },
+      React.createElement(
+        "div",
+        { 
+          style: { 
+            fontSize: "1.25rem",
+            fontWeight: "600",
+            color: "#1f2937"
+          } 
+        },
+        "New Seating Chart"
+      ),
+      React.createElement(
+        "div",
+        { 
+          style: { 
+            fontSize: "0.875rem",
+            color: "#6b7280",
+            fontWeight: "400"
+          } 
+        },
+        className
+      )
+    );
   };
 
   // Reset function - moves all students back to pool
@@ -1870,7 +1942,19 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
         React.createElement("i", { className: "fas fa-arrow-left" }),
         " Back"
       ),
-      React.createElement("h2", { className: "editor-title", style: { flex: "1" } }, getEditorTitle()),
+      React.createElement(
+        "div", 
+        { 
+          className: "editor-title", 
+          style: { 
+            flex: "1",
+            display: "flex",
+            alignItems: "center",
+            minHeight: "40px"
+          } 
+        }, 
+        getEditorTitle()
+      ),
 
       // Period navigation buttons (right-justified)
       React.createElement(

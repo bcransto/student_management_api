@@ -377,9 +377,11 @@ const SeatingViewer = ({ classId, periodId, onEdit, onBack, navigateTo }) => {
     );
   }
 
-  // Build title string for toolbar
+  // Build title element with two lines for toolbar
   const getTitle = () => {
-    if (!classInfo) return "Loading...";
+    if (!classInfo) {
+      return React.createElement("span", null, "Loading...");
+    }
     
     const className = classInfo.name || "Unknown Class";
     
@@ -389,10 +391,80 @@ const SeatingViewer = ({ classId, periodId, onEdit, onBack, navigateTo }) => {
       const startDate = formatDate(period.start_date);
       const endDate = formatDate(period.end_date) || "Present";
       
-      return `${className}: ${periodName} (${startDate} - ${endDate})`;
+      // Return a two-line element
+      return React.createElement(
+        "div",
+        { 
+          style: { 
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+            alignItems: "flex-start",
+            lineHeight: "1.2"
+          } 
+        },
+        // Top line - Period name (large)
+        React.createElement(
+          "div",
+          { 
+            style: { 
+              fontSize: "1.25rem",
+              fontWeight: "600",
+              color: "#1f2937"
+            } 
+          },
+          periodName
+        ),
+        // Bottom line - Class name and dates (small)
+        React.createElement(
+          "div",
+          { 
+            style: { 
+              fontSize: "0.875rem",
+              color: "#6b7280",
+              fontWeight: "400"
+            } 
+          },
+          `${className} • ${startDate} - ${endDate}`
+        )
+      );
     }
     
-    return `${className}: No Seating Period`;
+    // No seating period case
+    return React.createElement(
+      "div",
+      { 
+        style: { 
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          alignItems: "flex-start",
+          lineHeight: "1.2"
+        } 
+      },
+      React.createElement(
+        "div",
+        { 
+          style: { 
+            fontSize: "1.25rem",
+            fontWeight: "600",
+            color: "#1f2937"
+          } 
+        },
+        "No Seating Period"
+      ),
+      React.createElement(
+        "div",
+        { 
+          style: { 
+            fontSize: "0.875rem",
+            color: "#6b7280",
+            fontWeight: "400"
+          } 
+        },
+        className
+      )
+    );
   };
 
   return React.createElement(
@@ -424,7 +496,19 @@ const SeatingViewer = ({ classId, periodId, onEdit, onBack, navigateTo }) => {
       ),
       
       // Title
-      React.createElement("h2", { className: "viewer-title", style: { flex: "1" } }, getTitle()),
+      React.createElement(
+        "div", 
+        { 
+          className: "viewer-title", 
+          style: { 
+            flex: "1",
+            display: "flex",
+            alignItems: "center",
+            minHeight: "40px"
+          } 
+        }, 
+        getTitle()
+      ),
 
       // Period navigation buttons (right-justified)
       React.createElement(
