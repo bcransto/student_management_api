@@ -9,6 +9,8 @@ const Seating = ({ data, navigateTo, initialView, classId, periodId }) => {
   const [currentView, setCurrentView] = React.useState(initialView || "list"); // 'list', 'viewer', or 'editor'
   const [selectedClassId, setSelectedClassId] = React.useState(classId || null);
   const [selectedPeriodId, setSelectedPeriodId] = React.useState(periodId || null);
+  const [showNoLayoutModal, setShowNoLayoutModal] = React.useState(false);
+  const [userLayouts, setUserLayouts] = React.useState([]);
 
   React.useEffect(() => {
     console.log("Seating component mounted");
@@ -35,6 +37,7 @@ const Seating = ({ data, navigateTo, initialView, classId, periodId }) => {
     }
 
     fetchClassesWithSeatingCharts();
+    fetchUserLayouts();
   }, []);
 
   // Handle when component is loaded with initialView and classId from URL
@@ -82,6 +85,33 @@ const Seating = ({ data, navigateTo, initialView, classId, periodId }) => {
       setError("Unable to load classes. Please try again.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchUserLayouts = async () => {
+    try {
+      const response = await window.ApiModule.request('/layouts/', {
+        method: 'GET'
+      });
+      const layoutData = response.results || response;
+      setUserLayouts(layoutData);
+      console.log("User layouts:", layoutData);
+    } catch (err) {
+      console.error("Error fetching layouts:", err);
+      setUserLayouts([]);
+    }
+  };
+
+  const handleClassCardClick = (classItem) => {
+    console.log("Class card clicked:", classItem);
+    
+    // Check if user has any layouts
+    if (userLayouts.length === 0) {
+      // Show modal to create a layout first
+      setShowNoLayoutModal(true);
+    } else {
+      // Go to viewer - it will auto-select the most recent layout
+      handleViewChart(classItem.id, classItem.name);
     }
   };
 
@@ -292,14 +322,8 @@ const Seating = ({ data, navigateTo, initialView, classId, periodId }) => {
               {
                 key: classItem.id,
                 className: "seating-class-card floating-card",
-                onClick: () => {
-                  // Always go to viewer if we have a layout
-                  // The viewer will handle navigation between periods and creating new ones
-                  if (classItem.classroom_layout) {
-                    handleViewChart(classItem.id, classItem.name);
-                  }
-                },
-                style: { cursor: classItem.classroom_layout ? "pointer" : "not-allowed" },
+                onClick: () => handleClassCardClick(classItem),
+                style: { cursor: "pointer" },
               },
 
               // Class info
@@ -333,7 +357,7 @@ const Seating = ({ data, navigateTo, initialView, classId, periodId }) => {
                   React.createElement(
                     "span",
                     null,
-                    classItem.classroom_layout ? "Layout assigned" : "No layout"
+                    classItem.current_seating_period ? "Active period" : "No current period"
                   )
                 )
               ),
@@ -360,6 +384,80 @@ const Seating = ({ data, navigateTo, initialView, classId, periodId }) => {
               )
             )
           )
+    ),
+
+    // Modal for no layouts
+    showNoLayoutModal && React.createElement(
+      "div",
+      {
+        className: "modal-overlay",
+        onClick: () => setShowNoLayoutModal(false)
+      },
+      React.createElement(
+        "div",
+        {
+          className: "modal-content",
+          onClick: (e) => e.stopPropagation()
+        },
+        React.createElement(
+          "div",
+          { className: "modal-header" },
+          React.createElement("h3", null, "Layout Required"),
+          React.createElement(
+            "button",
+            {
+              className: "modal-close",
+              onClick: () => setShowNoLayoutModal(false)
+            },
+            React.createElement("i", { className: "fas fa-times" })
+          )
+        ),
+        React.createElement(
+          "div",
+          { className: "modal-body" },
+          React.createElement(
+            "p",
+            null,
+            "You need to create a classroom layout before you can start arranging seats."
+          ),
+          React.createElement(
+            "p",
+            null,
+            "Layouts define the physical arrangement of tables and seats in your classroom."
+          )
+        ),
+        React.createElement(
+          "div",
+          { className: "modal-footer" },
+          React.createElement(
+            "button",
+            {
+              className: "btn btn-secondary",
+              onClick: () => setShowNoLayoutModal(false)
+            },
+            "Cancel"
+          ),
+          React.createElement(
+            "button",
+            {
+              className: "btn btn-primary",
+              onClick: () => {
+                setShowNoLayoutModal(false);
+                // Navigate to layouts page
+                if (nav?.toLayouts) {
+                  nav.toLayouts();
+                } else if (navigateTo) {
+                  navigateTo("layouts");
+                } else {
+                  window.location.hash = "#layouts";
+                }
+              }
+            },
+            React.createElement("i", { className: "fas fa-th" }),
+            " Create Layout"
+          )
+        )
+      )
     )
   );
 };

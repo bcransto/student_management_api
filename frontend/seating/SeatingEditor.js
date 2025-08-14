@@ -253,7 +253,7 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
       setIsViewingCurrentPeriod(viewingCurrent);
       console.log(`Editing period: ${periodToEdit?.name}, Is current: ${viewingCurrent}, End date: ${periodToEdit?.end_date}`);
       
-      // Load the layout from the period being edited (if exists) or class
+      // Load the layout from the period being edited (if exists) or auto-select
       let currentLayout = null;
       if (periodToEdit && periodToEdit.layout_details) {
         // Use layout from the seating period (new approach)
@@ -263,11 +263,25 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
         );
         currentLayout = periodToEdit.layout_details;
         setLayout(currentLayout);
-      } else if (classData.classroom_layout) {
-        // Fallback to class layout for backward compatibility
-        console.log("No period layout, using class layout:", classData.classroom_layout);
-        currentLayout = classData.classroom_layout;
-        setLayout(currentLayout);
+      } else {
+        // Auto-select the user's most recent layout
+        console.log("No period layout, fetching user's layouts...");
+        try {
+          const layoutsResponse = await window.ApiModule.request("/layouts/");
+          const userLayouts = layoutsResponse.results || layoutsResponse;
+          
+          if (userLayouts.length > 0) {
+            // Select the most recent layout (first in the list, assuming sorted by date)
+            currentLayout = userLayouts[0];
+            console.log("Auto-selected most recent layout:", currentLayout.name);
+            setLayout(currentLayout);
+          } else {
+            console.log("No layouts available - user needs to create one");
+            // The component will handle showing a message to create a layout
+          }
+        } catch (error) {
+          console.error("Failed to fetch user layouts:", error);
+        }
       }
 
       // Load students from the roster that's already in the class data
@@ -1530,11 +1544,24 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
       // Auto-generate period name as "Chart N"
       const periodName = `Chart ${chartNumber}`;
 
-      // Create new period with layout from previous period or class
-      const layoutId =
-        classInfo?.current_seating_period?.layout || layout?.id || classInfo?.classroom_layout?.id;
+      // Create new period with layout (use current layout or fetch user's most recent)
+      let layoutId = layout?.id;
+      
       if (!layoutId) {
-        alert("No layout available to create a new period");
+        // Try to get the user's most recent layout
+        try {
+          const layoutsResponse = await window.ApiModule.request("/layouts/");
+          const userLayouts = layoutsResponse.results || layoutsResponse;
+          if (userLayouts.length > 0) {
+            layoutId = userLayouts[0].id;
+          }
+        } catch (error) {
+          console.error("Failed to fetch layouts:", error);
+        }
+      }
+      
+      if (!layoutId) {
+        alert("No layout available. Please create a classroom layout first.");
         return;
       }
 

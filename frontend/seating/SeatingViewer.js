@@ -57,7 +57,7 @@ const SeatingViewer = ({ classId, periodId, onEdit, onBack, navigateTo }) => {
       
       setClassInfo(classData);
 
-      // Load the layout from the period (if exists) or class
+      // Load the layout from the period (if exists) or auto-select
       let currentLayout = null;
       if (periodToShow && periodToShow.layout_details) {
         console.log(
@@ -66,10 +66,25 @@ const SeatingViewer = ({ classId, periodId, onEdit, onBack, navigateTo }) => {
         );
         currentLayout = periodToShow.layout_details;
         setLayout(currentLayout);
-      } else if (classData.classroom_layout) {
-        console.log("No period layout, using class layout:", classData.classroom_layout);
-        currentLayout = classData.classroom_layout;
-        setLayout(currentLayout);
+      } else {
+        // Auto-select the user's most recent layout
+        console.log("No period layout, fetching user's layouts...");
+        try {
+          const layoutsResponse = await window.ApiModule.request("/layouts/");
+          const userLayouts = layoutsResponse.results || layoutsResponse;
+          
+          if (userLayouts.length > 0) {
+            // Select the most recent layout (first in the list, assuming sorted by date)
+            currentLayout = userLayouts[0];
+            console.log("Auto-selected most recent layout:", currentLayout.name);
+            setLayout(currentLayout);
+          } else {
+            console.log("No layouts available - user needs to create one");
+            // The component will handle showing a message to create a layout
+          }
+        } catch (error) {
+          console.error("Failed to fetch user layouts:", error);
+        }
       }
 
       // Load students from the roster
