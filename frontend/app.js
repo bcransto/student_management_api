@@ -426,6 +426,13 @@ const App = () => {
           refreshData: fetchData,
         });
 
+      case "profile":
+        // Profile is editing current user
+        return React.createElement(Components.UserEditor, {
+          userId: "me",
+          refreshData: fetchData,
+        });
+
       case "user-edit":
         const hash = window.location.hash.slice(1);
         let userId = "me"; // Default to current user

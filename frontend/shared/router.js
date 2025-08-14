@@ -19,6 +19,9 @@ const Router = {
     seatingEditPeriod: 'seating/edit/:classId/period/:periodId',
     layouts: 'layouts',
     layoutEdit: 'layouts/edit/:id',
+    users: 'users',
+    userEdit: 'users/edit/:id',
+    profile: 'profile',
   },
 
   // Generate a route URL with parameters

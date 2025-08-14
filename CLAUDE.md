@@ -240,6 +240,9 @@ Frontend auto-detects production environment via hostname.
 - `#seating/edit/{classId}` - Edit current period
 - `#seating/edit/{classId}/period/{periodId}` - Edit specific period
 - `#layouts` - Layout management (user's layouts only)
+- `#users` - User management (superusers only)
+- `#users/edit/{id}` - Edit specific user
+- `#profile` - Edit current user's profile
 
 **Navigation & Routing**:
 - Router utility at `frontend/shared/router.js` provides consistent URL generation

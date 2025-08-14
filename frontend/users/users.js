@@ -2,9 +2,10 @@
 (function () {
   "use strict";
 
-  const { ApiModule } = window.CoreModule || {};
-  const { NavigationService } = window.NavigationModule || {};
-  const { formatDate } = window.UtilsModule || {};
+  // Get modules from window
+  const ApiModule = window.ApiModule;
+  const NavigationService = window.NavigationService;
+  const formatDate = window.UtilsModule?.formatDate || ((date) => new Date(date).toLocaleDateString());
 
   function UsersList() {
     const [users, setUsers] = React.useState([]);
@@ -16,14 +17,21 @@
 
     // Get current user info from JWT token
     React.useEffect(() => {
-      const token = localStorage.getItem("access_token");
+      const token = localStorage.getItem("token");
       if (token) {
         try {
-          const payload = JSON.parse(atob(token.split(".")[1]));
+          // Add padding if needed for base64 decode
+          let payload = token.split(".")[1];
+          payload = payload.replace(/-/g, '+').replace(/_/g, '/');
+          while (payload.length % 4) {
+            payload += '=';
+          }
+          const decoded = JSON.parse(atob(payload));
+          console.log("UsersList: Decoded token:", decoded); // Debug log
           setCurrentUser({
-            id: payload.user_id,
-            email: payload.email,
-            is_superuser: payload.is_superuser || false
+            id: decoded.user_id,
+            email: decoded.email,
+            is_superuser: decoded.is_superuser || false
           });
         } catch (e) {
           console.error("Error parsing token:", e);
@@ -35,7 +43,7 @@
     const loadUsers = React.useCallback(async () => {
       setLoading(true);
       try {
-        const response = await ApiModule.request("/api/users/", {
+        const response = await ApiModule.request("/users/", {
           method: "GET"
         });
         setUsers(response.results || response);
@@ -74,7 +82,7 @@
       if (!confirm("Are you sure you want to deactivate this user?")) return;
       
       try {
-        await ApiModule.request(`/api/users/${userId}/deactivate/`, {
+        await ApiModule.request(`/users/${userId}/deactivate/`, {
           method: "POST"
         });
         await loadUsers();
@@ -86,7 +94,7 @@
     // Handle user reactivation
     const handleReactivate = async (userId) => {
       try {
-        await ApiModule.request(`/api/users/${userId}/reactivate/`, {
+        await ApiModule.request(`/users/${userId}/reactivate/`, {
           method: "POST"
         });
         await loadUsers();
@@ -284,7 +292,7 @@
           data.password = formData.password;
         }
 
-        await ApiModule.request("/api/users/", {
+        await ApiModule.request("/users/", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(data)

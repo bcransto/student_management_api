@@ -1,21 +1,23 @@
 // frontend/navigation/sidebar.js
 const Sidebar = ({ currentView, onNavigate }) => {
-  const [currentUser, setCurrentUser] = React.useState(null);
-
-  // Get current user info from JWT token
-  React.useEffect(() => {
-    const token = localStorage.getItem("access_token");
-    if (token) {
-      try {
-        const payload = JSON.parse(atob(token.split(".")[1]));
-        setCurrentUser({
-          is_superuser: payload.is_superuser || false
-        });
-      } catch (e) {
-        console.error("Error parsing token:", e);
+  // Parse token and check if user is superuser
+  const token = localStorage.getItem("token");
+  let isSuperuser = false;
+  
+  if (token) {
+    try {
+      let payload = token.split(".")[1];
+      payload = payload.replace(/-/g, '+').replace(/_/g, '/');
+      while (payload.length % 4) {
+        payload += '=';
       }
+      const decoded = JSON.parse(atob(payload));
+      console.log("Sidebar token check - is_superuser:", decoded.is_superuser, "full token:", decoded);
+      isSuperuser = decoded.is_superuser === true;
+    } catch (e) {
+      console.error("Error parsing token:", e);
     }
-  }, []);
+  }
 
   const navItems = [
     { id: "dashboard", label: "Dashboard", icon: "fas fa-tachometer-alt" },
@@ -25,8 +27,8 @@ const Sidebar = ({ currentView, onNavigate }) => {
     { id: "layouts", label: "Layouts", icon: "fas fa-th" },
   ];
 
-  // Add admin items if superuser
-  if (currentUser?.is_superuser) {
+  // Add Users menu for superusers
+  if (isSuperuser) {
     navItems.push({ id: "users", label: "Users", icon: "fas fa-user-cog" });
   }
 

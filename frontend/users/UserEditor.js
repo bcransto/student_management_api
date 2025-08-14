@@ -2,10 +2,12 @@
 (function () {
   "use strict";
 
-  const { ApiModule } = window.CoreModule || {};
-  const { NavigationService } = window.NavigationModule || {};
+  // Get modules from window - wait for them to be available
+  const ApiModule = window.ApiModule;
+  const NavigationService = window.NavigationService;
 
   function UserEditor({ userId }) {
+    console.log("UserEditor component loaded with userId:", userId);
     const [user, setUser] = React.useState(null);
     const [loading, setLoading] = React.useState(true);
     const [saving, setSaving] = React.useState(false);
@@ -19,36 +21,48 @@
       is_active: true
     });
 
-    // Get current user info
-    React.useEffect(() => {
-      const token = localStorage.getItem("access_token");
-      if (token) {
-        try {
-          const payload = JSON.parse(atob(token.split(".")[1]));
-          setCurrentUser({
-            id: payload.user_id,
-            email: payload.email,
-            is_superuser: payload.is_superuser || false
-          });
-        } catch (e) {
-          console.error("Error parsing token:", e);
-        }
-      }
-    }, []);
-
-    // Load user data
+    // Get current user info and load user data
     React.useEffect(() => {
       const loadUser = async () => {
+        console.log("Starting to load user data for userId:", userId);
         setLoading(true);
+        
+        // First, get current user info from token
+        let tokenUser = null;
+        const token = localStorage.getItem("token");
+        if (token) {
+          try {
+            // Add padding if needed for base64 decode
+            let payload = token.split(".")[1];
+            payload = payload.replace(/-/g, '+').replace(/_/g, '/');
+            while (payload.length % 4) {
+              payload += '=';
+            }
+            const decoded = JSON.parse(atob(payload));
+            console.log("UserEditor: Decoded token:", decoded);
+            tokenUser = {
+              id: decoded.user_id,
+              email: decoded.email,
+              is_superuser: decoded.is_superuser || false
+            };
+            setCurrentUser(tokenUser);
+          } catch (e) {
+            console.error("Error parsing token:", e);
+          }
+        }
+        
+        // Now load the user data
         try {
           // Check if viewing own profile
-          const isOwnProfile = userId === "me" || parseInt(userId) === currentUser?.id;
-          const endpoint = isOwnProfile ? "/api/users/me/" : `/api/users/${userId}/`;
+          const isOwnProfile = userId === "me" || (tokenUser && parseInt(userId) === tokenUser.id);
+          const endpoint = isOwnProfile ? "/users/me/" : `/users/${userId}/`;
           
+          console.log("Fetching from endpoint:", endpoint);
           const response = await ApiModule.request(endpoint, {
             method: "GET"
           });
           
+          console.log("User data received:", response);
           setUser(response);
           setFormData({
             email: response.email,
@@ -65,10 +79,8 @@
         }
       };
 
-      if (currentUser) {
-        loadUser();
-      }
-    }, [userId, currentUser]);
+      loadUser();
+    }, [userId]);
 
     // Handle form submission
     const handleSubmit = async (e) => {
@@ -78,7 +90,7 @@
 
       try {
         const isOwnProfile = userId === "me" || parseInt(userId) === currentUser?.id;
-        const endpoint = isOwnProfile ? "/api/users/me/" : `/api/users/${userId}/`;
+        const endpoint = isOwnProfile ? "/users/me/" : `/users/${userId}/`;
         
         const dataToSend = { ...formData };
         // Only superusers can change is_active status
@@ -335,7 +347,7 @@
       try {
         if (isOwnProfile) {
           // User changing their own password
-          await ApiModule.request("/api/users/change_password/", {
+          await ApiModule.request("/users/change_password/", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
