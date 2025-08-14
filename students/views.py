@@ -279,6 +279,92 @@ class ClassViewSet(viewsets.ModelViewSet):
         except:
             return Response({"valid": False, "message": "Invalid seat ID format"})
 
+    @action(detail=True, methods=["get"], url_path="partnership-history")
+    def partnership_history(self, request, pk=None):
+        """Get historical seating partnerships for all students in completed periods"""
+        class_obj = self.get_object()
+        
+        # Get all completed seating periods (end_date is not null)
+        completed_periods = SeatingPeriod.objects.filter(
+            class_assigned=class_obj,
+            end_date__isnull=False
+        ).order_by('end_date')
+        
+        if not completed_periods.exists():
+            return Response({
+                "class_id": class_obj.id,
+                "partnership_data": {}
+            })
+        
+        # Build partnership data structure
+        partnership_data = {}
+        
+        # Process each completed period
+        for period in completed_periods:
+            period_end_date = period.end_date.strftime("%Y-%m-%d")
+            
+            # Get all assignments for this period, grouped by table
+            assignments = SeatingAssignment.objects.filter(
+                seating_period=period
+            ).select_related('roster_entry__student')
+            
+            # Group assignments by table
+            table_groups = {}
+            for assignment in assignments:
+                table_num = assignment.table_number
+                if table_num not in table_groups:
+                    table_groups[table_num] = []
+                table_groups[table_num].append(assignment)
+            
+            # Process each table to find partnerships
+            for table_num, table_assignments in table_groups.items():
+                # For each pair of students at the same table
+                for i in range(len(table_assignments)):
+                    for j in range(i + 1, len(table_assignments)):
+                        student1 = table_assignments[i].roster_entry.student
+                        student2 = table_assignments[j].roster_entry.student
+                        
+                        # Initialize student1 data if not exists
+                        if str(student1.id) not in partnership_data:
+                            partnership_data[str(student1.id)] = {
+                                "name": f"{student1.first_name} {student1.last_name}",
+                                "is_active": ClassRoster.objects.filter(
+                                    class_assigned=class_obj,
+                                    student=student1,
+                                    is_active=True
+                                ).exists(),
+                                "partnerships": {}
+                            }
+                        
+                        # Initialize student2 data if not exists
+                        if str(student2.id) not in partnership_data:
+                            partnership_data[str(student2.id)] = {
+                                "name": f"{student2.first_name} {student2.last_name}",
+                                "is_active": ClassRoster.objects.filter(
+                                    class_assigned=class_obj,
+                                    student=student2,
+                                    is_active=True
+                                ).exists(),
+                                "partnerships": {}
+                            }
+                        
+                        # Add partnership for student1 -> student2
+                        if str(student2.id) not in partnership_data[str(student1.id)]["partnerships"]:
+                            partnership_data[str(student1.id)]["partnerships"][str(student2.id)] = []
+                        if period_end_date not in partnership_data[str(student1.id)]["partnerships"][str(student2.id)]:
+                            partnership_data[str(student1.id)]["partnerships"][str(student2.id)].append(period_end_date)
+                        
+                        # Add partnership for student2 -> student1
+                        if str(student1.id) not in partnership_data[str(student2.id)]["partnerships"]:
+                            partnership_data[str(student2.id)]["partnerships"][str(student1.id)] = []
+                        if period_end_date not in partnership_data[str(student2.id)]["partnerships"][str(student1.id)]:
+                            partnership_data[str(student2.id)]["partnerships"][str(student1.id)].append(period_end_date)
+        
+        return Response({
+            "class_id": class_obj.id,
+            "partnership_data": partnership_data
+        })
+
 
 class ClassRosterViewSet(viewsets.ModelViewSet):
     queryset = ClassRoster.objects.all()
