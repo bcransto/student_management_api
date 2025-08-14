@@ -2392,8 +2392,8 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
                   console.log(`Cannot deactivate seats in historical periods`);
                   alert("Seat deactivation is only available for the current period");
                 } else {
-                  // Normal click - handle click-to-fill for empty seats
-                  console.log(`Normal click on seat ${seatId}`);
+                  // Double-click - handle click-to-fill for empty seats
+                  console.log(`Double-click on seat ${seatId}`);
                   handleClickToFill(tableId, seatNumber);
                 }
               },
@@ -2903,7 +2903,18 @@ const SeatingCanvas = ({
                 ...finalSeatStyle,
                 cursor: isDeactivated ? "not-allowed" : "pointer",
               },
-              onClick: (e) => onSeatClick(table.id, seat.seat_number, e),
+              onClick: (e) => {
+                // Only handle Shift+click for deactivation
+                if (e.shiftKey) {
+                  onSeatClick(table.id, seat.seat_number, e);
+                }
+              },
+              onDoubleClick: (e) => {
+                // Double-click for normal fill
+                if (!e.shiftKey) {
+                  onSeatClick(table.id, seat.seat_number, e);
+                }
+              },
               onMouseEnter: !assignedStudent && !isDeactivated ? (e) => {
                 // Visual feedback on hover for fillable seats
                 e.currentTarget.style.backgroundColor = '#bfdbfe';  // Darker blue on hover

@@ -25,6 +25,7 @@ python manage.py test students.tests    # Specific app
 python test_nickname_functionality.py   # Standalone test file
 python test_seating_api.py             # Test seating APIs
 python test_save.py                    # Test save functionality
+python test_chart_naming.py            # Test chart auto-naming
 
 # Linting and formatting
 npm run lint:all          # Frontend + backend linting
@@ -80,18 +81,17 @@ React.createElement("div", { className: "example" }, children)
    - Assignments state: `{tableId: {seatNumber: studentId}}` with string keys
    - Seat ID format: "tableNumber-seatNumber" (e.g., "1-2")
    - Gender highlighting requires DOM manipulation with setProperty('important')
-   - Left sidebar (125px) contains controls
+   - Left sidebar (250px) and right sidebar (250px) with controls
    - Autofill preserves existing seat assignments
    - Search includes nickname field
    - **Fill System**: Three modes (Random, Match Gender, Balance Gender)
-     - Click-to-fill: Click empty seats to auto-assign students
+     - Double-click empty seats to auto-assign students (changed from single-click)
      - Auto button: Fill all empty seats at once
      - Batch operations create single undo entry
    - **Undo System**: Full history tracking with 50-level limit
    - **Seat Deactivation**: Shift+click to block seats (red, stored in Set)
-   - **Period Navigation**: Updates URL when navigating (e.g., `#seating/edit/1/period/14`)
-   - **Historical Period Editing**: Can edit past periods for late updates
-   - **URL Tracking**: Previous/Next buttons update URL for bookmarkable state
+   - **Period Navigation**: View-only - does NOT modify database end_dates
+   - **Dynamic Grid Scaling**: Automatically scales to fit viewport with fixed sidebars
 
 2. **Students Components**
    - `formatStudentNameTwoLine()` returns { line1: nickname, line2: "Smi." } for consistent two-line display
@@ -183,6 +183,7 @@ element.style.setProperty('background-color', '#10b981', 'important');
 - **CRITICAL**: Period navigation (Previous/Next buttons) must NEVER modify end_dates
 - Navigation is view-only - historical periods never become active again
 - Only "New Period" button should modify database state
+- Auto-naming: New periods are named "Chart N" where N increments
 
 **Nickname Handling**:
 - Model auto-sets to first_name if empty/whitespace
@@ -202,6 +203,7 @@ element.style.setProperty('background-color', '#10b981', 'important');
 python test_nickname_functionality.py  # Comprehensive nickname tests
 python test_seating_api.py            # Seating API tests
 python test_save.py                   # Save functionality tests
+python test_chart_naming.py           # Chart auto-naming tests
 
 # Frontend testing
 open test_nickname_frontend.html      # Interactive browser tests
@@ -262,3 +264,26 @@ Frontend auto-detects production environment via hostname.
 9. `frontend/app.js` - Main app component with routing and navigation
 10. `frontend/shared/router.js` - Centralized route definitions
 11. `frontend/shared/navigation.js` - Navigation service wrapper
+
+## Important Behavioral Notes
+
+### Seating Editor Interactions
+- **Double-click** empty seat: Fill with student from pool
+- **Shift+click** any seat: Toggle deactivation (red/blocked)
+- **Drag & Drop**: Move students between seats or back to pool
+- **Auto button**: Fill all empty seats based on selected mode
+- **View buttons**: Toggle highlighting (Gender/None)
+
+### Ownership & Permissions
+- All users (including superusers) only see their own:
+  - Classes (filtered by teacher field)
+  - Layouts (filtered by created_by field)
+  - Seating periods (filtered through class ownership)
+- Superusers can manage users but still see only their own teaching data
+
+### UI/UX Standards
+- Two-line text format for students: nickname/first name on top, truncated last name below
+- Fixed sidebar widths: 250px each in seating editor
+- Dynamic grid scaling to fit viewport while maintaining aspect ratio
+- Toolbar height: 60px with two-line title display
+- Student cards: 65x45px in pool, matching seat dimensions
