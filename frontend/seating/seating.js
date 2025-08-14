@@ -39,11 +39,16 @@ const Seating = ({ data, navigateTo, initialView, classId, periodId }) => {
 
   // Handle when component is loaded with initialView and classId from URL
   React.useEffect(() => {
-    if (initialView && classId) {
-      console.log(`Seating loaded with view: ${initialView}, classId: ${classId}, periodId: ${periodId}`);
-      setCurrentView(initialView);
-      setSelectedClassId(classId);
-      setSelectedPeriodId(periodId);
+    console.log(`Seating props changed - view: ${initialView}, classId: ${classId}, periodId: ${periodId}`);
+    
+    // Always update the view based on props
+    setCurrentView(initialView || "list");
+    setSelectedClassId(classId || null);
+    setSelectedPeriodId(periodId || null);
+    
+    // If we're going back to list view, ensure we refresh the list
+    if (initialView === "list" || (!initialView && !classId)) {
+      fetchClassesWithSeatingCharts();
     }
   }, [initialView, classId, periodId]);
 
@@ -123,15 +128,23 @@ const Seating = ({ data, navigateTo, initialView, classId, periodId }) => {
   };
 
   const handleBackToList = () => {
+    console.log("handleBackToList called");
+    console.log("nav:", nav);
+    console.log("navigateTo:", navigateTo);
+    
     // Navigate back to seating list
     if (nav?.toSeating) {
+      console.log("Using NavigationService.toSeating()");
       nav.toSeating();
     } else if (navigateTo) {
+      console.log("Using navigateTo prop");
       navigateTo("seating");
     } else {
+      console.log("Using fallback state change");
       // Fallback to internal state change
       setCurrentView("list");
       setSelectedClassId(null);
+      setSelectedPeriodId(null);
       fetchClassesWithSeatingCharts(); // Refresh the list
     }
   };
@@ -149,6 +162,8 @@ const Seating = ({ data, navigateTo, initialView, classId, periodId }) => {
     };
   }, [currentView]);
 
+  console.log("Seating component render - currentView:", currentView, "selectedClassId:", selectedClassId);
+  
   // Show viewer view
   if (currentView === "viewer") {
     console.log("Showing viewer for class:", selectedClassId);

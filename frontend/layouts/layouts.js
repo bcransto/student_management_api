@@ -47,20 +47,20 @@ const Layouts = ({ data, navigateTo }) => {
 
   const handleViewLayout = (layoutId, layoutName) => {
     console.log("View layout:", layoutId, layoutName);
-    // Directly redirect to the editor
-    window.location.href = `/frontend/layouts/editor/?layout=${layoutId}`;
+    // Open layout editor in view mode
+    window.open(`/layout-editor/?layout=${layoutId}`, '_blank');
   };
 
   const handleEditLayout = (layoutId, layoutName) => {
     console.log("Edit layout:", layoutId, layoutName);
-    // Directly redirect to the editor
-    window.location.href = `/frontend/layouts/editor/?layout=${layoutId}&mode=edit`;
+    // Navigate to layout editor in the same window
+    window.location.href = `/layout-editor/?layout=${layoutId}&mode=edit`;
   };
 
   const handleNewLayout = () => {
     console.log("Create new layout");
-    // Directly redirect to the editor
-    window.location.href = "/frontend/layouts/editor/?mode=new";
+    // Navigate to layout editor in the same window
+    window.location.href = "/layout-editor/?mode=new";
   };
 
   const handleDeleteLayout = async (layoutId, layoutName) => {

@@ -374,7 +374,15 @@ const SeatingViewer = ({ classId, periodId, onEdit, onBack, navigateTo }) => {
       React.createElement(
         "button",
         {
-          onClick: onBack,
+          onClick: () => {
+            console.log("SeatingViewer back button clicked");
+            console.log("onBack prop:", onBack);
+            if (onBack) {
+              onBack();
+            } else {
+              console.error("No onBack handler provided to SeatingViewer");
+            }
+          },
           className: "btn btn-secondary btn-sm",
         },
         React.createElement("i", { className: "fas fa-arrow-left" }),

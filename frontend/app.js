@@ -15,9 +15,14 @@ const Components = {
 
 // Main App Component
 const App = () => {
+  const { useState, useEffect, useCallback, useReducer } = React;
+  
   // Authentication state
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
+  
+  // Force update counter to trigger re-renders
+  const [, forceUpdate] = useReducer(x => x + 1, 0);
 
   // Navigation state - initialize from URL hash
   const getInitialView = () => {
@@ -231,7 +236,7 @@ const App = () => {
   };
 
   // Handle navigation
-  const handleNavigate = (view, params = {}) => {
+  const handleNavigate = useCallback((view, params = {}) => {
     console.log("Navigating to:", view, params);
 
     // Handle student edit navigation
@@ -256,11 +261,35 @@ const App = () => {
       return;
     }
 
+    // Handle seating navigation specifically
+    if (view === "seating") {
+      console.log("Setting currentView to 'seating' for list view");
+      console.log("Current hash before:", window.location.hash);
+      
+      // First update the hash
+      window.location.hash = "seating";
+      console.log("Hash after update:", window.location.hash);
+      
+      // Then update state
+      setCurrentView("seating");
+      setEditingStudentId(null);
+      
+      // Force a re-render
+      forceUpdate();
+      
+      // Debug callback
+      setTimeout(() => {
+        console.log("Timeout check - currentView should be 'seating', hash:", window.location.hash);
+      }, 0);
+      
+      return;
+    }
+
     // Regular navigation
     setCurrentView(view);
     setEditingStudentId(null);
     window.location.hash = view;
-  };
+  }, [forceUpdate]); // Include forceUpdate in dependencies so we can use it
 
   // Initialize NavigationService with handleNavigate
   useEffect(() => {
@@ -268,7 +297,7 @@ const App = () => {
       window.NavigationService.init(handleNavigate);
       console.log("NavigationService initialized with app navigation");
     }
-  });
+  }, [handleNavigate]); // Re-initialize when handleNavigate changes
 
   // Render the current view
   const renderCurrentView = () => {
@@ -282,6 +311,7 @@ const App = () => {
     }
 
     console.log("Rendering view:", currentView);
+    console.log("Current hash:", window.location.hash);
 
     switch (currentView) {
       case "student-edit":
@@ -328,7 +358,13 @@ const App = () => {
         let seatingClassId = null;
         let seatingPeriodId = null;
         
-        if (seatingHash.startsWith("seating/view/")) {
+        // Only parse detailed routes if the hash is more than just "seating"
+        if (seatingHash === "seating") {
+          // Explicitly show list view
+          seatingInitialView = "list";
+          seatingClassId = null;
+          seatingPeriodId = null;
+        } else if (seatingHash.startsWith("seating/view/")) {
           const viewMatch = seatingHash.match(/seating\/view\/(\d+)(?:\/period\/(\d+))?/);
           seatingInitialView = "viewer";
           seatingClassId = viewMatch?.[1];
@@ -339,6 +375,8 @@ const App = () => {
           seatingClassId = editMatch?.[1];
           seatingPeriodId = editMatch?.[2];
         }
+        
+        console.log("Seating case - hash:", seatingHash, "view:", seatingInitialView, "classId:", seatingClassId);
         
         return React.createElement(Components.Seating, {
           data: appData,
@@ -371,6 +409,9 @@ const App = () => {
     });
   }
 
+  // Debug log to track renders
+  console.log("App render - currentView:", currentView, "hash:", window.location.hash);
+  
   // Main app layout
   return React.createElement(
     "div",

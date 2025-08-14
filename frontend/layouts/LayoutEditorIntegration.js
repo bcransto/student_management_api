@@ -72,7 +72,7 @@ const LayoutEditorIntegration = ({ params, onNavigate }) => {
             className: "btn btn-primary",
             onClick: () =>
               window.open(
-                `/frontend/layouts/editor/?layout=${params?.layoutId || "new"}`,
+                `/layout-editor/?layout=${params?.layoutId || "new"}`,
                 "_blank"
               ),
           },

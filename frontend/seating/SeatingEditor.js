@@ -38,13 +38,13 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
   const [previousPeriodData, setPreviousPeriodData] = useState(null); // Previous period for duplicate detection
   const [duplicateWarning, setDuplicateWarning] = useState(null); // Warning message for duplicate seating
 
-  // Load initial data
+  // Load initial data when classId or periodId changes
   useEffect(() => {
     loadClassData();
-    // Clear deactivated seats when class changes
+    // Clear deactivated seats when class or period changes
     setDeactivatedSeats(new Set());
-    console.log("Cleared deactivated seats - class changed");
-  }, [classId]);
+    console.log("Cleared deactivated seats - class or period changed");
+  }, [classId, periodId]);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -226,28 +226,42 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
   const loadClassData = async (preservedAssignments = null) => {
     try {
       setLoading(true);
-      console.log("Loading data for class:", classId);
+      console.log("Loading data for class:", classId, "period:", periodId);
 
       // Load class info
       const classData = await window.ApiModule.request(`/classes/${classId}/`);
       console.log("Class data loaded:", classData);
+      
+      // If specific periodId provided, load that period
+      let periodToEdit = null;
+      
+      if (periodId) {
+        // Load the specific period requested
+        periodToEdit = await window.ApiModule.request(`/seating-periods/${periodId}/`);
+        console.log("Loading specific period for editing:", periodToEdit.name);
+        // Replace the current_seating_period in classData with the one we're editing
+        classData.current_seating_period = periodToEdit;
+      } else {
+        // Otherwise use current period from classData
+        periodToEdit = classData.current_seating_period;
+      }
+      
       setClassInfo(classData);
 
       // Check if we're viewing the actual current period (one with no end_date)
-      const viewingCurrent = classData.current_seating_period && 
-                             classData.current_seating_period.end_date === null;
+      const viewingCurrent = periodToEdit && periodToEdit.end_date === null;
       setIsViewingCurrentPeriod(viewingCurrent);
-      console.log(`Viewing current period: ${viewingCurrent}, Period end_date: ${classData.current_seating_period?.end_date}`);
+      console.log(`Editing period: ${periodToEdit?.name}, Is current: ${viewingCurrent}, End date: ${periodToEdit?.end_date}`);
       
-      // Load the layout from the current seating period (if exists) or class
+      // Load the layout from the period being edited (if exists) or class
       let currentLayout = null;
-      if (classData.current_seating_period && classData.current_seating_period.layout_details) {
+      if (periodToEdit && periodToEdit.layout_details) {
         // Use layout from the seating period (new approach)
         console.log(
           "Layout found in seating period:",
-          classData.current_seating_period.layout_details
+          periodToEdit.layout_details
         );
-        currentLayout = classData.current_seating_period.layout_details;
+        currentLayout = periodToEdit.layout_details;
         setLayout(currentLayout);
       } else if (classData.classroom_layout) {
         // Fallback to class layout for backward compatibility
@@ -290,18 +304,18 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
 
       // Load existing seating assignments if any
       if (
-        classData.current_seating_period?.seating_assignments &&
-        classData.current_seating_period.seating_assignments.length > 0 &&
+        periodToEdit?.seating_assignments &&
+        periodToEdit.seating_assignments.length > 0 &&
         currentLayout // Make sure we have a layout
       ) {
         console.log(
           "Loading seating assignments:",
-          classData.current_seating_period.seating_assignments
+          periodToEdit.seating_assignments
         );
         // Convert assignments to our format: {tableId: {seatNumber: studentId}}
         const assignmentMap = {};
 
-        classData.current_seating_period.seating_assignments.forEach((assignment) => {
+        periodToEdit.seating_assignments.forEach((assignment) => {
           // Use the currentLayout variable we set above
           if (!currentLayout.tables) {
             console.warn("No tables in layout");
@@ -1180,12 +1194,18 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
       // Get full details of the target period
       const fullTargetPeriod = await window.ApiModule.request(`/seating-periods/${targetPeriod.id}/`);
 
-      // Update the UI to show the target period WITHOUT modifying the database
-      // We're just changing what we're viewing, not which period is active
-      setClassInfo(prevInfo => ({
-        ...prevInfo,
-        current_seating_period: fullTargetPeriod
-      }));
+      // Update URL to reflect the new period being edited
+      if (nav?.toSeatingEditPeriod) {
+        nav.toSeatingEditPeriod(classId, targetPeriod.id);
+      } else if (navigateTo) {
+        navigateTo(`seating/edit/${classId}/period/${targetPeriod.id}`);
+      } else {
+        // Fallback: just update the UI state
+        setClassInfo(prevInfo => ({
+          ...prevInfo,
+          current_seating_period: fullTargetPeriod
+        }));
+      }
 
       // Clear deactivated seats when viewing a historical period
       if (fullTargetPeriod.end_date !== null) {
@@ -1809,7 +1829,15 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
       React.createElement(
         "button",
         {
-          onClick: onBack,
+          onClick: () => {
+            console.log("SeatingEditor back button clicked");
+            console.log("onBack prop:", onBack);
+            if (onBack) {
+              onBack();
+            } else {
+              console.error("No onBack handler provided to SeatingEditor");
+            }
+          },
           className: "btn btn-secondary btn-sm",
         },
         React.createElement("i", { className: "fas fa-arrow-left" }),
