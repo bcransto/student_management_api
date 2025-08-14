@@ -102,7 +102,7 @@ const Seating = ({ data, navigateTo, initialView, classId, periodId }) => {
     }
   };
 
-  const handleClassCardClick = (classItem) => {
+  const handleClassCardClick = async (classItem) => {
     console.log("Class card clicked:", classItem);
     
     // Check if class has students enrolled
@@ -116,8 +116,68 @@ const Seating = ({ data, navigateTo, initialView, classId, periodId }) => {
     if (userLayouts.length === 0) {
       // Show modal to create a layout first
       setShowNoLayoutModal(true);
+      return;
+    }
+    
+    // Check if class has a current seating period
+    if (!classItem.current_seating_period) {
+      console.log("No current period exists, creating one...");
+      
+      try {
+        // Get all periods for this class to determine the chart number
+        let chartNumber = 1;
+        try {
+          const allPeriods = await window.ApiModule.request(`/seating-periods/?class_assigned=${classItem.id}`);
+          console.log("All periods for numbering:", allPeriods);
+          
+          // Handle both array and object responses
+          if (Array.isArray(allPeriods)) {
+            chartNumber = allPeriods.length + 1;
+          } else if (allPeriods && typeof allPeriods === 'object') {
+            if (allPeriods.results && Array.isArray(allPeriods.results)) {
+              chartNumber = allPeriods.results.length + 1;
+            } else if (allPeriods.count !== undefined) {
+              chartNumber = allPeriods.count + 1;
+            }
+          }
+        } catch (error) {
+          console.error("Error fetching periods for chart numbering:", error);
+          chartNumber = 1;
+        }
+        
+        // Auto-generate period name as "Chart N"
+        const periodName = `Chart ${chartNumber}`;
+        
+        // Use the most recent layout
+        const layoutId = userLayouts[0].id;
+        
+        // Calculate start date
+        const today = new Date();
+        const startDate = today.toISOString().split("T")[0];
+        
+        // Create new period
+        const newPeriod = await window.ApiModule.request("/seating-periods/", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            class_assigned: classItem.id,
+            layout: layoutId,
+            name: periodName,
+            start_date: startDate,
+            end_date: null,
+          }),
+        });
+        
+        console.log("New period created:", newPeriod);
+        
+        // Go straight to editor with the new period
+        handleEditChart(classItem.id, classItem.name);
+      } catch (error) {
+        console.error("Error creating seating period:", error);
+        alert("Failed to create seating period. Please try again.");
+      }
     } else {
-      // Go to viewer - it will auto-select the most recent layout
+      // Period exists, go to viewer
       handleViewChart(classItem.id, classItem.name);
     }
   };
