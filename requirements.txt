@@ -1,13 +1,11 @@
-django==5.2.3
+Django==5.2.3
+djangorestframework==3.16.0
+djangorestframework-simplejwt==5.5.0
 django-cors-headers==4.7.0
 django-filter==25.1
-djangorestframework==3.16.0
-djangorestframework_simplejwt==5.5.0
-python-dotenv==1.0.0
+python-dotenv==1.1.0
+PyJWT==2.9.0
 
 # Production dependencies (install on PythonAnywhere)
-whitenoise==6.6.0
-mysqlclient==2.2.0
-
-# Note: mysqlclient is only needed on PythonAnywhere
-# For local development, it will use SQLite
+whitenoise==6.7.0
+mysqlclient==2.2.4
