@@ -7,6 +7,7 @@ const SeatingViewer = ({ classId, periodId, onEdit, onBack, navigateTo }) => {
 
   const [loading, setLoading] = React.useState(true);
   const [classInfo, setClassInfo] = React.useState(null);
+  const [viewedPeriod, setViewedPeriod] = React.useState(null); // Track which period is being viewed
   const [layout, setLayout] = React.useState(null);
   const [students, setStudents] = React.useState([]);
   const [assignments, setAssignments] = React.useState({});
@@ -49,13 +50,11 @@ const SeatingViewer = ({ classId, periodId, onEdit, onBack, navigateTo }) => {
           const periodId = periods[0].id;
           periodToShow = await window.ApiModule.request(`/seating-periods/${periodId}/`);
           console.log("No current period, showing most recent:", periodToShow.name);
-          
-          // Add it to classData for consistency
-          classData.current_seating_period = periodToShow;
         }
       }
       
       setClassInfo(classData);
+      setViewedPeriod(periodToShow); // Track the period being viewed separately
 
       // Load the layout from the period (if exists) or auto-select
       let currentLayout = null;
@@ -174,43 +173,49 @@ const SeatingViewer = ({ classId, periodId, onEdit, onBack, navigateTo }) => {
       // Sort by start date
       periods.sort((a, b) => new Date(a.start_date) - new Date(b.start_date));
 
-      // Find the currently viewed period index (not necessarily the active one)
-      const currentlyViewedPeriodId = classInfo.current_seating_period?.id;
+      // Find the currently viewed period index (use viewedPeriod, not current_seating_period)
+      const currentlyViewedPeriodId = viewedPeriod?.id;
       const currentIndex = periods.findIndex((p) => p.id === currentlyViewedPeriodId);
 
       let targetIndex;
       if (direction === "previous") {
+        // Wrap around: if at first period, go to last
         targetIndex = currentIndex > 0 ? currentIndex - 1 : periods.length - 1;
       } else {
+        // Wrap around: if at last period, go to first
         targetIndex = currentIndex < periods.length - 1 ? currentIndex + 1 : 0;
       }
 
       const targetPeriod = periods[targetIndex];
 
-      console.log(`Navigating from period ${currentlyViewedPeriodId} to ${targetPeriod.id}`);
+      console.log(`Navigating from period ${currentlyViewedPeriodId} (index ${currentIndex}) to ${targetPeriod.id} (index ${targetIndex})`);
       console.log("Note: This is VIEW-ONLY navigation, not changing active period in database");
 
       // Get full details of the target period
       const fullTargetPeriod = await window.ApiModule.request(`/seating-periods/${targetPeriod.id}/`);
+
+      // Update the viewed period state
+      setViewedPeriod(fullTargetPeriod);
 
       // Update URL to reflect the new period being viewed
       if (nav?.toSeatingViewPeriod) {
         nav.toSeatingViewPeriod(classId, targetPeriod.id);
       } else if (navigateTo) {
         navigateTo(`seating/view/${classId}/period/${targetPeriod.id}`);
-      } else {
-        // Fallback: just update the UI state
-        setClassInfo(prevInfo => ({
-          ...prevInfo,
-          current_seating_period: fullTargetPeriod
-        }));
+      }
+
+      // Update layout if the period has a different one
+      let currentLayout = layout;
+      if (fullTargetPeriod.layout_details) {
+        currentLayout = fullTargetPeriod.layout_details;
+        setLayout(currentLayout);
       }
 
       // Load assignments for the target period
-      if (fullTargetPeriod.seating_assignments && fullTargetPeriod.seating_assignments.length > 0 && layout) {
+      if (fullTargetPeriod.seating_assignments && fullTargetPeriod.seating_assignments.length > 0 && currentLayout) {
         const assignmentMap = {};
         fullTargetPeriod.seating_assignments.forEach((assignment) => {
-          const table = layout.tables.find(
+          const table = currentLayout.tables.find(
             (t) => t.table_number === assignment.table_number
           );
           if (!table) {
@@ -218,7 +223,7 @@ const SeatingViewer = ({ classId, periodId, onEdit, onBack, navigateTo }) => {
             return;
           }
 
-          const tableId = table.id;
+          const tableId = String(table.id);
           const seatNumber = String(assignment.seat_number);
 
           // Find the student ID from the roster
@@ -236,11 +241,6 @@ const SeatingViewer = ({ classId, periodId, onEdit, onBack, navigateTo }) => {
       } else {
         setAssignments({});
       }
-
-      // Update layout if the period has a different one
-      if (fullTargetPeriod.layout_details) {
-        setLayout(fullTargetPeriod.layout_details);
-      }
     } catch (error) {
       console.error("Failed to navigate periods:", error);
       alert("Failed to navigate to " + direction + " period");
@@ -254,8 +254,20 @@ const SeatingViewer = ({ classId, periodId, onEdit, onBack, navigateTo }) => {
     console.log("Current classInfo:", classInfo);
     console.log("Current layout:", layout);
 
+    // Find the actual current period (end_date = null)
+    let currentActivePeriod = null;
+    try {
+      const response = await window.ApiModule.request(
+        `/seating-periods/?class_assigned=${classId}`
+      );
+      const periods = response.results || [];
+      currentActivePeriod = periods.find(p => p.end_date === null);
+    } catch (error) {
+      console.error("Error fetching periods:", error);
+    }
+
     // Confirmation dialog
-    const confirmMessage = classInfo?.current_seating_period
+    const confirmMessage = currentActivePeriod
       ? "Create a new seating period? This will end the current period as of today."
       : "Create a new seating period?";
 
@@ -266,18 +278,18 @@ const SeatingViewer = ({ classId, periodId, onEdit, onBack, navigateTo }) => {
     setIsCreatingPeriod(true);
 
     try {
-      // If there's a current period, update its end date to today
-      if (classInfo?.current_seating_period) {
+      // If there's a current active period, update its end date to today
+      if (currentActivePeriod) {
         const today = new Date().toISOString().split("T")[0];
         console.log(
           "Ending current period:",
-          classInfo.current_seating_period.id,
+          currentActivePeriod.id,
           "with date:",
           today
         );
 
         const endResponse = await window.ApiModule.request(
-          `/seating-periods/${classInfo.current_seating_period.id}/`,
+          `/seating-periods/${currentActivePeriod.id}/`,
           {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
@@ -385,8 +397,8 @@ const SeatingViewer = ({ classId, periodId, onEdit, onBack, navigateTo }) => {
     
     const className = classInfo.name || "Unknown Class";
     
-    if (classInfo.current_seating_period) {
-      const period = classInfo.current_seating_period;
+    if (viewedPeriod) {
+      const period = viewedPeriod;
       const periodName = period.name || "Untitled Period";
       const startDate = formatDate(period.start_date);
       const endDate = formatDate(period.end_date) || "Present";
