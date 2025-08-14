@@ -292,18 +292,15 @@ body.seating-editor-page .main-container {
 
 .seating-editor .student-pool .student-card-name,
 .student-pool .student-card-name {
-  font-size: 9px !important;
-  font-weight: 500 !important;
   color: #333 !important;
   text-align: center !important;
   overflow: hidden !important;
-  text-overflow: ellipsis !important;
-  line-height: 1.1 !important;
   width: 100% !important;
-  display: -webkit-box !important;
-  -webkit-line-clamp: 3 !important;
-  -webkit-box-orient: vertical !important;
-  white-space: normal !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  align-items: center !important;
+  gap: 2px !important;
 }
 
 /* Seats - matching card design */

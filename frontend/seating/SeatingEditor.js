@@ -3502,13 +3502,13 @@ const StudentPool = ({
                 }
               },
               React.createElement(
-                "span",
-                { style: { fontWeight: "bold" } },
+                "div",
+                { style: { fontWeight: "bold", fontSize: "11px", lineHeight: "1" } },
                 line1
               ),
               React.createElement(
-                "span",
-                { style: { fontSize: "0.9em", opacity: 0.8 } },
+                "div",
+                { style: { fontSize: "10px", opacity: 0.8, lineHeight: "1" } },
                 line2
               )
             );
