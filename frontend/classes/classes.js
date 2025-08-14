@@ -169,21 +169,7 @@ const Classes = ({ data, refreshData, navigateTo, currentParams }) => {
               ),
               
               // Layout Status
-              React.createElement(
-                "div",
-                { className: "class-info-item" },
-                React.createElement("i", { className: "fas fa-th" }),
-                React.createElement(
-                  "div",
-                  null,
-                  React.createElement("span", { className: "class-info-label" }, "Layout"),
-                  React.createElement(
-                    "span",
-                    { className: `class-info-value ${cls.classroom_layout ? 'has-layout' : 'no-layout'}` },
-                    cls.classroom_layout ? "Configured" : "Not Set"
-                  )
-                )
-              )
+              // Layout field removed - layouts are selected per seating period
             ),
             
             // Enrollment Progress Bar (if max_enrollment is set)
@@ -397,17 +383,8 @@ const ClassView = ({ classId, data, navigateTo }) => {
             `${classDetails.current_enrollment || 0} students`,
             classDetails.max_enrollment && ` (Max: ${classDetails.max_enrollment})`
           )
-        ),
-        React.createElement(
-          "div",
-          { className: "detail-item" },
-          React.createElement("label", null, "Layout:"),
-          React.createElement(
-            "span",
-            null,
-            classDetails.classroom_layout ? "Configured" : "Not configured"
-          )
         )
+        // Layout field removed - layouts are selected per seating period
       )
     ),
 

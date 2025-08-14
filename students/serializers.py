@@ -384,7 +384,7 @@ class ClassSerializer(serializers.ModelSerializer):
     teacher_name = serializers.CharField(source="teacher.get_full_name", read_only=True)
     current_enrollment = serializers.ReadOnlyField()
     roster = serializers.SerializerMethodField()
-    classroom_layout = ClassroomLayoutSerializer(read_only=True)
+    # classroom_layout removed - deprecated field, use SeatingPeriod.layout instead
     current_seating_period = SeatingPeriodSerializer(read_only=True)
     seating_periods = SeatingPeriodSerializer(many=True, read_only=True)
 
@@ -404,7 +404,7 @@ class ClassSerializer(serializers.ModelSerializer):
             "teacher",
             "teacher_name",
             "current_enrollment",
-            "classroom_layout",
+            # "classroom_layout",  # Removed - deprecated field
             "current_seating_period",
             "seating_periods",
             "roster",

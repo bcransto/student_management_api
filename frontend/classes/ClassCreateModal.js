@@ -7,51 +7,28 @@ const ClassCreateModal = ({ isOpen, onClose, onSuccess }) => {
     name: '',
     subject: '',
     grade_level: '',
-    description: '',
-    classroom_layout: ''
+    description: ''
   });
   
-  const [layouts, setLayouts] = React.useState([]);
+  // Layout field removed - no longer needed
   const [loading, setLoading] = React.useState(false);
   const [errors, setErrors] = React.useState({});
   
   // Fetch user's layouts when modal opens
   React.useEffect(() => {
     if (isOpen) {
-      fetchLayouts();
       // Reset form when modal opens
       setFormData({
         name: '',
         subject: '',
         grade_level: '',
-        description: '',
-        classroom_layout: ''
+        description: ''
       });
       setErrors({});
     }
   }, [isOpen]);
   
-  const fetchLayouts = async () => {
-    try {
-      const response = await window.ApiModule.request('/layouts/', {
-        method: 'GET'
-      });
-      console.log("Layouts API response:", response);
-      const layoutData = response.results || response;
-      console.log("Processed layouts:", layoutData);
-      setLayouts(layoutData);
-      
-      // Pre-select first layout if available
-      if (layoutData.length > 0) {
-        setFormData(prev => ({
-          ...prev,
-          classroom_layout: layoutData[0].id
-        }));
-      }
-    } catch (err) {
-      console.error("Error fetching layouts:", err);
-    }
-  };
+  // Layout fetching removed - no longer needed
   
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
@@ -100,10 +77,7 @@ const ClassCreateModal = ({ isOpen, onClose, onSuccess }) => {
         description: formData.description.trim()
       };
       
-      // Only include layout if one is selected
-      if (formData.classroom_layout) {
-        submitData.classroom_layout = formData.classroom_layout;
-      }
+      // Layout field removed - no longer needed
       
       // Create the class
       const response = await window.ApiModule.request('/classes/', {
@@ -274,36 +248,7 @@ const ClassCreateModal = ({ isOpen, onClose, onSuccess }) => {
           })
         ),
         
-        // Classroom Layout Dropdown (Optional)
-        React.createElement(
-          "div",
-          { className: "form-group" },
-          React.createElement("label", { htmlFor: "layout" }, "Classroom Layout"),
-          React.createElement(
-            "select",
-            {
-              id: "layout",
-              className: "form-control",
-              value: formData.classroom_layout,
-              onChange: (e) => handleInputChange('classroom_layout', e.target.value),
-              disabled: loading
-            },
-            React.createElement("option", { value: "" }, "No Layout"),
-            layouts.map(layout =>
-              React.createElement(
-                "option",
-                { key: layout.id, value: layout.id },
-                layout.name,
-                layout.total_seats && ` (${layout.total_seats} seats)`
-              )
-            )
-          ),
-          React.createElement(
-            "small",
-            { className: "form-help-text" },
-            "You can assign or change the layout later"
-          )
-        ),
+        // Layout field removed - layouts are now selected per seating period
         
         // Submit Error
         errors.submit && React.createElement(
