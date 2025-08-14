@@ -294,12 +294,31 @@ const SeatingViewer = ({ classId, periodId, onEdit, onBack, navigateTo }) => {
       tomorrow.setDate(tomorrow.getDate() + 1);
       const startDate = tomorrow.toISOString().split("T")[0];
 
-      // Auto-generate period name
-      const periodName = `Period starting ${tomorrow.toLocaleDateString("en-US", {
-        month: "numeric",
-        day: "numeric",
-        year: "2-digit",
-      })}`;
+      // Get all periods for this class to determine the chart number
+      let chartNumber = 1;
+      try {
+        const allPeriods = await window.ApiModule.request(`/seating-periods/?class_assigned=${classId}`);
+        console.log("All periods for numbering:", allPeriods);
+        
+        // Handle both array and object responses
+        if (Array.isArray(allPeriods)) {
+          chartNumber = allPeriods.length + 1;
+        } else if (allPeriods && typeof allPeriods === 'object') {
+          // If it's a paginated response with results array
+          if (allPeriods.results && Array.isArray(allPeriods.results)) {
+            chartNumber = allPeriods.results.length + 1;
+          } else if (allPeriods.count !== undefined) {
+            chartNumber = allPeriods.count + 1;
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching periods for chart numbering:", error);
+        // Fall back to 1 if we can't get the count
+        chartNumber = 1;
+      }
+      
+      // Auto-generate period name as "Chart N"
+      const periodName = `Chart ${chartNumber}`;
 
       // Create new period with layout from previous period or class
       const requestBody = {
