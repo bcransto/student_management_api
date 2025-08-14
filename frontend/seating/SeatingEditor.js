@@ -1292,7 +1292,7 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
         if (!layout || !layout.id) {
           // Load available layouts if not already loaded
           if (availableLayouts.length === 0) {
-            const layoutsResponse = await window.ApiModule.request("/classroom-layouts/");
+            const layoutsResponse = await window.ApiModule.request("/layouts/");
             const layouts = layoutsResponse.results || [];
 
             if (layouts.length === 0) {
