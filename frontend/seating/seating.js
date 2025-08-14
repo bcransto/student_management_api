@@ -105,6 +105,13 @@ const Seating = ({ data, navigateTo, initialView, classId, periodId }) => {
   const handleClassCardClick = (classItem) => {
     console.log("Class card clicked:", classItem);
     
+    // Check if class has students enrolled
+    const studentCount = classItem.roster?.length || 0;
+    if (studentCount === 0) {
+      alert("No students enrolled in this class yet.\n\nPlease add students to the class roster before creating seating arrangements.");
+      return;
+    }
+    
     // Check if user has any layouts
     if (userLayouts.length === 0) {
       // Show modal to create a layout first
