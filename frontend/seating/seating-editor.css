@@ -238,52 +238,65 @@ body.seating-editor-page .main-container {
 }
 
 /* Student Cards - compact design matching seats */
-.student-card {
-  width: 65px;
-  height: 45px;
-  background: white;
-  border: 2px solid #9ca3af;
-  border-radius: 8px;
-  padding: 4px;
-  cursor: grab;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
+/* More specific selector to override classes.css */
+.seating-editor .student-pool .student-card,
+.student-pool .student-card {
+  width: 65px !important;
+  height: 45px !important;
+  background: white !important;
+  border: 2px solid #9ca3af !important;
+  border-radius: 8px !important;
+  padding: 4px !important;
+  cursor: grab !important;
+  transition: all 0.2s !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  position: relative !important;
+  min-height: 45px !important;
+  margin: 0 !important;
 }
 
-.student-card:hover {
-  border-color: #6b7280;
-  transform: scale(1.05);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+.seating-editor .student-pool .student-card:hover,
+.student-pool .student-card:hover {
+  border-color: #6b7280 !important;
+  transform: scale(1.05) !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15) !important;
 }
 
-.student-card.selected {
-  border-color: #6366f1;
-  background: #eef2ff;
-  border-width: 3px;
+.seating-editor .student-pool .student-card.selected,
+.student-pool .student-card.selected {
+  border-color: #6366f1 !important;
+  background: #eef2ff !important;
+  border-width: 3px !important;
 }
 
-.student-card.male {
-  background: white;
-  border-color: #60a5fa;
+.seating-editor .student-pool .student-card.male,
+.student-pool .student-card.male {
+  background: white !important;
+  border-color: #60a5fa !important;
 }
 
-.student-card.female {
-  background: white;
-  border-color: #fbbf24;
+.seating-editor .student-pool .student-card.female,
+.student-pool .student-card.female {
+  background: white !important;
+  border-color: #fbbf24 !important;
 }
 
-.student-card-name {
-  font-size: 11px;
-  font-weight: 500;
-  color: #333;
-  text-align: center;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  width: 100%;
+.seating-editor .student-pool .student-card-name,
+.student-pool .student-card-name {
+  font-size: 9px !important;
+  font-weight: 500 !important;
+  color: #333 !important;
+  text-align: center !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  line-height: 1.1 !important;
+  width: 100% !important;
+  display: -webkit-box !important;
+  -webkit-line-clamp: 3 !important;
+  -webkit-box-orient: vertical !important;
+  white-space: normal !important;
 }
 
 /* Seats - matching card design */
@@ -444,19 +457,22 @@ body.seating-editor-page .main-container {
 /* Drag and Drop Visual Feedback */
 
 /* Student card being dragged */
-.student-card {
-  transition: all 0.2s ease;
-  user-select: none;
+.seating-editor .student-pool .student-card,
+.student-pool .student-card {
+  transition: all 0.2s ease !important;
+  user-select: none !important;
 }
 
-.student-card:active {
-  cursor: grabbing;
+.seating-editor .student-pool .student-card:active,
+.student-pool .student-card:active {
+  cursor: grabbing !important;
 }
 
-.student-card.dragging {
-  opacity: 0.5;
-  transform: scale(0.95);
-  cursor: grabbing;
+.seating-editor .student-pool .student-card.dragging,
+.student-pool .student-card.dragging {
+  opacity: 0.5 !important;
+  transform: scale(0.95) !important;
+  cursor: grabbing !important;
 }
 
 /* Seat hover states during drag */
@@ -504,13 +520,15 @@ body.seating-editor-page .main-container {
 }
 
 /* Cursor states */
-.student-card:not(.dragging) {
-  cursor: grab;
+.seating-editor .student-pool .student-card:not(.dragging),
+.student-pool .student-card:not(.dragging) {
+  cursor: grab !important;
 }
 
-.student-card:hover:not(.dragging) {
-  transform: scale(1.05);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+.seating-editor .student-pool .student-card:hover:not(.dragging),
+.student-pool .student-card:hover:not(.dragging) {
+  transform: scale(1.05) !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15) !important;
 }
 
 /* Ensure seats stay circular during animations */

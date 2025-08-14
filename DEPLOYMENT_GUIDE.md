@@ -120,7 +120,7 @@ math_class = Class.objects.create(
 )
 
 # Create sample students
-for i in range(1, 21):
+for i in range(1, 4):
     Student.objects.create(
         student_id=f'2024{i:04d}',
         first_name=f'Student{i}',
