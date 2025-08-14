@@ -5,6 +5,7 @@ const Seating = ({ data, navigateTo, initialView, classId, periodId }) => {
   const nav = window.NavigationService || null;
   const [classes, setClasses] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
+  const [layoutsLoading, setLayoutsLoading] = React.useState(true);
   const [error, setError] = React.useState("");
   const [currentView, setCurrentView] = React.useState(initialView || "list"); // 'list', 'viewer', or 'editor'
   const [selectedClassId, setSelectedClassId] = React.useState(classId || null);
@@ -90,6 +91,7 @@ const Seating = ({ data, navigateTo, initialView, classId, periodId }) => {
 
   const fetchUserLayouts = async () => {
     try {
+      setLayoutsLoading(true);
       const response = await window.ApiModule.request('/layouts/', {
         method: 'GET'
       });
@@ -99,11 +101,20 @@ const Seating = ({ data, navigateTo, initialView, classId, periodId }) => {
     } catch (err) {
       console.error("Error fetching layouts:", err);
       setUserLayouts([]);
+    } finally {
+      setLayoutsLoading(false);
     }
   };
 
   const handleClassCardClick = async (classItem) => {
     console.log("Class card clicked:", classItem);
+    console.log("Layouts loaded:", !layoutsLoading, "Layouts count:", userLayouts.length);
+    
+    // Don't proceed if layouts are still loading
+    if (layoutsLoading) {
+      console.log("Layouts still loading, please wait...");
+      return;
+    }
     
     // Check if class has students enrolled
     const studentCount = classItem.roster?.length || 0;
@@ -324,12 +335,12 @@ const Seating = ({ data, navigateTo, initialView, classId, periodId }) => {
   }
 
   // List view
-  if (loading) {
+  if (loading || layoutsLoading) {
     return React.createElement(
       "div",
       { className: "seating-loading" },
       React.createElement("div", { className: "spinner" }),
-      "Loading classes..."
+      loading ? "Loading classes..." : "Loading layouts..."
     );
   }
 
@@ -390,7 +401,11 @@ const Seating = ({ data, navigateTo, initialView, classId, periodId }) => {
                 key: classItem.id,
                 className: "seating-class-card floating-card",
                 onClick: () => handleClassCardClick(classItem),
-                style: { cursor: "pointer" },
+                style: { 
+                  cursor: layoutsLoading ? "wait" : "pointer",
+                  opacity: layoutsLoading ? 0.7 : 1
+                },
+                title: layoutsLoading ? "Loading layouts..." : null,
               },
 
               // Class info
