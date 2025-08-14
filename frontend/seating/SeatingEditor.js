@@ -2101,7 +2101,7 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
           { 
             className: "editor-left-sidebar",
             style: {
-              width: "125px",
+              width: "250px",
               flexShrink: 0,
               overflowY: "auto",
               borderRight: "1px solid #e5e7eb",
@@ -2109,53 +2109,6 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
               padding: 0,
             }
           },
-          
-          // Actions section with Save/Reset
-          React.createElement(
-            "div",
-            { className: "sidebar-section", style: { borderBottom: "1px solid #e5e7eb" } },
-            React.createElement("h3", null, "Actions"),
-            React.createElement(
-              "div",
-              { style: { display: "flex", flexDirection: "column", gap: "0.5rem" } },
-              React.createElement(
-                "button",
-                {
-                  className: "btn btn-sm",
-                  style: { 
-                    width: "100%",
-                    ...(hasUnsavedChanges ? { backgroundColor: "#10b981", borderColor: "#10b981", color: "white" } : {})
-                  },
-                  onClick: handleSave,
-                  disabled: saving,
-                },
-                React.createElement("i", { className: "fas fa-save" }),
-                saving ? " Saving..." : " Save"
-              ),
-              React.createElement(
-                "button",
-                {
-                  className: `btn btn-sm ${canUndo ? "btn-warning" : "btn-secondary"}`,
-                  style: { width: "100%" },
-                  onClick: handleUndo,
-                  disabled: !canUndo,
-                  title: canUndo ? `Undo: ${history[historyIndex]?.description}` : "Nothing to undo",
-                },
-                React.createElement("i", { className: "fas fa-undo" }),
-                " Undo"
-              ),
-              React.createElement(
-                "button",
-                {
-                  className: "btn btn-sm btn-secondary",
-                  style: { width: "100%" },
-                  onClick: handleReset,
-                },
-                React.createElement("i", { className: "fas fa-times" }),
-                " Reset"
-              )
-            )
-          ),
           
           // Help text for seat deactivation - only show for current period
           isViewingCurrentPeriod && React.createElement(
@@ -2285,7 +2238,7 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
               React.createElement(
                 "button",
                 {
-                  className: "btn btn-sm btn-primary",
+                  className: "btn btn-sm btn-secondary",
                   style: { 
                     width: "100%", 
                     fontSize: "12px",
@@ -2306,12 +2259,15 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
             React.createElement("h3", null, "View"),
             React.createElement(
               "div",
-              { style: { display: "flex", flexDirection: "column", gap: "0.5rem" } },
+              { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" } },
               React.createElement(
                 "button",
                 {
-                  className: `btn btn-sm ${highlightMode === "none" ? "btn-primary" : "btn-secondary"}`,
-                  style: { width: "100%", fontSize: "12px" },
+                  className: "btn btn-sm btn-secondary",
+                  style: { 
+                    fontSize: "12px",
+                    ...(highlightMode === "none" ? { backgroundColor: "#3b82f6", borderColor: "#3b82f6", color: "white" } : {})
+                  },
                   onClick: () => {
                     console.log("Normal button clicked, setting highlightMode to 'none'");
                     setHighlightMode("none");
@@ -2323,8 +2279,11 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
               React.createElement(
                 "button",
                 {
-                  className: `btn btn-sm ${highlightMode === "gender" ? "btn-primary" : "btn-secondary"}`,
-                  style: { width: "100%", fontSize: "12px" },
+                  className: "btn btn-sm btn-secondary",
+                  style: { 
+                    fontSize: "12px",
+                    ...(highlightMode === "gender" ? { backgroundColor: "#3b82f6", borderColor: "#3b82f6", color: "white" } : {})
+                  },
                   onClick: () => {
                     console.log("Gender button clicked, setting highlightMode to 'gender'");
                     setHighlightMode("gender");
@@ -2336,8 +2295,12 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
               React.createElement(
                 "button",
                 {
-                  className: `btn btn-sm ${highlightMode === "previous" ? "btn-primary" : "btn-secondary"}`,
-                  style: { width: "100%", fontSize: "12px" },
+                  className: "btn btn-sm btn-secondary",
+                  style: { 
+                    fontSize: "12px", 
+                    gridColumn: "span 2",
+                    ...(highlightMode === "previous" ? { backgroundColor: "#3b82f6", borderColor: "#3b82f6", color: "white" } : {})
+                  },
                   onClick: () => setHighlightMode("previous"),
                 },
                 React.createElement("i", { className: "fas fa-history", style: { fontSize: "10px" } }),
@@ -2445,7 +2408,7 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
           )
         ),
 
-        // Student pool (right side)
+        // Student pool (right side) with action buttons
         React.createElement(StudentPool, {
           students: getUnassignedStudents(),
           selectedStudent: selectedStudent,
@@ -2456,6 +2419,15 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
           studentSortBy: studentSortBy,
           onSortChange: setStudentSortBy,
           highlightMode: highlightMode,
+          // Pass action button props
+          onSave: handleSave,
+          onUndo: handleUndo,
+          onReset: handleReset,
+          hasUnsavedChanges: hasUnsavedChanges,
+          canUndo: canUndo,
+          saving: saving,
+          historyIndex: historyIndex,
+          history: history,
         })
       )
     ),
@@ -3235,6 +3207,15 @@ const StudentPool = ({
   studentSortBy,
   onSortChange,
   highlightMode,
+  // Action button props
+  onSave,
+  onUndo,
+  onReset,
+  hasUnsavedChanges,
+  canUndo,
+  saving,
+  historyIndex,
+  history,
 }) => {
   const [showSortDropdown, setShowSortDropdown] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -3285,11 +3266,12 @@ const StudentPool = ({
       style: {
         width: "250px",
         flexShrink: 0,
-        overflowY: "auto",
         borderLeft: "1px solid #e5e7eb",
         backgroundColor: "#f9fafb",
         padding: 0,
         height: "100%",
+        display: "flex",
+        flexDirection: "column",
       },
       // NEW DRAG HANDLERS FOR ACCEPTING DROPS:
       onDragOver: (e) => {
@@ -3321,7 +3303,7 @@ const StudentPool = ({
       },
     },
 
-    // Sort dropdown at top
+    // Sort dropdown at top (fixed)
     React.createElement(
       "div",
       { 
@@ -3333,7 +3315,8 @@ const StudentPool = ({
           flexDirection: "column",
           gap: "0.5rem",
           backgroundColor: "white",
-          position: "relative"
+          position: "relative",
+          flexShrink: 0,
         }
       },
       React.createElement("h3", { style: { margin: "0 0 0.5rem 0", fontSize: "14px", fontWeight: "600" } }, "Student Pool"),
@@ -3452,11 +3435,18 @@ const StudentPool = ({
       `Found ${sortedStudents.length} student${sortedStudents.length !== 1 ? 's' : ''}`
     ),
 
-    // Student grid - scrollable area
+    // Student grid - fixed height and scrollable
     React.createElement(
       "div",
-      { className: "student-grid" },
-      sortedStudents.map((student) => {
+      { 
+        className: "student-grid",
+        style: {
+          height: "420px",
+          overflowY: "auto",
+          overflowX: "hidden",
+        }
+      },
+        sortedStudents.map((student) => {
         // Determine if we should apply gender highlighting
         const isFemale = student.gender === "female" || student.gender === "Female" || student.gender === "F";
         const genderStyle = {};
@@ -3525,6 +3515,57 @@ const StudentPool = ({
           })()
         );
       })
+    ),
+    
+    // Action buttons fixed at bottom
+    React.createElement(
+      "div",
+      {
+        style: {
+          padding: "0.5rem",
+          borderTop: "1px solid #e5e7eb",
+          backgroundColor: "white",
+          display: "flex",
+          gap: "0.5rem",
+          flexShrink: 0,
+        }
+      },
+      React.createElement(
+        "button",
+        {
+          className: "btn btn-sm",
+          style: { 
+            flex: 1,
+            ...(hasUnsavedChanges ? { backgroundColor: "#10b981", borderColor: "#10b981", color: "white" } : {})
+          },
+          onClick: onSave,
+          disabled: saving,
+        },
+        React.createElement("i", { className: "fas fa-save" }),
+        saving ? " Saving..." : " Save"
+      ),
+      React.createElement(
+        "button",
+        {
+          className: `btn btn-sm ${canUndo ? "btn-warning" : "btn-secondary"}`,
+          style: { flex: 1 },
+          onClick: onUndo,
+          disabled: !canUndo,
+          title: canUndo ? `Undo: ${history[historyIndex]?.description}` : "Nothing to undo",
+        },
+        React.createElement("i", { className: "fas fa-undo" }),
+        " Undo"
+      ),
+      React.createElement(
+        "button",
+        {
+          className: "btn btn-sm btn-secondary",
+          style: { flex: 1 },
+          onClick: onReset,
+        },
+        React.createElement("i", { className: "fas fa-times" }),
+        " Reset"
+      )
     )
   );
 };

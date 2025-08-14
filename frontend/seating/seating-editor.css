@@ -117,9 +117,9 @@ body.seating-editor-page .main-container {
 }
 
 .editor-left-sidebar {
-  width: 125px !important;
-  min-width: 125px !important;
-  max-width: 125px !important;
+  width: 250px !important;
+  min-width: 250px !important;
+  max-width: 250px !important;
   background: #f9fafb;
   border-right: 1px solid #e5e7eb;
   display: flex;
@@ -203,21 +203,17 @@ body.seating-editor-page .main-container {
   border-left: 1px solid #e5e7eb;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
   flex-shrink: 0;
   height: 100%;
+  position: relative;
 }
 
 .student-grid {
-  flex: 1;
   padding: 0.5rem;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 0.5rem;
-  overflow-y: auto;
-  overflow-x: hidden;
   align-content: start;
-  min-height: 0; /* Important for flex child to be scrollable */
 }
 
 /* Custom scrollbar for student grid */
