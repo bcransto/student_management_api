@@ -238,8 +238,7 @@ class ClassViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        if self.request.user.is_superuser:
-            return Class.objects.all()
+        # All users (including superusers) only see their own classes
         return Class.objects.filter(teacher=self.request.user)
     
     def perform_create(self, serializer):
@@ -287,8 +286,7 @@ class ClassRosterViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        if self.request.user.is_superuser:
-            return ClassRoster.objects.all()
+        # All users (including superusers) only see their own class rosters
         return ClassRoster.objects.filter(class_assigned__teacher=self.request.user)
 
 
@@ -300,9 +298,7 @@ class ClassroomLayoutViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     
     def get_queryset(self):
-        if self.request.user.is_superuser:
-            return ClassroomLayout.objects.all()
-        # Only show layouts created by the current user
+        # All users (including superusers) only see their own layouts
         return ClassroomLayout.objects.filter(created_by=self.request.user)
 
     def perform_create(self, serializer):
@@ -459,11 +455,8 @@ class SeatingPeriodViewSet(viewsets.ModelViewSet):
     filterset_fields = ["class_assigned", "is_active"]  # Enable filtering
 
     def get_queryset(self):
-        queryset = SeatingPeriod.objects.all()
-
-        # Filter by user's classes (unless superuser)
-        if not self.request.user.is_superuser:
-            queryset = queryset.filter(class_assigned__teacher=self.request.user)
+        # All users (including superusers) only see seating periods for their own classes
+        queryset = SeatingPeriod.objects.filter(class_assigned__teacher=self.request.user)
 
         # Filter by class_assigned if provided in query params
         class_assigned = self.request.query_params.get("class_assigned", None)
@@ -530,11 +523,10 @@ class SeatingAssignmentViewSet(viewsets.ModelViewSet):
     filterset_fields = ["seating_period"]  # Enable filtering by seating_period
 
     def get_queryset(self):
-        queryset = SeatingAssignment.objects.all()
-
-        # Filter by user's permissions
-        if not self.request.user.is_superuser:
-            queryset = queryset.filter(seating_period__class_assigned__teacher=self.request.user)
+        # All users (including superusers) only see assignments for their own classes
+        queryset = SeatingAssignment.objects.filter(
+            seating_period__class_assigned__teacher=self.request.user
+        )
 
         # Filter by seating_period if provided in query params
         seating_period = self.request.query_params.get("seating_period", None)
