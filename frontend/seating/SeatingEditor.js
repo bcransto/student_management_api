@@ -37,6 +37,9 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
   const [historyIndex, setHistoryIndex] = useState(-1); // Current position in history
   const [previousPeriodData, setPreviousPeriodData] = useState(null); // Previous period for duplicate detection
   const [duplicateWarning, setDuplicateWarning] = useState(null); // Warning message for duplicate seating
+  const [partnershipHistory, setPartnershipHistory] = useState(null); // Partnership history data for the class
+  const [showPartnershipModal, setShowPartnershipModal] = useState(false); // Show/hide partnership modal
+  const [selectedStudentForHistory, setSelectedStudentForHistory] = useState(null); // Student to show history for
 
   // Load initial data when classId or periodId changes
   useEffect(() => {
@@ -74,6 +77,63 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [hasUnsavedChanges]);
 
+  // Helper function to get partnership data for a specific student
+  const getStudentPartnershipData = (studentId) => {
+    if (!partnershipHistory || !studentId) {
+      return null;
+    }
+    
+    const studentIdStr = String(studentId);
+    const studentData = partnershipHistory[studentIdStr];
+    
+    // Get all active students in the class
+    const allStudents = {};
+    const partnerNames = {};
+    const genders = {};
+    
+    // Build list of all students from partnership history and their genders
+    Object.entries(partnershipHistory).forEach(([id, data]) => {
+      if (data.is_active) {
+        allStudents[id] = data.name;
+        partnerNames[id] = data.name;
+        // Get gender from the students array
+        const studentObj = students.find(s => String(s.id) === id);
+        if (studentObj) {
+          genders[id] = studentObj.gender;
+        }
+      }
+    });
+    
+    if (!studentData) {
+      return {
+        studentId: studentIdStr,
+        name: "Unknown Student",
+        partnerships: {},
+        partnerNames: partnerNames,
+        allStudents: allStudents,
+        genders: genders,
+        totalPartners: 0
+      };
+    }
+    
+    // Calculate partnership frequencies (just the count, not the full data)
+    const partnerships = {};
+    Object.entries(studentData.partnerships || {}).forEach(([partnerId, dates]) => {
+      partnerships[partnerId] = dates.length;
+    });
+    
+    return {
+      studentId: studentIdStr,
+      name: studentData.name,
+      isActive: studentData.is_active,
+      partnerships: partnerships,
+      partnerNames: partnerNames,
+      allStudents: allStudents,
+      genders: genders,
+      totalPartners: Object.keys(partnerships).length
+    };
+  };
+
   // Clear deactivated seats when viewing non-current periods
   useEffect(() => {
     if (!isViewingCurrentPeriod) {
@@ -82,6 +142,31 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
       console.log("Cleared deactivated seats - viewing historical period");
     }
   }, [isViewingCurrentPeriod]);
+
+  // Expose debug functions for testing partnership data
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.SeatingEditorDebug = {
+        getPartnershipHistory: () => partnershipHistory,
+        getStudentPartnershipData: (studentId) => getStudentPartnershipData(studentId),
+        testPartnership: (studentId) => {
+          const data = getStudentPartnershipData(studentId);
+          if (data) {
+            console.log(`Partnership data for ${data.name}:`, data);
+            console.log(`Total partners: ${data.totalPartners}`);
+            if (data.sortedPartnerships.length > 0) {
+              console.log("Most frequent partners:");
+              data.sortedPartnerships.slice(0, 5).forEach(([partnerId, info]) => {
+                console.log(`  - ${info.name}: ${info.count} times`);
+              });
+            }
+          } else {
+            console.log("No partnership data found for student", studentId);
+          }
+        }
+      };
+    }
+  }, [partnershipHistory]);
 
   // Add this inside your SeatingEditor component for debugging:
   // Debug helper - expose to window for console access
@@ -247,6 +332,20 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
       }
       
       setClassInfo(classData);
+
+      // Load partnership history for the class
+      try {
+        console.log("Fetching partnership history for class:", classId);
+        const historyResponse = await window.ApiModule.request(
+          `/classes/${classId}/partnership-history/`
+        );
+        console.log("Partnership history loaded:", historyResponse);
+        setPartnershipHistory(historyResponse.partnership_data || {});
+      } catch (error) {
+        console.error("Failed to load partnership history:", error);
+        // Don't fail the whole load if partnership history fails
+        setPartnershipHistory({});
+      }
 
       // Check if we're viewing the actual current period (one with no end_date)
       const viewingCurrent = periodToEdit && periodToEdit.end_date === null;
@@ -2404,6 +2503,11 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
               onDragStart: setDraggedStudent,
               onDragEnd: () => setDraggedStudent(null),
               deactivatedSeats: isViewingCurrentPeriod ? deactivatedSeats : new Set(),
+              onStudentClick: (student) => {
+                console.log("Student clicked in seat:", student);
+                setSelectedStudentForHistory(student);
+                setShowPartnershipModal(true);
+              },
             })
           )
         ),
@@ -2428,6 +2532,12 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
           saving: saving,
           historyIndex: historyIndex,
           history: history,
+          // Partnership history props
+          onStudentClick: (student) => {
+            console.log("Student clicked in pool:", student);
+            setSelectedStudentForHistory(student);
+            setShowPartnershipModal(true);
+          },
         })
       )
     ),
@@ -2439,6 +2549,16 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
       availableLayouts: availableLayouts,
       setAvailableLayouts: setAvailableLayouts,
       currentLayoutId: layout?.id,
+    }),
+    
+    // Partnership History Modal
+    showPartnershipModal && selectedStudentForHistory && React.createElement(window.PartnershipHistoryModal, {
+      student: selectedStudentForHistory,
+      partnershipData: getStudentPartnershipData(selectedStudentForHistory.id),
+      onClose: () => {
+        setShowPartnershipModal(false);
+        setSelectedStudentForHistory(null);
+      }
     })
   );
 };
@@ -2663,11 +2783,12 @@ const SeatingCanvas = ({
   onSeatClick,
   onStudentDrop,
   onStudentUnassign,
-  onStudentSwap, // ADD THIS LINE
+  onStudentSwap,
   draggedStudent,
   onDragStart,
   onDragEnd,
   deactivatedSeats,
+  onStudentClick,
 }) => {
   // Get shared styles
   const { LayoutStyles } = window;
@@ -2904,14 +3025,21 @@ const SeatingCanvas = ({
                 cursor: isDeactivated ? "not-allowed" : "pointer",
               },
               onClick: (e) => {
-                // Only handle Shift+click for deactivation
+                // Shift+click for deactivation
                 if (e.shiftKey) {
                   onSeatClick(table.id, seat.seat_number, e);
                 }
+                // Single click on occupied seat shows partnership history
+                else if (assignedStudent && !e.shiftKey) {
+                  e.stopPropagation();
+                  if (onStudentClick) {
+                    onStudentClick(assignedStudent);
+                  }
+                }
               },
               onDoubleClick: (e) => {
-                // Double-click for normal fill
-                if (!e.shiftKey) {
+                // Double-click on empty seat for normal fill
+                if (!assignedStudent && !e.shiftKey) {
                   onSeatClick(table.id, seat.seat_number, e);
                 }
               },
@@ -3227,6 +3355,7 @@ const StudentPool = ({
   saving,
   historyIndex,
   history,
+  onStudentClick,
 }) => {
   const [showSortDropdown, setShowSortDropdown] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -3477,7 +3606,15 @@ const StudentPool = ({
               selectedStudent?.id === student.id ? "selected" : ""
             } ${isFemale ? "female" : "male"}`,
             style: genderStyle,
-            onClick: () => onSelectStudent(student),
+            onClick: (e) => {
+              e.stopPropagation();
+              // Single click shows partnership history
+              if (onStudentClick) {
+                onStudentClick(student);
+              }
+              // Also select the student for visual feedback
+              onSelectStudent(student);
+            },
             draggable: true,
             onDragStart: (e) => {
               // Set the data that will be transferred

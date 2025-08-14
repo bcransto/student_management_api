@@ -92,6 +92,12 @@ React.createElement("div", { className: "example" }, children)
    - **Seat Deactivation**: Shift+click to block seats (red, stored in Set)
    - **Period Navigation**: View-only - does NOT modify database end_dates
    - **Dynamic Grid Scaling**: Automatically scales to fit viewport with fixed sidebars
+   - **Partnership History**: 
+     - Single-click any student (pool or seat) shows partnership modal
+     - Tracks historical seating partnerships across completed periods
+     - Color-coded by gender (blue=male, green=female, purple=non-binary)
+     - Shows frequency bar chart and unpaired students list
+     - Filters out inactive students from potential partnerships
 
 2. **Students Components**
    - `formatStudentNameTwoLine()` returns { line1: nickname, line2: "Smi." } for consistent two-line display
@@ -136,6 +142,26 @@ await ApiModule.request(url, method, body)  // ❌
 - ClassRoomLayout ViewSet filters by `created_by` user (except superusers)
 - ClassSerializer.roster only returns active entries (is_active=True)
 - JWT token includes user_id for permission checks
+
+**Partnership History Endpoint**:
+```python
+# GET /api/classes/{class_id}/partnership-history/
+# Returns historical seating partnerships for all students
+# Only includes completed periods (end_date != null)
+# Groups students by table to find partnerships
+# Response format: {
+#   "class_id": 1,
+#   "partnership_data": {
+#     "student_id": {
+#       "name": "John Smith",
+#       "is_active": true,
+#       "partnerships": {
+#         "partner_id": ["2024-01-15", "2024-02-20"]  # Dates when partnered
+#       }
+#     }
+#   }
+# }
+```
 
 ### History & Undo System
 
