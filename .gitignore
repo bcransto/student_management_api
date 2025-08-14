@@ -71,6 +71,8 @@ settings_local.py
 .coverage
 htmlcov/
 .pytest_cache/
+test_*.py
+test_*.html
 
 # Node
 node_modules/
