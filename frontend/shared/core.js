@@ -159,6 +159,10 @@ const AuthModule = {
       if (response.ok) {
         const data = await response.json();
         this.setToken(data.access);
+        // Save new refresh token if provided (when ROTATE_REFRESH_TOKENS is True)
+        if (data.refresh) {
+          this.setRefreshToken(data.refresh);
+        }
         return { success: true, data };
       } else {
         this.clearTokens();
