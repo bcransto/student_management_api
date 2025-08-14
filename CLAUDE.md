@@ -89,7 +89,9 @@ React.createElement("div", { className: "example" }, children)
      - Batch operations create single undo entry
    - **Undo System**: Full history tracking with 50-level limit
    - **Seat Deactivation**: Shift+click to block seats (red, stored in Set)
-   - **Period Navigation**: View-only - does NOT modify database end_dates
+   - **Period Navigation**: Updates URL when navigating (e.g., `#seating/edit/1/period/14`)
+   - **Historical Period Editing**: Can edit past periods for late updates
+   - **URL Tracking**: Previous/Next buttons update URL for bookmarkable state
 
 2. **Students Components**
    - `formatStudentNameTwoLine()` returns { line1: nickname, line2: "Smi." } for consistent two-line display
@@ -102,6 +104,8 @@ React.createElement("div", { className: "example" }, children)
    - ClassroomLayout filtered by `created_by` user
    - Layouts can be templates (`is_template` flag)
    - Tables contain seats with relative positioning
+   - Layout editor at `/layout-editor/` (standalone page)
+   - Opens in same window when clicking layout cards
 
 4. **Classes Components**
    - ClassView shows individual class with roster management
@@ -216,14 +220,31 @@ Frontend auto-detects production environment via hostname.
 
 ## URL Structure
 
-See `ROUTING.md` for comprehensive routing documentation.
+**Django URLs**:
+- `/` - Main SPA
+- `/api/` - REST endpoints
+- `/admin/` - Django admin
+- `/layout-editor/` - Standalone layout editor (opens in same window)
+- `/frontend/<path>` - Static files served via Django
 
-**Key Routes**:
-- Frontend uses hash-based routing (e.g., `#dashboard`, `#classes/view/123`)
-- Backend API at `/api/` with REST endpoints
+**Frontend Hash Routes**:
+- `#dashboard` - Main view
+- `#students` - Student list with search
+- `#students/edit/{id}` - Edit student
+- `#classes` - Class list
+- `#classes/view/{id}` - View class details
+- `#classes/{id}/add-students` - Bulk enrollment
+- `#seating` - Seating list
+- `#seating/view/{classId}` - View current period (dynamic)
+- `#seating/view/{classId}/period/{periodId}` - View specific period
+- `#seating/edit/{classId}` - Edit current period
+- `#seating/edit/{classId}/period/{periodId}` - Edit specific period
+- `#layouts` - Layout management (user's layouts only)
+
+**Navigation & Routing**:
 - Router utility at `frontend/shared/router.js` provides consistent URL generation
 - NavigationService at `frontend/shared/navigation.js` offers unified navigation API
-- Both hyphenated and snake_case API routes supported for seating endpoints
+- Both hyphenated and snake_case API routes supported for backward compatibility
 
 ## Critical Files to Understand
 
@@ -235,3 +256,6 @@ See `ROUTING.md` for comprehensive routing documentation.
 6. `frontend/shared/layoutStyles.js` - formatSeatName() for canvas rendering
 7. `frontend/classes/ClassStudentManager.js` - Bulk enrollment interface
 8. `students/serializers.py` - Custom roster filtering and JWT claims
+9. `frontend/app.js` - Main app component with routing and navigation
+10. `frontend/shared/router.js` - Centralized route definitions
+11. `frontend/shared/navigation.js` - Navigation service wrapper

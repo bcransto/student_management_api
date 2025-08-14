@@ -57,6 +57,84 @@ class UserSerializer(serializers.ModelSerializer):
         return user
 
 
+# User Management Serializers
+
+class UserListSerializer(serializers.ModelSerializer):
+    """Serializer for listing users - basic info only"""
+    class Meta:
+        model = User
+        fields = ["id", "email", "first_name", "last_name", "is_active", 
+                  "is_superuser", "date_joined", "last_login"]
+        read_only_fields = ["id", "date_joined", "last_login"]
+
+
+class UserDetailSerializer(serializers.ModelSerializer):
+    """Serializer for detailed user view"""
+    class Meta:
+        model = User
+        fields = ["id", "email", "first_name", "last_name", "is_active",
+                  "is_superuser", "is_teacher", "date_joined", "last_login"]
+        read_only_fields = ["id", "date_joined", "last_login", "is_superuser"]
+
+
+class UserCreateSerializer(serializers.ModelSerializer):
+    """Serializer for creating new users"""
+    password = serializers.CharField(write_only=True, required=False)
+    
+    class Meta:
+        model = User
+        fields = ["email", "first_name", "last_name", "password"]
+    
+    def create(self, validated_data):
+        # Generate temporary password if not provided
+        import secrets
+        import string
+        if 'password' not in validated_data:
+            alphabet = string.ascii_letters + string.digits + "!@#$%^&*()"
+            validated_data['password'] = ''.join(secrets.choice(alphabet) for i in range(12))
+        
+        password = validated_data.pop('password')
+        # Set username same as email for compatibility
+        validated_data['username'] = validated_data['email']
+        
+        user = User.objects.create_user(**validated_data)
+        user.set_password(password)
+        user.save()
+        
+        # Return the password so we can send it in the welcome email
+        user.temp_password = password
+        return user
+
+
+class UserUpdateSerializer(serializers.ModelSerializer):
+    """Serializer for updating existing users"""
+    class Meta:
+        model = User
+        fields = ["email", "first_name", "last_name", "is_active"]
+        
+    def update(self, instance, validated_data):
+        # If email is being changed, update username too
+        if 'email' in validated_data:
+            instance.username = validated_data['email']
+        return super().update(instance, validated_data)
+
+
+class ChangePasswordSerializer(serializers.Serializer):
+    """Serializer for password change"""
+    old_password = serializers.CharField(required=True)
+    new_password = serializers.CharField(required=True, min_length=8)
+    
+    def validate_new_password(self, value):
+        # Check for number
+        if not any(char.isdigit() for char in value):
+            raise serializers.ValidationError("Password must contain at least one number.")
+        # Check for special character
+        special_chars = "!@#$%^&*()_+-=[]{}|;:,.<>?"
+        if not any(char in special_chars for char in value):
+            raise serializers.ValidationError("Password must contain at least one special character.")
+        return value
+
+
 # Layout serializers
 
 

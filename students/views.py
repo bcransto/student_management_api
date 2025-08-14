@@ -22,7 +22,9 @@ from .models import (
     TableSeat,
     User,
 )
+from .permissions import IsSuperuser, IsSuperuserOrOwner
 from .serializers import (
+    ChangePasswordSerializer,
     ClassroomLayoutSerializer,
     ClassroomTableSerializer,
     ClassRosterSerializer,
@@ -32,14 +34,156 @@ from .serializers import (
     SeatingPeriodSerializer,
     StudentSerializer,
     TableSeatSerializer,
+    UserCreateSerializer,
+    UserDetailSerializer,
+    UserListSerializer,
     UserSerializer,
+    UserUpdateSerializer,
 )
 
 
 class UserViewSet(viewsets.ModelViewSet):
-    queryset = User.objects.all()
-    serializer_class = UserSerializer
+    """
+    ViewSet for user management.
+    Superusers can manage all users.
+    Regular users can only view and edit their own profile.
+    """
+    queryset = User.objects.all().order_by('-date_joined')
     permission_classes = [IsAuthenticated]
+    
+    def get_permissions(self):
+        """Return appropriate permission classes based on action"""
+        if self.action in ['list', 'create']:
+            # Only superusers can list all users or create new ones
+            permission_classes = [IsSuperuser]
+        elif self.action in ['retrieve', 'update', 'partial_update']:
+            # Superusers can access any user, regular users only their own
+            permission_classes = [IsSuperuserOrOwner]
+        elif self.action in ['destroy', 'deactivate', 'reactivate']:
+            # Only superusers can delete or deactivate users
+            permission_classes = [IsSuperuser]
+        else:
+            # Default to authenticated users
+            permission_classes = [IsAuthenticated]
+        return [permission() for permission in permission_classes]
+    
+    def get_serializer_class(self):
+        """Return appropriate serializer based on action"""
+        if self.action == 'list':
+            return UserListSerializer
+        elif self.action == 'create':
+            return UserCreateSerializer
+        elif self.action in ['update', 'partial_update']:
+            return UserUpdateSerializer
+        elif self.action == 'change_password':
+            return ChangePasswordSerializer
+        else:
+            return UserDetailSerializer
+    
+    def get_queryset(self):
+        """Filter queryset based on user permissions"""
+        user = self.request.user
+        if user.is_superuser:
+            # Superusers can see all users
+            return User.objects.all().order_by('-date_joined')
+        else:
+            # Regular users can only see themselves
+            return User.objects.filter(id=user.id)
+    
+    @action(detail=False, methods=['get', 'patch'], permission_classes=[IsAuthenticated])
+    def me(self, request):
+        """Get or update the current user's profile"""
+        if request.method == 'GET':
+            serializer = UserDetailSerializer(request.user)
+            return Response(serializer.data)
+        elif request.method == 'PATCH':
+            serializer = UserUpdateSerializer(request.user, data=request.data, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    @action(detail=True, methods=['post'], permission_classes=[IsSuperuser])
+    def deactivate(self, request, pk=None):
+        """Deactivate a user (soft delete)"""
+        user = self.get_object()
+        
+        # Prevent deactivating yourself
+        if user == request.user:
+            return Response(
+                {"error": "You cannot deactivate your own account"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Prevent deactivating the last superuser
+        if user.is_superuser and User.objects.filter(is_superuser=True, is_active=True).count() == 1:
+            return Response(
+                {"error": "Cannot deactivate the last active superuser"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        user.is_active = False
+        user.save()
+        
+        # TODO: Force logout the deactivated user's sessions
+        
+        return Response({"message": f"User {user.email} has been deactivated"})
+    
+    @action(detail=True, methods=['post'], permission_classes=[IsSuperuser])
+    def reactivate(self, request, pk=None):
+        """Reactivate a deactivated user"""
+        user = self.get_object()
+        
+        if user.is_active:
+            return Response(
+                {"error": "User is already active"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        user.is_active = True
+        user.save()
+        
+        return Response({"message": f"User {user.email} has been reactivated"})
+    
+    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated])
+    def change_password(self, request):
+        """Change the current user's password"""
+        serializer = ChangePasswordSerializer(data=request.data)
+        
+        if serializer.is_valid():
+            user = request.user
+            
+            # Check old password
+            if not user.check_password(serializer.validated_data['old_password']):
+                return Response(
+                    {"old_password": "Wrong password"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Set new password
+            user.set_password(serializer.validated_data['new_password'])
+            user.save()
+            
+            # TODO: Send confirmation email
+            
+            return Response({"message": "Password changed successfully"})
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def create(self, request, *args, **kwargs):
+        """Create a new user and send welcome email"""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        
+        # Get the temporary password if one was generated
+        temp_password = getattr(user, 'temp_password', None)
+        
+        # TODO: Send welcome email with temp_password
+        
+        # Return user data without password
+        response_serializer = UserDetailSerializer(user)
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
 
 class StudentViewSet(viewsets.ModelViewSet):
