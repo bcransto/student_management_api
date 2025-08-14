@@ -4,7 +4,7 @@
 echo "Fixing Django installation on PythonAnywhere..."
 
 # Activate virtual environment
-source ~/student_management_api/myenv/bin/activate
+source ~/student_management_api/venv/bin/activate
 
 # Uninstall and reinstall Django and core dependencies
 pip uninstall django -y
