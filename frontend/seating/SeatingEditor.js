@@ -2393,7 +2393,7 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
                   },
                 },
                 React.createElement("i", { className: "fas fa-eye", style: { fontSize: "10px" } }),
-                " Normal"
+                " None"
               ),
               React.createElement(
                 "button",
