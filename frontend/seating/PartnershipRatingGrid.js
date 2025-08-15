@@ -92,7 +92,7 @@ const PartnershipRatingGrid = ({ students, classId, onClose, existingRatings }) 
       
       // Call bulk update API
       const response = await window.ApiModule.request(
-        `/api/classes/${classId}/bulk-update-ratings/`,
+        `/classes/${classId}/bulk-update-ratings/`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
