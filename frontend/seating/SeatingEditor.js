@@ -2944,19 +2944,40 @@ const SeatingCanvas = ({
           el.style.setProperty('color', 'white', 'important');  // White text for readability
         });
       }, 100);
+    } else if (highlightMode === "none") {
+      // Apply normal mode styles with proper borders
+      console.log("Applying normal mode styles with borders");
+      setTimeout(() => {
+        // Find ALL seat elements
+        const allSeats = document.querySelectorAll('.seat');
+        
+        console.log(`Applying normal borders to ${allSeats.length} seats`);
+        
+        allSeats.forEach(el => {
+          // First remove any existing inline styles
+          el.style.removeProperty('background-color');
+          el.style.removeProperty('border');
+          el.style.removeProperty('color');
+          
+          // Check if it's an occupied or empty seat
+          if (el.classList.contains('occupied')) {
+            // Occupied seats - white background with blue border (like male seats in gender mode)
+            el.style.setProperty('border', '2px solid #2563eb', 'important');
+          } else if (el.classList.contains('empty')) {
+            // Empty seats - light blue background with blue border
+            el.style.setProperty('border', '2px solid #7dd3fc', 'important');
+          }
+        });
+      }, 100);
     } else {
-      // Clean up highlighting styles when switching to normal mode
+      // For any other mode, just clean up
       console.log("Removing highlight styles");
       setTimeout(() => {
-        // Find ALL seat elements, not just those with special classes
-        // This ensures we clean up any lingering styles
         const allSeats = document.querySelectorAll('.seat');
         
         console.log(`Cleaning up styles from ${allSeats.length} seats`);
         
         allSeats.forEach(el => {
-          // Remove the inline styles that were set with !important
-          // This allows the normal CSS to take over
           el.style.removeProperty('background-color');
           el.style.removeProperty('border');
           el.style.removeProperty('color');
