@@ -3093,10 +3093,10 @@ const SeatingCanvas = ({
               
               if (hasFormerTablemate) {
                 console.log(`Student ${assignedStudent.first_name} is sitting with former tablemates`);
-                // Highlight with amber/orange color for repeated partnerships
-                finalSeatStyle.backgroundColor = "#f59e0b";  // Amber
-                finalSeatStyle.border = "2px solid #d97706";
-                finalSeatStyle.color = "white";
+                // Gentle alert highlighting for repeated partnerships
+                finalSeatStyle.backgroundColor = "#fef3c7";  // Light amber background
+                finalSeatStyle.border = "2px solid #f59e0b";  // Amber border
+                // Keep original text color (don't change it)
               }
             }
           }
