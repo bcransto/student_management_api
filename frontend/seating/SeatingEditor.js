@@ -2375,7 +2375,7 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
           React.createElement(
             "div",
             { className: "sidebar-section" },
-            React.createElement("h3", null, "View"),
+            React.createElement("h3", null, "Highlight"),
             React.createElement(
               "div",
               { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" } },
