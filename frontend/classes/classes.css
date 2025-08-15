@@ -10,7 +10,7 @@
 .classes-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   margin-bottom: 2rem;
   padding-bottom: 1.5rem;
   border-bottom: 1px solid #e5e7eb;
@@ -23,11 +23,13 @@
 .btn-new-class {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
   padding: 0.75rem 1.5rem;
   font-weight: 600;
   white-space: nowrap;
   transition: all 0.2s ease;
+  max-width: 150px;
 }
 
 .btn-new-class:hover {
