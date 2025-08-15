@@ -6,6 +6,7 @@ from django.core.mail import send_mail
 from django.db import models
 from django.http import HttpResponse
 from django.shortcuts import render
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -533,6 +534,7 @@ class ClassRosterViewSet(viewsets.ModelViewSet):
     queryset = ClassRoster.objects.all()
     serializer_class = ClassRosterSerializer
     permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend]  # Enable the filter backend
     filterset_fields = ['student', 'class_assigned', 'is_active']  # Enable filtering
 
     def get_queryset(self):
