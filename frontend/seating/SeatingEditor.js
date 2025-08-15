@@ -2928,11 +2928,27 @@ const SeatingCanvas = ({
           el.style.setProperty('color', 'white', 'important');
         });
       }, 100);
-    } else {
-      // Clean up gender highlighting styles when switching to other modes
-      console.log("Removing gender highlight styles");
+    } else if (highlightMode === "previous") {
+      console.log("Applying previous period styles via DOM manipulation");
+      // Wait for next tick to ensure DOM is updated
       setTimeout(() => {
-        // Find ALL seat elements, not just those with gender classes
+        // Find all seats with the previous-tablemate class
+        const previousSeats = document.querySelectorAll('.seat.previous-tablemate');
+        
+        console.log(`Found ${previousSeats.length} seats with previous tablemates`);
+        
+        previousSeats.forEach(el => {
+          console.log("Setting previous period style directly on element");
+          el.style.setProperty('background-color', '#fef3c7', 'important');  // Light amber
+          el.style.setProperty('border', '2px solid #f59e0b', 'important');  // Amber border
+          // Don't change text color
+        });
+      }, 100);
+    } else {
+      // Clean up highlighting styles when switching to normal mode
+      console.log("Removing highlight styles");
+      setTimeout(() => {
+        // Find ALL seat elements, not just those with special classes
         // This ensures we clean up any lingering styles
         const allSeats = document.querySelectorAll('.seat');
         
@@ -2947,7 +2963,7 @@ const SeatingCanvas = ({
         });
       }, 100);
     }
-  }, [highlightMode, assignments]);
+  }, [highlightMode, assignments, previousPeriodData]);
   
   // This will render the layout with students assigned to seats
   return React.createElement(
@@ -3087,6 +3103,7 @@ const SeatingCanvas = ({
           }
           
           // Apply previous period highlighting
+          let previousClass = "";
           if (assignedStudent && highlightMode === "previous" && previousPeriodData?.assignments) {
             // Find if this student was in the previous period
             const prevAssignment = previousPeriodData.assignments.find(a => a.student_id === assignedStudent.id);
@@ -3112,17 +3129,15 @@ const SeatingCanvas = ({
               
               if (hasFormerTablemate) {
                 console.log(`Student ${assignedStudent.first_name} is sitting with former tablemates`);
-                // Gentle alert highlighting for repeated partnerships
-                finalSeatStyle.backgroundColor = "#fef3c7";  // Light amber background
-                finalSeatStyle.border = "2px solid #f59e0b";  // Amber border
-                // Keep original text color (don't change it)
+                previousClass = "previous-tablemate";
+                // Note: We don't set styles here anymore - the useEffect will handle it
               }
             }
           }
 
           const finalClassName = `seat ${assignedStudent ? "occupied" : "empty"} ${
             seat.is_accessible ? "accessible" : ""
-          } ${genderClass} ${!assignedStudent && !isDeactivated ? "fillable" : ""}`.trim();
+          } ${genderClass} ${previousClass} ${!assignedStudent && !isDeactivated ? "fillable" : ""}`.trim();
           
           if (genderClass) {
             console.log(`Seat ${table.id}-${seat.seat_number} final className: "${finalClassName}"`);
