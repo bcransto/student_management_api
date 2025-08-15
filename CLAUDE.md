@@ -64,6 +64,10 @@ SeatingAssignment → roster_entry (FK to ClassRoster, not Student!)
 # Student fields
 Student.nickname  # Defaults to first_name if empty/whitespace
 Student.gender    # 'male', 'female', 'other' (lowercase in DB)
+
+# Partnership tracking
+PartnershipRating → class_assigned, student1, student2
+# Auto-orders: student1 always has lower ID than student2
 ```
 
 ### Frontend Component Architecture
@@ -80,24 +84,24 @@ React.createElement("div", { className: "example" }, children)
 1. **SeatingEditor.js** (Complex state management)
    - Assignments state: `{tableId: {seatNumber: studentId}}` with string keys
    - Seat ID format: "tableNumber-seatNumber" (e.g., "1-2")
-   - Gender highlighting requires DOM manipulation with setProperty('important')
    - Left sidebar (250px) and right sidebar (250px) with controls
-   - Autofill preserves existing seat assignments
    - Search includes nickname field
    - **Fill System**: Three modes (Random, Match Gender, Balance Gender)
-     - Double-click empty seats to auto-assign students (changed from single-click)
+     - Double-click empty seats to auto-assign students
      - Auto button: Fill all empty seats at once
      - Batch operations create single undo entry
    - **Undo System**: Full history tracking with 50-level limit
    - **Seat Deactivation**: Shift+click to block seats (red, stored in Set)
    - **Period Navigation**: View-only - does NOT modify database end_dates
    - **Dynamic Grid Scaling**: Automatically scales to fit viewport with fixed sidebars
-   - **Partnership History**: 
-     - Single-click any student (pool or seat) shows partnership modal
+   - **Highlight Modes** (ALL use DOM manipulation with setProperty('important')):
+     - Normal: Blue borders on all seats, light blue background for empty
+     - Gender: Green for female, blue for male/other
+     - Previous: Amber highlighting for students sitting with former tablemates
+   - **Partnership Features**:
+     - Single-click any student shows partnership history modal
+     - Partnership Ratings button opens grid for teacher preferences (-2 to +2)
      - Tracks historical seating partnerships across completed periods
-     - Color-coded by gender (blue=male, green=female, purple=non-binary)
-     - Shows frequency bar chart and unpaired students list
-     - Filters out inactive students from potential partnerships
 
 2. **Students Components**
    - `formatStudentNameTwoLine()` returns { line1: nickname, line2: "Smi." } for consistent two-line display
@@ -143,24 +147,24 @@ await ApiModule.request(url, method, body)  // ❌
 - ClassSerializer.roster only returns active entries (is_active=True)
 - JWT token includes user_id for permission checks
 
-**Partnership History Endpoint**:
+**Partnership API Endpoints**:
 ```python
 # GET /api/classes/{class_id}/partnership-history/
 # Returns historical seating partnerships for all students
 # Only includes completed periods (end_date != null)
 # Groups students by table to find partnerships
-# Response format: {
-#   "class_id": 1,
-#   "partnership_data": {
-#     "student_id": {
-#       "name": "John Smith",
-#       "is_active": true,
-#       "partnerships": {
-#         "partner_id": ["2024-01-15", "2024-02-20"]  # Dates when partnered
-#       }
-#     }
-#   }
-# }
+
+# GET /api/classes/{class_id}/partnership-ratings/
+# Returns grid of current partnership ratings
+# Response includes students list and grid data structure
+
+# POST /api/classes/{class_id}/partnership-ratings/
+# Set single partnership rating
+# Body: {student1_id, student2_id, rating: -2 to 2}
+
+# POST /api/classes/{class_id}/bulk-update-ratings/
+# Update multiple ratings at once
+# Body: {ratings: [{student1_id, student2_id, rating}]}
 ```
 
 ### History & Undo System
@@ -194,11 +198,19 @@ assignments = {
 }
 ```
 
-**Gender Highlighting CSS Specificity**:
+**CSS Specificity Battles & DOM Manipulation**:
 ```javascript
-// Inline styles won't work due to !important rules
-// Must use DOM manipulation:
-element.style.setProperty('background-color', '#10b981', 'important');
+// Inline styles won't work due to !important rules elsewhere
+// ALL highlight modes (Normal, Gender, Previous) use this approach:
+setTimeout(() => {
+  element.style.setProperty('background-color', '#10b981', 'important');
+  element.style.setProperty('border', '2px solid #059669', 'important');
+}, 100);
+
+// Cleanup when switching modes:
+element.style.removeProperty('background-color');
+element.style.removeProperty('border');
+element.style.removeProperty('color');
 ```
 
 **SeatingPeriod Current State**:
@@ -281,24 +293,25 @@ Frontend auto-detects production environment via hostname.
 
 1. `students/models.py` - Model relationships and save() overrides
 2. `frontend/shared/core.js` - ApiModule request pattern and JWT auth
-3. `frontend/seating/SeatingEditor.js` - Complex state management
-4. `students/views.py` - ViewSet filtering and permissions
+3. `frontend/seating/SeatingEditor.js` - Complex state management & highlighting
+4. `students/views.py` - ViewSet filtering, permissions, and custom actions
 5. `frontend/shared/utils.js` - formatStudentNameTwoLine() for unified name display
 6. `frontend/shared/layoutStyles.js` - formatSeatName() for canvas rendering
-7. `frontend/classes/ClassStudentManager.js` - Bulk enrollment interface
-8. `students/serializers.py` - Custom roster filtering and JWT claims
-9. `frontend/app.js` - Main app component with routing and navigation
-10. `frontend/shared/router.js` - Centralized route definitions
-11. `frontend/shared/navigation.js` - Navigation service wrapper
+7. `frontend/seating/PartnershipHistoryModal.js` - Partnership visualization
+8. `frontend/seating/PartnershipRatingGrid.js` - Teacher rating preferences grid
+9. `frontend/classes/ClassStudentManager.js` - Bulk enrollment interface
+10. `students/serializers.py` - Custom roster filtering and JWT claims
 
 ## Important Behavioral Notes
 
 ### Seating Editor Interactions
+- **Single-click** student (pool or seat): Show partnership history modal
 - **Double-click** empty seat: Fill with student from pool
 - **Shift+click** any seat: Toggle deactivation (red/blocked)
 - **Drag & Drop**: Move students between seats or back to pool
 - **Auto button**: Fill all empty seats based on selected mode
-- **View buttons**: Toggle highlighting (Gender/None)
+- **Highlight buttons**: Normal/Gender/Previous modes
+- **Partnership Ratings button**: Opens rating grid for teacher preferences
 
 ### Ownership & Permissions
 - All users (including superusers) only see their own:
