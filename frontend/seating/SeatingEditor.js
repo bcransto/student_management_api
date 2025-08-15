@@ -2120,7 +2120,7 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
               title: "Switch to view mode",
             },
             React.createElement("i", { className: "fas fa-eye" }),
-            " View"
+            " View Mode"
           ),
         // New Period button
         React.createElement(
