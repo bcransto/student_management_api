@@ -2299,7 +2299,7 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
                 title: isViewingCurrentPeriod ? "Select classroom layout" : "Cannot change layout for historical periods",
               },
               React.createElement("i", { className: "fas fa-th" }),
-              " Select Layout"
+              " Change Layout"
             )
           ),
           
