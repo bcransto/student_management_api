@@ -558,7 +558,7 @@ const SeatingViewer = ({ classId, periodId, onEdit, onBack, navigateTo }) => {
             title: "Switch to edit mode",
           },
           React.createElement("i", { className: "fas fa-edit" }),
-          " Edit"
+          " Edit Mode"
         ),
         // New Period button
         React.createElement(
