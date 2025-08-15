@@ -478,6 +478,36 @@ const LoginComponent = ({ onLogin }) => {
                 }),
                 " Sign In",
               ]
+        ),
+        
+        // Forgot Password link
+        React.createElement(
+          "div",
+          { 
+            style: { 
+              textAlign: "center", 
+              marginTop: "1rem",
+              fontSize: "0.9rem"
+            }
+          },
+          React.createElement(
+            "a",
+            {
+              href: "#",
+              onClick: (e) => {
+                e.preventDefault();
+                alert("Please contact your administrator to reset your password.\n\nAdmin email: admin@carlisle.k12.ma.us");
+              },
+              style: {
+                color: "#6366f1",
+                textDecoration: "none",
+                cursor: "pointer"
+              },
+              onMouseEnter: (e) => e.target.style.textDecoration = "underline",
+              onMouseLeave: (e) => e.target.style.textDecoration = "none"
+            },
+            "Forgot Password?"
+          )
         )
       )
     )
