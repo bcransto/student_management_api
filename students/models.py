@@ -653,3 +653,122 @@ class SeatingAssignment(models.Model):
         ).exclude(id=self.id)
 
         return table_assignments
+
+
+class PartnershipRating(models.Model):
+    """Model to track teacher ratings of student partnerships for specific classes"""
+    
+    # Rating choices
+    RATING_CHOICES = [
+        (-2, 'Never Together'),
+        (-1, 'Negative'),
+        (0, 'Neutral'),
+        (1, 'Positive'),
+        (2, 'Always Together'),
+    ]
+    
+    # Foreign keys
+    class_assigned = models.ForeignKey(
+        'Class',
+        on_delete=models.CASCADE,
+        related_name='partnership_ratings'
+    )
+    student1 = models.ForeignKey(
+        'Student',
+        on_delete=models.CASCADE,
+        related_name='partnership_ratings_as_student1'
+    )
+    student2 = models.ForeignKey(
+        'Student',
+        on_delete=models.CASCADE,
+        related_name='partnership_ratings_as_student2'
+    )
+    
+    # Rating field
+    rating = models.SmallIntegerField(
+        choices=RATING_CHOICES,
+        default=0,
+        help_text="Rating of how well these students work together"
+    )
+    
+    # Tracking fields
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='created_partnership_ratings'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    # Optional notes field for additional context
+    notes = models.TextField(
+        blank=True,
+        help_text="Optional notes about this partnership"
+    )
+    
+    class Meta:
+        # Ensure unique rating per student pair per class
+        unique_together = ['class_assigned', 'student1', 'student2']
+        
+        # Indexes for performance
+        indexes = [
+            models.Index(fields=['class_assigned', 'student1']),
+            models.Index(fields=['class_assigned', 'student2']),
+            models.Index(fields=['class_assigned', 'rating']),
+        ]
+        
+        ordering = ['class_assigned', 'student1', 'student2']
+        verbose_name = 'Partnership Rating'
+        verbose_name_plural = 'Partnership Ratings'
+    
+    def save(self, *args, **kwargs):
+        """Ensure student1 has lower ID than student2 for consistency"""
+        # Order students by ID to ensure consistency
+        if self.student1_id and self.student2_id:
+            if self.student1_id > self.student2_id:
+                # Swap if needed
+                self.student1_id, self.student2_id = self.student2_id, self.student1_id
+        
+        super().save(*args, **kwargs)
+    
+    def __str__(self):
+        """String representation of the rating"""
+        rating_display = dict(self.RATING_CHOICES).get(self.rating, 'Unknown')
+        return f"{self.class_assigned.name}: {self.student1.first_name} {self.student1.last_name} & {self.student2.first_name} {self.student2.last_name} - {rating_display}"
+    
+    @classmethod
+    def get_rating(cls, class_assigned, student1, student2):
+        """Get rating for a student pair (order-independent)"""
+        # Order IDs
+        s1_id = min(student1.id, student2.id)
+        s2_id = max(student1.id, student2.id)
+        
+        try:
+            rating = cls.objects.get(
+                class_assigned=class_assigned,
+                student1_id=s1_id,
+                student2_id=s2_id
+            )
+            return rating.rating
+        except cls.DoesNotExist:
+            return 0  # Default to neutral
+    
+    @classmethod
+    def set_rating(cls, class_assigned, student1, student2, rating, created_by=None, notes=''):
+        """Set or update rating for a student pair (order-independent)"""
+        # Order IDs
+        s1_id = min(student1.id, student2.id)
+        s2_id = max(student1.id, student2.id)
+        
+        rating_obj, created = cls.objects.update_or_create(
+            class_assigned=class_assigned,
+            student1_id=s1_id,
+            student2_id=s2_id,
+            defaults={
+                'rating': rating,
+                'created_by': created_by,
+                'notes': notes
+            }
+        )
+        return rating_obj

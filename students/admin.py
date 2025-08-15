@@ -7,6 +7,7 @@ from .models import (
     ClassroomTable,
     ClassRoster,
     LayoutObstacle,
+    PartnershipRating,
     SeatingAssignment,
     SeatingPeriod,
     Student,
@@ -297,3 +298,57 @@ class ClassRosterAdmin(admin.ModelAdmin):
         if request.user.is_superuser:
             return qs
         return qs.filter(class_assigned__teacher=request.user)
+
+
+@admin.register(PartnershipRating)
+class PartnershipRatingAdmin(admin.ModelAdmin):
+    list_display = ["class_assigned", "student1_name", "student2_name", "rating_display", "created_by", "updated_at"]
+    list_filter = ["rating", "class_assigned", "created_at", "updated_at"]
+    search_fields = [
+        "student1__first_name", "student1__last_name", "student1__student_id",
+        "student2__first_name", "student2__last_name", "student2__student_id",
+        "class_assigned__name", "notes"
+    ]
+    readonly_fields = ["created_at", "updated_at"]
+    autocomplete_fields = ["class_assigned", "student1", "student2", "created_by"]
+    
+    fieldsets = (
+        ("Partnership Information", {
+            "fields": ("class_assigned", "student1", "student2", "rating")
+        }),
+        ("Additional Information", {
+            "fields": ("notes", "created_by"),
+            "classes": ("collapse",)
+        }),
+        ("Timestamps", {
+            "fields": ("created_at", "updated_at"),
+            "classes": ("collapse",)
+        }),
+    )
+    
+    def student1_name(self, obj):
+        return f"{obj.student1.first_name} {obj.student1.last_name}"
+    student1_name.short_description = "Student 1"
+    student1_name.admin_order_field = "student1__last_name"
+    
+    def student2_name(self, obj):
+        return f"{obj.student2.first_name} {obj.student2.last_name}"
+    student2_name.short_description = "Student 2"
+    student2_name.admin_order_field = "student2__last_name"
+    
+    def rating_display(self, obj):
+        return dict(obj.RATING_CHOICES).get(obj.rating, 'Unknown')
+    rating_display.short_description = "Rating"
+    rating_display.admin_order_field = "rating"
+    
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        # Teachers can only see ratings for their own classes
+        return qs.filter(class_assigned__teacher=request.user)
+    
+    def save_model(self, request, obj, form, change):
+        if not change:  # If creating new rating
+            obj.created_by = request.user
+        super().save_model(request, obj, form, change)
