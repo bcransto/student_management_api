@@ -2932,13 +2932,15 @@ const SeatingCanvas = ({
       // Clean up gender highlighting styles when switching to other modes
       console.log("Removing gender highlight styles");
       setTimeout(() => {
-        // Find all seats with gender classes
-        const allGenderSeats = document.querySelectorAll('.seat.gender-female, .seat.gender-male');
+        // Find ALL seat elements, not just those with gender classes
+        // This ensures we clean up any lingering styles
+        const allSeats = document.querySelectorAll('.seat');
         
-        console.log(`Cleaning up ${allGenderSeats.length} gender-highlighted seats`);
+        console.log(`Cleaning up styles from ${allSeats.length} seats`);
         
-        allGenderSeats.forEach(el => {
-          // Remove the important styles that were set
+        allSeats.forEach(el => {
+          // Remove the inline styles that were set with !important
+          // This allows the normal CSS to take over
           el.style.removeProperty('background-color');
           el.style.removeProperty('border');
           el.style.removeProperty('color');
@@ -3057,6 +3059,7 @@ const SeatingCanvas = ({
           let genderClass = "";
           let finalSeatStyle = {...seatStyle}; // Create a copy of the base style
           
+          // Only add gender classes when in gender highlight mode
           if (assignedStudent && highlightMode === "gender") {
             // Check for female gender (female, F or Female)
             const isFemale = assignedStudent.gender === "female" || assignedStudent.gender === "F" || assignedStudent.gender === "Female";
