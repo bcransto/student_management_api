@@ -3080,11 +3080,14 @@ const SeatingCanvas = ({
               
               // Check if any of those tablemates are currently at this table
               let hasFormerTablemate = false;
-              for (const seatNum in assignments[tableIdStr]) {
-                const otherId = assignments[tableIdStr][seatNum];
-                if (otherId !== assignedStudentId && prevTablemates.some(tm => tm.student_id === otherId)) {
-                  hasFormerTablemate = true;
-                  break;
+              const tableAssignments = assignments[table.id];
+              if (tableAssignments) {
+                for (const seatNum in tableAssignments) {
+                  const otherId = tableAssignments[seatNum];
+                  if (otherId !== assignedStudentId && prevTablemates.some(tm => tm.student_id === otherId)) {
+                    hasFormerTablemate = true;
+                    break;
+                  }
                 }
               }
               
