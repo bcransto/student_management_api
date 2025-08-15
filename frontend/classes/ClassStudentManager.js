@@ -11,9 +11,59 @@ const ClassStudentManager = ({ classId, navigateTo }) => {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState(null);
   const [showInactive, setShowInactive] = React.useState(false);
+  const [batchMode, setBatchMode] = React.useState(false);
+  const [parsedStudentIds, setParsedStudentIds] = React.useState([]);
+  const [notFoundIds, setNotFoundIds] = React.useState([]);
   
   // Get current user info
   const currentUser = window.AuthModule?.getUserInfo();
+  
+  // Parse student IDs from batch input
+  const parseStudentIds = (input) => {
+    if (!input) return [];
+    
+    // Split by whitespace (spaces, tabs, newlines) or commas
+    // This regex matches one or more of any whitespace or comma
+    const ids = input
+      .split(/[\s,]+/)
+      .map(id => id.trim())
+      .filter(id => id.length > 0);
+    
+    // Return unique IDs only
+    return [...new Set(ids)];
+  };
+  
+  // Watch for changes in batch mode and search query
+  React.useEffect(() => {
+    if (batchMode && searchQuery) {
+      const parsedIds = parseStudentIds(searchQuery);
+      setParsedStudentIds(parsedIds);
+      
+      // Find matching students
+      const matchingStudents = allStudents.filter(s => 
+        parsedIds.includes(s.student_id) && !s.isEnrolled
+      );
+      
+      // Auto-select all found students that aren't already enrolled
+      setSelectedStudents(new Set(matchingStudents.map(s => s.id)));
+      
+      // Find which IDs don't match any students
+      const foundIds = new Set(
+        allStudents
+          .filter(s => parsedIds.includes(s.student_id))
+          .map(s => s.student_id)
+      );
+      const notFound = parsedIds.filter(id => !foundIds.has(id));
+      setNotFoundIds(notFound);
+    } else {
+      setParsedStudentIds([]);
+      setNotFoundIds([]);
+      if (batchMode === false) {
+        // Clear selections when leaving batch mode
+        setSelectedStudents(new Set());
+      }
+    }
+  }, [batchMode, searchQuery, allStudents]);
 
   React.useEffect(() => {
     const fetchData = async () => {
@@ -159,8 +209,14 @@ const ClassStudentManager = ({ classId, navigateTo }) => {
   const getFilteredStudents = () => {
     let filtered = allStudents;
     
-    // Filter by search query
-    if (searchQuery) {
+    // Filter by batch IDs or search query
+    if (batchMode && parsedStudentIds.length > 0) {
+      // In batch mode, filter by exact ID match
+      filtered = filtered.filter(student => 
+        parsedStudentIds.includes(student.student_id)
+      );
+    } else if (searchQuery && !batchMode) {
+      // Normal search mode
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(student => 
         student.first_name?.toLowerCase().includes(query) ||
@@ -244,7 +300,9 @@ const ClassStudentManager = ({ classId, navigateTo }) => {
         React.createElement("input", {
           type: "text",
           className: "search-input",
-          placeholder: "Search students by name, ID, or email...",
+          placeholder: batchMode 
+            ? "Paste student IDs..." 
+            : "Search students by name, ID, or email...",
           value: searchQuery,
           onChange: (e) => setSearchQuery(e.target.value)
         }),
@@ -252,9 +310,33 @@ const ClassStudentManager = ({ classId, navigateTo }) => {
           "button",
           {
             className: "btn btn-secondary",
-            onClick: () => setSearchQuery("")
+            onClick: () => {
+              setSearchQuery("");
+              if (batchMode) {
+                // Reset batch mode when clearing in batch mode
+                setBatchMode(false);
+              }
+            }
           },
           "Clear"
+        ),
+        React.createElement(
+          "label",
+          { 
+            className: "checkbox-label",
+            style: { marginLeft: "1rem", cursor: "pointer" }
+          },
+          React.createElement("input", {
+            type: "checkbox",
+            checked: batchMode,
+            onChange: (e) => {
+              setBatchMode(e.target.checked);
+              // Clear search when toggling modes
+              setSearchQuery("");
+              setSelectedStudents(new Set());
+            }
+          }),
+          " Batch Add"
         )
       ),
 
@@ -298,7 +380,22 @@ const ClassStudentManager = ({ classId, navigateTo }) => {
           { className: "section-header" },
           React.createElement("h2", null, "Available Students"),
           React.createElement("span", { className: "count-badge" }, `${availableStudents.length} students`),
-          availableStudents.length > 0 && React.createElement(
+          batchMode && React.createElement(
+            "span",
+            { 
+              className: "badge badge-info",
+              style: { 
+                backgroundColor: "#3b82f6",
+                color: "white",
+                padding: "0.25rem 0.5rem",
+                borderRadius: "0.25rem",
+                fontSize: "0.875rem",
+                marginLeft: "0.5rem"
+              }
+            },
+            "Batch Mode Active"
+          ),
+          !batchMode && availableStudents.length > 0 && React.createElement(
             "button",
             {
               className: "btn btn-link btn-sm",
@@ -306,6 +403,27 @@ const ClassStudentManager = ({ classId, navigateTo }) => {
             },
             selectedStudents.size === availableStudents.length ? "Deselect All" : "Select All"
           )
+        ),
+        
+        // Show not found IDs message when in batch mode
+        batchMode && notFoundIds.length > 0 && React.createElement(
+          "div",
+          {
+            style: {
+              padding: "0.75rem",
+              backgroundColor: "#fef2f2",
+              border: "1px solid #fca5a5",
+              borderRadius: "6px",
+              marginBottom: "1rem",
+              color: "#dc2626",
+              fontSize: "0.9rem"
+            }
+          },
+          React.createElement("i", { 
+            className: "fas fa-exclamation-triangle",
+            style: { marginRight: "0.5rem" }
+          }),
+          `Student IDs not found: ${notFoundIds.join(", ")}`
         ),
         
         React.createElement(
