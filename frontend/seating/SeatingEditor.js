@@ -40,6 +40,8 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
   const [partnershipHistory, setPartnershipHistory] = useState(null); // Partnership history data for the class
   const [showPartnershipModal, setShowPartnershipModal] = useState(false); // Show/hide partnership modal
   const [selectedStudentForHistory, setSelectedStudentForHistory] = useState(null); // Student to show history for
+  const [showRatingGrid, setShowRatingGrid] = useState(false); // Show/hide partnership rating grid
+  const [partnershipRatings, setPartnershipRatings] = useState(null); // Cached partnership ratings
 
   // Load initial data when classId or periodId changes
   useEffect(() => {
@@ -623,6 +625,24 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
     
     if (warnings.length > 0) {
       setDuplicateWarning(`⚠️ ${warnings.join(". ")}`);
+    }
+  };
+
+  // Fetch partnership ratings when modal opens
+  const fetchPartnershipRatings = async () => {
+    if (!classId) return;
+    
+    try {
+      const response = await window.ApiModule.request(
+        `/classes/${classId}/partnership-ratings/`
+      );
+      
+      console.log("Fetched partnership ratings:", response);
+      setPartnershipRatings(response);
+      return response;
+    } catch (error) {
+      console.error("Failed to fetch partnership ratings:", error);
+      return null;
     }
   };
 
@@ -2406,6 +2426,30 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
                 " Previous"
               )
             )
+          ),
+          
+          // Partnership section
+          React.createElement(
+            "div",
+            { className: "sidebar-section" },
+            React.createElement("h3", null, "Partnerships"),
+            React.createElement(
+              "button",
+              {
+                className: "btn btn-sm btn-secondary",
+                style: { 
+                  width: "100%", 
+                  fontSize: "12px"
+                },
+                onClick: () => {
+                  console.log("Opening Partnership Ratings grid");
+                  fetchPartnershipRatings();
+                  setShowRatingGrid(true);
+                },
+              },
+              React.createElement("i", { className: "fas fa-users", style: { fontSize: "10px" } }),
+              " Partnership Ratings"
+            )
           )
         ),
 
@@ -2558,6 +2602,20 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
       onClose: () => {
         setShowPartnershipModal(false);
         setSelectedStudentForHistory(null);
+      }
+    }),
+    
+    // Partnership Rating Grid Modal
+    showRatingGrid && React.createElement(window.PartnershipRatingGrid, {
+      students: students, // Pass all students from roster
+      classId: classId,
+      existingRatings: partnershipRatings,
+      onClose: (hasChanges) => {
+        setShowRatingGrid(false);
+        if (hasChanges) {
+          // Refresh ratings if changes were saved
+          fetchPartnershipRatings();
+        }
       }
     })
   );
