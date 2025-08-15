@@ -2928,6 +2928,22 @@ const SeatingCanvas = ({
           el.style.setProperty('color', 'white', 'important');
         });
       }, 100);
+    } else {
+      // Clean up gender highlighting styles when switching to other modes
+      console.log("Removing gender highlight styles");
+      setTimeout(() => {
+        // Find all seats with gender classes
+        const allGenderSeats = document.querySelectorAll('.seat.gender-female, .seat.gender-male');
+        
+        console.log(`Cleaning up ${allGenderSeats.length} gender-highlighted seats`);
+        
+        allGenderSeats.forEach(el => {
+          // Remove the important styles that were set
+          el.style.removeProperty('background-color');
+          el.style.removeProperty('border');
+          el.style.removeProperty('color');
+        });
+      }, 100);
     }
   }, [highlightMode, assignments]);
   
