@@ -677,9 +677,21 @@ const LoginComponent = ({ onLogin }) => {
                 "button",
                 {
                   type: "submit",
-                  className: "btn btn-primary",
                   disabled: resetLoading,
-                  style: { flex: 1 }
+                  style: { 
+                    flex: 1,
+                    padding: "0.75rem 1rem",
+                    fontSize: "1rem",
+                    borderRadius: "0.375rem",
+                    border: "none",
+                    backgroundColor: "#6366f1",
+                    color: "white",
+                    cursor: resetLoading ? "not-allowed" : "pointer",
+                    opacity: resetLoading ? 0.6 : 1,
+                    transition: "all 0.2s ease"
+                  },
+                  onMouseEnter: (e) => !resetLoading && (e.target.style.backgroundColor = "#5558e3"),
+                  onMouseLeave: (e) => !resetLoading && (e.target.style.backgroundColor = "#6366f1")
                 },
                 resetLoading ? "Sending..." : "Send Reset Link"
               ),
@@ -687,14 +699,26 @@ const LoginComponent = ({ onLogin }) => {
                 "button",
                 {
                   type: "button",
-                  className: "btn btn-secondary",
                   onClick: () => {
                     setShowResetModal(false);
                     setResetMessage("");
                     setResetError("");
                   },
                   disabled: resetLoading,
-                  style: { flex: 1 }
+                  style: { 
+                    flex: 1,
+                    padding: "0.75rem 1rem",
+                    fontSize: "1rem",
+                    borderRadius: "0.375rem",
+                    border: "none",
+                    backgroundColor: "#6b7280",
+                    color: "white",
+                    cursor: resetLoading ? "not-allowed" : "pointer",
+                    opacity: resetLoading ? 0.6 : 1,
+                    transition: "all 0.2s ease"
+                  },
+                  onMouseEnter: (e) => !resetLoading && (e.target.style.backgroundColor = "#5a5f6b"),
+                  onMouseLeave: (e) => !resetLoading && (e.target.style.backgroundColor = "#6b7280")
                 },
                 "Cancel"
               )
