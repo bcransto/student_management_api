@@ -374,6 +374,11 @@ const LoginComponent = ({ onLogin }) => {
   const [password, setPassword] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState("");
+  const [showResetModal, setShowResetModal] = React.useState(false);
+  const [resetEmail, setResetEmail] = React.useState("");
+  const [resetLoading, setResetLoading] = React.useState(false);
+  const [resetMessage, setResetMessage] = React.useState("");
+  const [resetError, setResetError] = React.useState("");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -389,6 +394,36 @@ const LoginComponent = ({ onLogin }) => {
     }
 
     setLoading(false);
+  };
+
+  const handlePasswordReset = async (e) => {
+    e.preventDefault();
+    setResetLoading(true);
+    setResetError("");
+    setResetMessage("");
+
+    try {
+      const response = await fetch(`${AuthModule.getApiBaseUrl()}/password-reset/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email: resetEmail }),
+      });
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        setResetMessage("If an account exists with this email, a password reset link has been sent. Please check your email.");
+        setResetEmail("");
+      } else {
+        setResetError(data.error || "Failed to send reset email. Please try again.");
+      }
+    } catch (error) {
+      setResetError("Network error. Please try again.");
+    }
+
+    setResetLoading(false);
   };
 
   return React.createElement(
@@ -496,7 +531,8 @@ const LoginComponent = ({ onLogin }) => {
               href: "#",
               onClick: (e) => {
                 e.preventDefault();
-                alert("Please contact your administrator to reset your password.\n\nAdmin email: admin@carlisle.k12.ma.us");
+                setShowResetModal(true);
+                setResetEmail(email); // Pre-fill with login email if available
               },
               style: {
                 color: "#6366f1",
@@ -507,6 +543,162 @@ const LoginComponent = ({ onLogin }) => {
               onMouseLeave: (e) => e.target.style.textDecoration = "none"
             },
             "Forgot Password?"
+          )
+        )
+      )
+    ),
+    
+    // Password Reset Modal
+    showResetModal && React.createElement(
+      "div",
+      {
+        className: "modal-overlay",
+        style: {
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: "rgba(0, 0, 0, 0.5)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 10000,
+        },
+        onClick: (e) => {
+          if (e.target === e.currentTarget && !resetLoading) {
+            setShowResetModal(false);
+            setResetMessage("");
+            setResetError("");
+          }
+        }
+      },
+      React.createElement(
+        "div",
+        {
+          className: "modal-content",
+          style: {
+            backgroundColor: "white",
+            borderRadius: "8px",
+            padding: "2rem",
+            width: "90%",
+            maxWidth: "400px",
+            boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)",
+          }
+        },
+        React.createElement(
+          "h2",
+          { style: { marginTop: 0, marginBottom: "1rem" } },
+          "Reset Password"
+        ),
+        
+        resetMessage ? (
+          // Success message
+          React.createElement(
+            "div",
+            null,
+            React.createElement(
+              "div",
+              {
+                style: {
+                  padding: "1rem",
+                  backgroundColor: "#10b981",
+                  color: "white",
+                  borderRadius: "4px",
+                  marginBottom: "1rem",
+                  fontSize: "0.9rem"
+                }
+              },
+              React.createElement("i", { className: "fas fa-check-circle", style: { marginRight: "0.5rem" } }),
+              resetMessage
+            ),
+            React.createElement(
+              "button",
+              {
+                className: "btn btn-secondary",
+                onClick: () => {
+                  setShowResetModal(false);
+                  setResetMessage("");
+                  setResetError("");
+                },
+                style: { width: "100%" }
+              },
+              "Close"
+            )
+          )
+        ) : (
+          // Reset form
+          React.createElement(
+            "form",
+            { onSubmit: handlePasswordReset },
+            React.createElement(
+              "p",
+              { style: { marginBottom: "1rem", color: "#666", fontSize: "0.9rem" } },
+              "Enter your email address and we'll send you a link to reset your password."
+            ),
+            
+            resetError && React.createElement(
+              "div",
+              {
+                style: {
+                  padding: "0.75rem",
+                  backgroundColor: "#fee",
+                  color: "#dc2626",
+                  borderRadius: "4px",
+                  marginBottom: "1rem",
+                  fontSize: "0.9rem"
+                }
+              },
+              React.createElement("i", { className: "fas fa-exclamation-triangle", style: { marginRight: "0.5rem" } }),
+              resetError
+            ),
+            
+            React.createElement(
+              "div",
+              { className: "form-group" },
+              React.createElement("label", { htmlFor: "reset-email" }, "Email Address"),
+              React.createElement("input", {
+                type: "email",
+                id: "reset-email",
+                className: "form-input",
+                value: resetEmail,
+                onChange: (e) => setResetEmail(e.target.value),
+                required: true,
+                disabled: resetLoading,
+                placeholder: "Enter your email address",
+                style: { width: "100%" }
+              })
+            ),
+            
+            React.createElement(
+              "div",
+              { style: { display: "flex", gap: "0.5rem", marginTop: "1rem" } },
+              React.createElement(
+                "button",
+                {
+                  type: "submit",
+                  className: "btn btn-primary",
+                  disabled: resetLoading,
+                  style: { flex: 1 }
+                },
+                resetLoading ? "Sending..." : "Send Reset Link"
+              ),
+              React.createElement(
+                "button",
+                {
+                  type: "button",
+                  className: "btn btn-secondary",
+                  onClick: () => {
+                    setShowResetModal(false);
+                    setResetMessage("");
+                    setResetError("");
+                  },
+                  disabled: resetLoading,
+                  style: { flex: 1 }
+                },
+                "Cancel"
+              )
+            )
           )
         )
       )

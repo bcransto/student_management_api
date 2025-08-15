@@ -30,6 +30,11 @@ const App = () => {
   const getInitialView = () => {
     const hash = window.location.hash.slice(1); // Remove the #
 
+    // Check for password reset pattern
+    if (hash.startsWith("password-reset/")) {
+      return "password-reset";
+    }
+
     // Check for student edit pattern
     if (hash.startsWith("students/edit/")) {
       return "student-edit";
@@ -130,6 +135,12 @@ const App = () => {
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.slice(1);
+
+      // Check for password reset pattern
+      if (hash.startsWith("password-reset/")) {
+        setCurrentView("password-reset");
+        return;
+      }
 
       // Check for student edit pattern
       if (hash.startsWith("students/edit/")) {
@@ -452,6 +463,23 @@ const App = () => {
         });
     }
   };
+
+  // Show password reset screen if on password-reset route
+  if (currentView === "password-reset") {
+    const resetHash = window.location.hash.slice(1);
+    const resetParts = resetHash.split("/");
+    if (resetParts.length === 3) {
+      const [, uid, token] = resetParts;
+      return React.createElement(window.PasswordResetConfirm, {
+        uid: uid,
+        token: token,
+        onSuccess: () => {
+          window.location.hash = "";
+          window.location.reload();
+        }
+      });
+    }
+  }
 
   // Show login screen if not authenticated
   if (!isLoggedIn) {
