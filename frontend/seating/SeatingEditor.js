@@ -2939,9 +2939,9 @@ const SeatingCanvas = ({
         
         previousSeats.forEach(el => {
           console.log("Setting previous period style directly on element");
-          el.style.setProperty('background-color', '#fef3c7', 'important');  // Light amber
-          el.style.setProperty('border', '2px solid #f59e0b', 'important');  // Amber border
-          // Don't change text color
+          el.style.setProperty('background-color', '#f59e0b', 'important');  // Darker amber/orange
+          el.style.setProperty('border', '2px solid #d97706', 'important');  // Darker amber border
+          el.style.setProperty('color', 'white', 'important');  // White text for readability
         });
       }, 100);
     } else {
