@@ -2487,6 +2487,7 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
               students: students,
               highlightMode: highlightMode,
               deactivatedSeats: deactivatedSeats,  // Pass deactivated seats to canvas
+              previousPeriodData: previousPeriodData,  // Pass previous period data for highlighting
               onSeatClick: (tableId, seatNumber, event) => {
                 const seatId = `${tableId}-${seatNumber}`;
                 const isModifierPressed = event && event.shiftKey;
@@ -2847,6 +2848,7 @@ const SeatingCanvas = ({
   onDragEnd,
   deactivatedSeats,
   onStudentClick,
+  previousPeriodData,
 }) => {
   // Get shared styles
   const { LayoutStyles } = window;
@@ -3063,6 +3065,37 @@ const SeatingCanvas = ({
             console.log("Final seatStyle backgroundColor:", finalSeatStyle.backgroundColor);
             console.log("Final seatStyle border:", finalSeatStyle.border);
             console.log("Final seatStyle with gender:", finalSeatStyle);
+          }
+          
+          // Apply previous period highlighting
+          if (assignedStudent && highlightMode === "previous" && previousPeriodData?.assignments) {
+            // Find if this student was in the previous period
+            const prevAssignment = previousPeriodData.assignments.find(a => a.student_id === assignedStudent.id);
+            
+            if (prevAssignment) {
+              // Get all students who were at the same table in the previous period
+              const prevTablemates = previousPeriodData.assignments.filter(
+                a => a.table_number === prevAssignment.table_number && a.student_id !== assignedStudent.id
+              );
+              
+              // Check if any of those tablemates are currently at this table
+              let hasFormerTablemate = false;
+              for (const seatNum in assignments[tableIdStr]) {
+                const otherId = assignments[tableIdStr][seatNum];
+                if (otherId !== assignedStudentId && prevTablemates.some(tm => tm.student_id === otherId)) {
+                  hasFormerTablemate = true;
+                  break;
+                }
+              }
+              
+              if (hasFormerTablemate) {
+                console.log(`Student ${assignedStudent.first_name} is sitting with former tablemates`);
+                // Highlight with amber/orange color for repeated partnerships
+                finalSeatStyle.backgroundColor = "#f59e0b";  // Amber
+                finalSeatStyle.border = "2px solid #d97706";
+                finalSeatStyle.color = "white";
+              }
+            }
           }
 
           const finalClassName = `seat ${assignedStudent ? "occupied" : "empty"} ${
