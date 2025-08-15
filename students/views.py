@@ -533,6 +533,7 @@ class ClassRosterViewSet(viewsets.ModelViewSet):
     queryset = ClassRoster.objects.all()
     serializer_class = ClassRosterSerializer
     permission_classes = [IsAuthenticated]
+    filterset_fields = ['student', 'class_assigned', 'is_active']  # Enable filtering
 
     def get_queryset(self):
         # All users (including superusers) only see their own class rosters
