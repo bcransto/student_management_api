@@ -2423,7 +2423,7 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
                   onClick: () => setHighlightMode("previous"),
                 },
                 React.createElement("i", { className: "fas fa-history", style: { fontSize: "10px" } }),
-                " Previous"
+                " Repeat Pairings"
               )
             )
           ),
