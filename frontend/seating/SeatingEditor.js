@@ -2964,8 +2964,9 @@ const SeatingCanvas = ({
             // Occupied seats - white background with blue border (like male seats in gender mode)
             el.style.setProperty('border', '2px solid #2563eb', 'important');
           } else if (el.classList.contains('empty')) {
-            // Empty seats - light blue background with blue border
-            el.style.setProperty('border', '2px solid #7dd3fc', 'important');
+            // Empty seats - light blue background with blue border (matching the image)
+            el.style.setProperty('background-color', '#e0f2fe', 'important');  // Very light blue
+            el.style.setProperty('border', '2px solid #7dd3fc', 'important');  // Light blue border
           }
         });
       }, 100);
