@@ -350,6 +350,23 @@ const ClassView = ({ classId, data, navigateTo }) => {
           { className: "class-view-subject" },
           classDetails.subject
         )
+      ),
+      // Edit button - only show if current user is the teacher
+      currentUser && classDetails.teacher && currentUser.id === classDetails.teacher && React.createElement(
+        "button",
+        {
+          className: "btn btn-primary",
+          onClick: () => {
+            // Navigate to edit page for this class
+            if (navigateTo && typeof navigateTo === 'function') {
+              navigateTo(`classes/edit/${classId}`);
+            } else {
+              window.location.hash = `#classes/edit/${classId}`;
+            }
+          }
+        },
+        React.createElement("i", { className: "fas fa-edit" }),
+        " Edit Class"
       )
     ),
 

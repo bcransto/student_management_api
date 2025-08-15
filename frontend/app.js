@@ -56,6 +56,11 @@ const App = () => {
       return "class-view";
     }
     
+    // Check for class edit pattern
+    if (hash.startsWith("classes/edit/")) {
+      return "class-edit";
+    }
+    
     // Check for class student manager pattern
     if (hash.includes("/add-students")) {
       return "class-add-students";
@@ -167,6 +172,12 @@ const App = () => {
       // Check for class view pattern
       if (hash.startsWith("classes/view/")) {
         setCurrentView("class-view");
+        return;
+      }
+      
+      // Check for class edit pattern
+      if (hash.startsWith("classes/edit/")) {
+        setCurrentView("class-edit");
         return;
       }
       
@@ -292,6 +303,13 @@ const App = () => {
       return;
     }
     
+    // Handle class edit navigation
+    if (view.startsWith("classes/edit/")) {
+      setCurrentView("class-edit");
+      window.location.hash = view;
+      return;
+    }
+    
     // Handle class student manager navigation
     if (view.includes("/add-students")) {
       setCurrentView("class-add-students");
@@ -380,6 +398,13 @@ const App = () => {
           classId: classId,
           navigateTo: handleNavigate,
           data: appData,
+        });
+        
+      case "class-edit":
+        const classIdToEdit = window.location.hash.replace("#classes/edit/", "");
+        return React.createElement(window.ClassEditorComponent, {
+          classId: classIdToEdit,
+          navigateTo: handleNavigate,
         });
         
       case "class-add-students":
