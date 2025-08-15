@@ -17,6 +17,7 @@ from .models import (
     ClassroomTable,
     ClassRoster,
     LayoutObstacle,
+    PartnershipRating,
     SeatingAssignment,
     SeatingPeriod,
     Student,
@@ -363,6 +364,168 @@ class ClassViewSet(viewsets.ModelViewSet):
         return Response({
             "class_id": class_obj.id,
             "partnership_data": partnership_data
+        })
+    
+    @action(detail=True, methods=["get", "post"], url_path="partnership-ratings")
+    def partnership_ratings(self, request, pk=None):
+        """Get or set partnership ratings for this class in grid format"""
+        class_obj = self.get_object()
+        
+        if request.method == "GET":
+            # Get all active students in the class
+            roster_entries = ClassRoster.objects.filter(
+                class_assigned=class_obj,
+                is_active=True
+            ).select_related('student')
+            
+            students = [entry.student for entry in roster_entries]
+            student_ids = [s.id for s in students]
+            
+            # Get all existing ratings for this class
+            ratings = PartnershipRating.objects.filter(
+                class_assigned=class_obj,
+                student1__in=student_ids,
+                student2__in=student_ids
+            )
+            
+            # Build grid data structure
+            grid_data = {}
+            for s1 in students:
+                grid_data[s1.id] = {
+                    'student_name': f"{s1.first_name} {s1.last_name}",
+                    'ratings': {}
+                }
+                for s2 in students:
+                    if s1.id != s2.id:
+                        # Get rating (order doesn't matter due to model's save method)
+                        rating_value = PartnershipRating.get_rating(class_obj, s1, s2)
+                        grid_data[s1.id]['ratings'][s2.id] = rating_value
+            
+            return Response({
+                'class_id': class_obj.id,
+                'students': [
+                    {
+                        'id': s.id,
+                        'name': f"{s.first_name} {s.last_name}",
+                        'nickname': s.nickname or s.first_name
+                    } for s in students
+                ],
+                'grid': grid_data
+            })
+        
+        elif request.method == "POST":
+            # Set a single rating
+            student1_id = request.data.get('student1_id')
+            student2_id = request.data.get('student2_id')
+            rating_value = request.data.get('rating', 0)
+            notes = request.data.get('notes', '')
+            
+            try:
+                student1 = Student.objects.get(id=student1_id)
+                student2 = Student.objects.get(id=student2_id)
+                
+                # Verify students are in this class
+                if not ClassRoster.objects.filter(
+                    class_assigned=class_obj,
+                    student=student1,
+                    is_active=True
+                ).exists():
+                    return Response(
+                        {"error": f"Student {student1_id} is not in this class"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                
+                if not ClassRoster.objects.filter(
+                    class_assigned=class_obj,
+                    student=student2,
+                    is_active=True
+                ).exists():
+                    return Response(
+                        {"error": f"Student {student2_id} is not in this class"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                
+                # Set the rating
+                rating_obj = PartnershipRating.set_rating(
+                    class_assigned=class_obj,
+                    student1=student1,
+                    student2=student2,
+                    rating=rating_value,
+                    created_by=request.user,
+                    notes=notes
+                )
+                
+                from .serializers import PartnershipRatingSerializer
+                serializer = PartnershipRatingSerializer(rating_obj)
+                return Response(serializer.data)
+                
+            except Student.DoesNotExist:
+                return Response(
+                    {"error": "Invalid student ID"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+    
+    @action(detail=True, methods=["post"], url_path="bulk-update-ratings")
+    def bulk_update_ratings(self, request, pk=None):
+        """Bulk update multiple partnership ratings at once"""
+        class_obj = self.get_object()
+        
+        from .serializers import BulkPartnershipRatingSerializer
+        serializer = BulkPartnershipRatingSerializer(data=request.data)
+        
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        ratings_data = serializer.validated_data['ratings']
+        updated_ratings = []
+        errors = []
+        
+        for rating_data in ratings_data:
+            try:
+                student1 = Student.objects.get(id=rating_data['student1_id'])
+                student2 = Student.objects.get(id=rating_data['student2_id'])
+                
+                # Verify both students are in this class
+                if not ClassRoster.objects.filter(
+                    class_assigned=class_obj,
+                    student__in=[student1, student2],
+                    is_active=True
+                ).count() == 2:
+                    errors.append({
+                        'student1_id': rating_data['student1_id'],
+                        'student2_id': rating_data['student2_id'],
+                        'error': 'One or both students not in class'
+                    })
+                    continue
+                
+                # Set the rating
+                rating_obj = PartnershipRating.set_rating(
+                    class_assigned=class_obj,
+                    student1=student1,
+                    student2=student2,
+                    rating=rating_data['rating'],
+                    created_by=request.user,
+                    notes=rating_data.get('notes', '')
+                )
+                
+                updated_ratings.append({
+                    'student1_id': min(student1.id, student2.id),
+                    'student2_id': max(student1.id, student2.id),
+                    'rating': rating_obj.rating
+                })
+                
+            except Student.DoesNotExist:
+                errors.append({
+                    'student1_id': rating_data.get('student1_id'),
+                    'student2_id': rating_data.get('student2_id'),
+                    'error': 'Invalid student ID'
+                })
+        
+        return Response({
+            'updated': updated_ratings,
+            'errors': errors,
+            'total_updated': len(updated_ratings),
+            'total_errors': len(errors)
         })
 
 

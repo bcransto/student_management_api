@@ -8,6 +8,7 @@ from .models import (
     ClassroomTable,
     ClassRoster,
     LayoutObstacle,
+    PartnershipRating,
     SeatingAssignment,
     SeatingPeriod,
     Student,
@@ -472,3 +473,72 @@ class BulkSeatingAssignmentSerializer(serializers.Serializer):
     """For assigning multiple students at once"""
 
     assignments = serializers.ListField(child=AssignSeatSerializer(), min_length=1)
+
+
+class PartnershipRatingSerializer(serializers.ModelSerializer):
+    """Serializer for PartnershipRating model"""
+    
+    student1_name = serializers.CharField(source='student1.first_name', read_only=True)
+    student2_name = serializers.CharField(source='student2.first_name', read_only=True)
+    student1_full_name = serializers.SerializerMethodField(read_only=True)
+    student2_full_name = serializers.SerializerMethodField(read_only=True)
+    rating_display = serializers.CharField(source='get_rating_display', read_only=True)
+    
+    class Meta:
+        model = PartnershipRating
+        fields = [
+            'id', 'class_assigned', 'student1', 'student2',
+            'student1_name', 'student2_name', 
+            'student1_full_name', 'student2_full_name',
+            'rating', 'rating_display', 'notes',
+            'created_by', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['created_at', 'updated_at']
+    
+    def get_student1_full_name(self, obj):
+        return f"{obj.student1.first_name} {obj.student1.last_name}"
+    
+    def get_student2_full_name(self, obj):
+        return f"{obj.student2.first_name} {obj.student2.last_name}"
+    
+    def validate(self, data):
+        """Ensure student1 and student2 are ordered consistently"""
+        if 'student1' in data and 'student2' in data:
+            s1_id = data['student1'].id
+            s2_id = data['student2'].id
+            
+            # Ensure students are different
+            if s1_id == s2_id:
+                raise serializers.ValidationError("Cannot rate a student with themselves")
+            
+            # Order students by ID (lower ID first)
+            if s1_id > s2_id:
+                data['student1'], data['student2'] = data['student2'], data['student1']
+        
+        return data
+
+
+class BulkPartnershipRatingSerializer(serializers.Serializer):
+    """For updating multiple partnership ratings at once"""
+    
+    ratings = serializers.ListField(
+        child=serializers.DictField(),
+        allow_empty=False
+    )
+    
+    def validate_ratings(self, value):
+        """Validate each rating entry"""
+        for rating in value:
+            if 'student1_id' not in rating or 'student2_id' not in rating:
+                raise serializers.ValidationError(
+                    "Each rating must have student1_id and student2_id"
+                )
+            if 'rating' not in rating:
+                raise serializers.ValidationError(
+                    "Each rating must have a rating value"
+                )
+            if rating['rating'] not in [-2, -1, 0, 1, 2]:
+                raise serializers.ValidationError(
+                    f"Invalid rating value: {rating['rating']}. Must be between -2 and 2"
+                )
+        return value
