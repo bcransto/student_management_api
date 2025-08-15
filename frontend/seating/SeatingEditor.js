@@ -3833,7 +3833,8 @@ const StudentPool = ({
         {
           className: "btn btn-sm",
           style: { 
-            flex: 1,
+            width: "75px",
+            minWidth: "75px",
             ...(hasUnsavedChanges ? { backgroundColor: "#10b981", borderColor: "#10b981", color: "white" } : {})
           },
           onClick: onSave,
@@ -3846,7 +3847,7 @@ const StudentPool = ({
         "button",
         {
           className: `btn btn-sm ${canUndo ? "btn-warning" : "btn-secondary"}`,
-          style: { flex: 1 },
+          style: { width: "75px", minWidth: "75px" },
           onClick: onUndo,
           disabled: !canUndo,
           title: canUndo ? `Undo: ${history[historyIndex]?.description}` : "Nothing to undo",
@@ -3858,7 +3859,7 @@ const StudentPool = ({
         "button",
         {
           className: "btn btn-sm btn-secondary",
-          style: { flex: 1 },
+          style: { width: "75px", minWidth: "75px" },
           onClick: onReset,
         },
         React.createElement("i", { className: "fas fa-times" }),

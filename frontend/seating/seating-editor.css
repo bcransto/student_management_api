@@ -350,6 +350,16 @@ body.seating-editor-page .main-container {
   justify-content: center;
 }
 
+/* Force fixed width for right sidebar buttons */
+.editor-right-sidebar .btn-sm {
+  width: 75px !important;
+  min-width: 75px !important;
+  max-width: 75px !important;
+  flex: none !important;
+  padding: 0.5rem 0.25rem;
+  font-size: 0.8rem;
+}
+
 .btn-primary {
   background: #6366f1;
   color: white;
