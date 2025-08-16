@@ -41,7 +41,7 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
   const [showPartnershipModal, setShowPartnershipModal] = useState(false); // Show/hide partnership modal
   const [selectedStudentForHistory, setSelectedStudentForHistory] = useState(null); // Student to show history for
   const [showRatingGrid, setShowRatingGrid] = useState(false); // Show/hide partnership rating grid
-  const [partnershipRatings, setPartnershipRatings] = useState(null); // Cached partnership ratings
+  const [partnershipRatings, setPartnershipRatings] = useState(null); // Partnership ratings data for the class
 
   // Load initial data when classId or periodId changes
   useEffect(() => {
@@ -144,6 +144,24 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
       console.log("Cleared deactivated seats - viewing historical period");
     }
   }, [isViewingCurrentPeriod]);
+
+  // Helper function to check if there are any "Never Together" restrictions
+  const hasPartnershipRestrictions = () => {
+    if (!partnershipRatings || !partnershipRatings.grid) {
+      return false;
+    }
+    
+    // Check if any rating is -2 (Never Together)
+    for (const student1 in partnershipRatings.grid) {
+      for (const student2 in partnershipRatings.grid[student1]) {
+        if (partnershipRatings.grid[student1][student2] === -2) {
+          return true;
+        }
+      }
+    }
+    
+    return false;
+  };
 
   // Expose debug functions for testing partnership data
   useEffect(() => {
@@ -347,6 +365,20 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
         console.error("Failed to load partnership history:", error);
         // Don't fail the whole load if partnership history fails
         setPartnershipHistory({});
+      }
+
+      // Load partnership ratings for the class
+      try {
+        console.log("Fetching partnership ratings for class:", classId);
+        const ratingsResponse = await window.ApiModule.request(
+          `/classes/${classId}/partnership-ratings/`
+        );
+        console.log("Partnership ratings loaded:", ratingsResponse);
+        setPartnershipRatings(ratingsResponse || null);
+      } catch (error) {
+        console.error("Failed to load partnership ratings:", error);
+        // Don't fail the whole load if partnership ratings fails
+        setPartnershipRatings(null);
       }
 
       // Check if we're viewing the actual current period (one with no end_date)
@@ -2449,6 +2481,27 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
               },
               React.createElement("i", { className: "fas fa-users", style: { fontSize: "10px" } }),
               " Partnership Ratings"
+            ),
+            
+            // Alert for partnership restrictions
+            hasPartnershipRestrictions() && React.createElement(
+              "div",
+              {
+                style: {
+                  marginTop: "0.5rem",
+                  padding: "0.5rem",
+                  backgroundColor: "#fef3c7",
+                  border: "1px solid #f59e0b",
+                  borderRadius: "0.25rem",
+                  fontSize: "11px",
+                  color: "#92400e",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.25rem"
+                }
+              },
+              React.createElement("span", null, "⚠️"),
+              React.createElement("span", null, "Some students have pairing restrictions")
             )
           )
         ),
@@ -2600,6 +2653,7 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
     showPartnershipModal && selectedStudentForHistory && React.createElement(window.PartnershipHistoryModal, {
       student: selectedStudentForHistory,
       partnershipData: getStudentPartnershipData(selectedStudentForHistory.id),
+      partnershipRatings: partnershipRatings, // Pass ratings data to modal
       onClose: () => {
         setShowPartnershipModal(false);
         setSelectedStudentForHistory(null);

@@ -1,7 +1,7 @@
 // PartnershipHistoryModal.js - Modal component for displaying partnership history
 console.log("Loading PartnershipHistoryModal component...");
 
-const PartnershipHistoryModal = ({ student, partnershipData, onClose }) => {
+const PartnershipHistoryModal = ({ student, partnershipData, partnershipRatings, onClose }) => {
   // Handle overlay click to close
   const handleOverlayClick = (e) => {
     if (e.target === e.currentTarget) {
@@ -108,6 +108,61 @@ const PartnershipHistoryModal = ({ student, partnershipData, onClose }) => {
     } else {
       return '#f3f0ff'; // Very light purple for non-binary/other
     }
+  };
+  
+  // Helper function to get rating between two students
+  const getPartnerRating = (student1Id, student2Id) => {
+    if (!partnershipRatings || !partnershipRatings.grid) {
+      return null;
+    }
+    
+    const s1 = String(student1Id);
+    const s2 = String(student2Id);
+    
+    // Check both directions since grid might have either order
+    if (partnershipRatings.grid[s1] && partnershipRatings.grid[s1][s2] !== undefined) {
+      return partnershipRatings.grid[s1][s2];
+    }
+    if (partnershipRatings.grid[s2] && partnershipRatings.grid[s2][s1] !== undefined) {
+      return partnershipRatings.grid[s2][s1];
+    }
+    
+    return null;
+  };
+  
+  // Helper function to get rating badge
+  const getRatingBadge = (rating) => {
+    if (rating === null || rating === undefined) return null;
+    
+    const badges = {
+      '-2': { icon: '⛔', text: 'Never', color: '#dc2626', bg: '#fee2e2' },
+      '-1': { icon: '⚠️', text: 'Avoid', color: '#d97706', bg: '#fef3c7' },
+      '1': { icon: '⭐', text: 'Good', color: '#059669', bg: '#d1fae5' },
+      '2': { icon: '💫', text: 'Best', color: '#7c3aed', bg: '#ede9fe' }
+    };
+    
+    const badge = badges[String(rating)];
+    if (!badge) return null;
+    
+    return React.createElement(
+      "span",
+      { 
+        style: {
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '0.25rem',
+          padding: '0.125rem 0.5rem',
+          borderRadius: '9999px',
+          fontSize: '0.75rem',
+          fontWeight: '600',
+          color: badge.color,
+          backgroundColor: badge.bg,
+          marginLeft: '0.5rem'
+        }
+      },
+      React.createElement("span", null, badge.icon),
+      React.createElement("span", null, badge.text)
+    );
   };
   
   return React.createElement(
@@ -273,7 +328,7 @@ const PartnershipHistoryModal = ({ student, partnershipData, onClose }) => {
                 }
               },
               
-              // Partner name (left aligned, fixed width)
+              // Partner name with rating badge (left aligned, fixed width)
               React.createElement(
                 "div",
                 { 
@@ -281,10 +336,13 @@ const PartnershipHistoryModal = ({ student, partnershipData, onClose }) => {
                     width: '200px',
                     fontSize: '0.875rem',
                     color: getGenderColor(partnership.gender),
-                    fontWeight: '500'
+                    fontWeight: '500',
+                    display: 'flex',
+                    alignItems: 'center'
                   }
                 },
-                partnership.partnerName
+                React.createElement("span", null, partnership.partnerName),
+                getRatingBadge(getPartnerRating(student.id, partnership.partnerId))
               ),
               
               // Bar and number container
