@@ -86,9 +86,10 @@ React.createElement("div", { className: "example" }, children)
    - Seat ID format: "tableNumber-seatNumber" (e.g., "1-2")
    - Left sidebar (250px) and right sidebar (250px) with controls
    - Search includes nickname field
-   - **Fill System**: Three modes (Random, Match Gender, Balance Gender)
-     - Double-click empty seats to auto-assign students
-     - Auto button: Fill all empty seats at once
+   - **Fill System**: Four modes (Random, Match Gender, Balance Gender, Smart Pair)
+     - Double-click empty seats to auto-assign students (except Smart Pair mode)
+     - Auto button: Fill all empty seats at once (disabled in Smart Pair mode)
+     - Smart Pair: Double-click seated student to find optimal partner
      - Batch operations create single undo entry
    - **Undo System**: Full history tracking with 50-level limit
    - **Seat Deactivation**: Shift+click to block seats (red, stored in Set)
@@ -99,9 +100,10 @@ React.createElement("div", { className: "example" }, children)
      - Gender: Green for female, blue for male/other
      - Previous: Amber highlighting for students sitting with former tablemates
    - **Partnership Features**:
-     - Single-click any student shows partnership history modal
+     - Single-click any student shows partnership history modal (250ms delay to handle double-click)
      - Partnership Ratings button opens grid for teacher preferences (-2 to +2)
      - Tracks historical seating partnerships across completed periods
+     - Smart Pair algorithm uses weighted lottery based on history and ratings
 
 2. **Students Components**
    - `formatStudentNameTwoLine()` returns { line1: nickname, line2: "Smi." } for consistent two-line display
@@ -156,15 +158,37 @@ await ApiModule.request(url, method, body)  // ❌
 
 # GET /api/classes/{class_id}/partnership-ratings/
 # Returns grid of current partnership ratings
-# Response includes students list and grid data structure
+# Response structure: {
+#   class_id: 1,
+#   students: [{id, name, nickname}...],
+#   grid: {
+#     "1": {student_name: "John", ratings: {"2": -2, "3": 1}},
+#     "2": {student_name: "Jane", ratings: {"1": -2}}
+#   }
+# }
 
 # POST /api/classes/{class_id}/partnership-ratings/
 # Set single partnership rating
 # Body: {student1_id, student2_id, rating: -2 to 2}
+# Ratings: -2 (Never Together), -1 (Avoid), 0 (Neutral), 1 (Good), 2 (Best)
 
 # POST /api/classes/{class_id}/bulk-update-ratings/
 # Update multiple ratings at once
 # Body: {ratings: [{student1_id, student2_id, rating}]}
+```
+
+**Smart Pair Algorithm**:
+```javascript
+// Weighted lottery system for partner selection
+// 1. Filter out -2 (Never Together) pairs
+// 2. Calculate weights based on partnership history:
+//    - Never paired: 10 lottery balls
+//    - Paired 1 time: 10 balls
+//    - Paired 2 times: 5 balls  
+//    - Paired 3 times: 2 balls
+//    - Paired 4+ times: 1 ball
+// 3. Random selection weighted by lottery balls
+// 4. Partner placed in lowest numbered empty seat at table
 ```
 
 ### History & Undo System
@@ -273,7 +297,8 @@ Frontend auto-detects production environment via hostname.
 - `#students/edit/{id}` - Edit student
 - `#classes` - Class list
 - `#classes/view/{id}` - View class details
-- `#classes/{id}/add-students` - Bulk enrollment
+- `#classes/edit/{id}` - Edit class details (name, subject, grade, description)
+- `#classes/{id}/add-students` - Bulk enrollment (with batch mode for ID pasting)
 - `#seating` - Seating list
 - `#seating/view/{classId}` - View current period (dynamic)
 - `#seating/view/{classId}/period/{periodId}` - View specific period
@@ -297,21 +322,24 @@ Frontend auto-detects production environment via hostname.
 4. `students/views.py` - ViewSet filtering, permissions, and custom actions
 5. `frontend/shared/utils.js` - formatStudentNameTwoLine() for unified name display
 6. `frontend/shared/layoutStyles.js` - formatSeatName() for canvas rendering
-7. `frontend/seating/PartnershipHistoryModal.js` - Partnership visualization
-8. `frontend/seating/PartnershipRatingGrid.js` - Teacher rating preferences grid
-9. `frontend/classes/ClassStudentManager.js` - Bulk enrollment interface
-10. `students/serializers.py` - Custom roster filtering and JWT claims
+7. `frontend/seating/PartnershipHistoryModal.js` - Partnership visualization with rating badges
+8. `frontend/seating/PartnershipRatingGrid.js` - Teacher rating preferences grid (-2 to +2)
+9. `frontend/classes/ClassStudentManager.js` - Bulk enrollment with batch ID pasting mode
+10. `frontend/classes/ClassEditor.js` - Edit class details with inline button styling
+11. `students/serializers.py` - Custom roster filtering and JWT claims
 
 ## Important Behavioral Notes
 
 ### Seating Editor Interactions
-- **Single-click** student (pool or seat): Show partnership history modal
-- **Double-click** empty seat: Fill with student from pool
+- **Single-click** seated student: Show partnership history modal (250ms delay)
+- **Double-click** empty seat: Fill with student from pool (except Smart Pair mode)
+- **Double-click** seated student in Smart Pair mode: Find and place optimal partner
 - **Shift+click** any seat: Toggle deactivation (red/blocked)
 - **Drag & Drop**: Move students between seats or back to pool
-- **Auto button**: Fill all empty seats based on selected mode
+- **Auto button**: Fill all empty seats based on selected mode (disabled in Smart Pair)
 - **Highlight buttons**: Normal/Gender/Previous modes
-- **Partnership Ratings button**: Opens rating grid for teacher preferences
+- **Partnership Ratings button**: Opens grid for teacher preferences
+- **Click Timer**: Uses React.useRef for single/double click differentiation
 
 ### Ownership & Permissions
 - All users (including superusers) only see their own:
