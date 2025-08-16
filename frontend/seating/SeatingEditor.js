@@ -32,7 +32,7 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
   const [studentSortBy, setStudentSortBy] = useState("name"); // "name" or "gender"
   const [deactivatedSeats, setDeactivatedSeats] = useState(new Set()); // Track deactivated seats
   const [isViewingCurrentPeriod, setIsViewingCurrentPeriod] = useState(true); // Track if viewing the actual current period
-  const [fillMode, setFillMode] = useState("random"); // "random", "matchGender", "balanceGender"
+  const [fillMode, setFillMode] = useState("random"); // "random", "matchGender", "balanceGender", "smartPair"
   const [history, setHistory] = useState([]); // Undo history stack
   const [historyIndex, setHistoryIndex] = useState(-1); // Current position in history
   const [previousPeriodData, setPreviousPeriodData] = useState(null); // Previous period for duplicate detection
@@ -42,6 +42,9 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
   const [selectedStudentForHistory, setSelectedStudentForHistory] = useState(null); // Student to show history for
   const [showRatingGrid, setShowRatingGrid] = useState(false); // Show/hide partnership rating grid
   const [partnershipRatings, setPartnershipRatings] = useState(null); // Partnership ratings data for the class
+  
+  // Click timer for handling single vs double click
+  const clickTimerRef = React.useRef(null);
 
   // Load initial data when classId or periodId changes
   useEffect(() => {
@@ -769,6 +772,149 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
     return { male: maleCount, female: femaleCount };
   };
 
+  // Smart partner selection algorithm (weighted lottery based on partnership history)
+  const selectSmartPartner = (candidateStudents, targetStudentId) => {
+    if (!candidateStudents || candidateStudents.length === 0) {
+      console.log("No candidate students available");
+      return null;
+    }
+    
+    if (!targetStudentId) {
+      console.log("No target student specified, returning random selection");
+      const randomIndex = Math.floor(Math.random() * candidateStudents.length);
+      return candidateStudents[randomIndex];
+    }
+    
+    console.log(`Finding smart partner for student ${targetStudentId} from ${candidateStudents.length} candidates`);
+    
+    // Filter out students with -2 (Never Together) ratings
+    const validCandidates = candidateStudents.filter(candidate => {
+      if (partnershipRatings && partnershipRatings.grid) {
+        const s1 = String(targetStudentId);
+        const s2 = String(candidate.id);
+        
+        // Check both directions for -2 rating
+        const rating1 = partnershipRatings.grid[s1]?.ratings?.[s2];
+        const rating2 = partnershipRatings.grid[s2]?.ratings?.[s1];
+        
+        if (rating1 === -2 || rating2 === -2) {
+          console.log(`  Excluding ${candidate.first_name} ${candidate.last_name} (Never Together restriction)`);
+          return false;
+        }
+      }
+      return true;
+    });
+    
+    if (validCandidates.length === 0) {
+      console.log("All candidates have Never Together restrictions!");
+      alert("Cannot find a valid partner - all available students have pairing restrictions with this student.");
+      return null;
+    }
+    
+    // Calculate weights based on partnership history
+    const weightedCandidates = validCandidates.map(candidate => {
+      let weight = 0; // Default weight (never paired = best)
+      
+      if (partnershipHistory) {
+        const targetData = partnershipHistory[String(targetStudentId)];
+        if (targetData && targetData.partnerships) {
+          const partnershipCount = targetData.partnerships[String(candidate.id)];
+          if (partnershipCount) {
+            // Recent pairings get higher weights (less likely to be selected)
+            // Assuming most recent partnerships have higher counts
+            if (partnershipCount >= 4) weight = 10;  // 4+ times = 10x weight
+            else if (partnershipCount === 3) weight = 5;   // 3 times = 5x weight
+            else if (partnershipCount === 2) weight = 2;   // 2 times = 2x weight
+            else if (partnershipCount === 1) weight = 1;   // 1 time = 1x weight
+          }
+        }
+      }
+      
+      // Invert weight for lottery (lower weight = more lottery balls)
+      const lotteryBalls = weight === 0 ? 10 : Math.max(1, 11 - weight);
+      
+      console.log(`  ${candidate.first_name} ${candidate.last_name}: weight=${weight}, balls=${lotteryBalls}`);
+      
+      return {
+        student: candidate,
+        weight: weight,
+        lotteryBalls: lotteryBalls
+      };
+    });
+    
+    // Calculate total lottery balls
+    const totalBalls = weightedCandidates.reduce((sum, wc) => sum + wc.lotteryBalls, 0);
+    
+    // Random selection based on lottery balls
+    let randomPick = Math.random() * totalBalls;
+    let accumulated = 0;
+    
+    for (const wc of weightedCandidates) {
+      accumulated += wc.lotteryBalls;
+      if (randomPick <= accumulated) {
+        console.log(`Selected: ${wc.student.first_name} ${wc.student.last_name} (${wc.lotteryBalls}/${totalBalls} chance)`);
+        return wc.student;
+      }
+    }
+    
+    // Fallback (shouldn't happen)
+    return weightedCandidates[0].student;
+  };
+  
+  // Handle smart partner selection when double-clicking a seated student
+  const handleSmartPartnerSelection = (targetStudent, tableId) => {
+    console.log(`Smart partner selection for ${targetStudent.first_name} ${targetStudent.last_name}`);
+    
+    // Get unassigned students
+    const unassignedStudents = getUnassignedStudents();
+    if (unassignedStudents.length === 0) {
+      alert("No unassigned students available");
+      return;
+    }
+    
+    // Select smart partner
+    const partner = selectSmartPartner(unassignedStudents, targetStudent.id);
+    if (!partner) {
+      return; // No valid partner found
+    }
+    
+    // Find the lowest numbered empty seat at the same table
+    const table = layout?.tables?.find(t => t.id === parseInt(tableId));
+    if (!table || !table.seats) {
+      console.error("Table not found");
+      return;
+    }
+    
+    // Sort seats by seat number
+    const sortedSeats = [...table.seats].sort((a, b) => a.seat_number - b.seat_number);
+    const tableIdStr = String(tableId);
+    
+    // Find first empty seat
+    let targetSeat = null;
+    for (const seat of sortedSeats) {
+      const seatNumberStr = String(seat.seat_number);
+      const seatId = `${tableId}-${seat.seat_number}`;
+      
+      // Check if seat is empty and not deactivated
+      const isOccupied = assignments[tableIdStr]?.[seatNumberStr];
+      const isDeactivated = deactivatedSeats.has(seatId);
+      
+      if (!isOccupied && !isDeactivated) {
+        targetSeat = seat;
+        break;
+      }
+    }
+    
+    if (!targetSeat) {
+      alert("No empty seats at this table");
+      return;
+    }
+    
+    // Place the partner
+    console.log(`Placing ${partner.first_name} ${partner.last_name} in seat ${targetSeat.seat_number}`);
+    handleSeatAssignment(partner.id, tableId, String(targetSeat.seat_number));
+  };
+
   // Handle click-to-fill for empty seats
   const handleClickToFill = (tableId, seatNumber) => {
     const tableIdStr = String(tableId);
@@ -784,6 +930,13 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
     const seatId = `${tableId}-${seatNumber}`;
     if (deactivatedSeats.has(seatId)) {
       console.log("Cannot fill deactivated seat");
+      return;
+    }
+    
+    // Special handling for Smart Pair mode
+    if (fillMode === "smartPair") {
+      console.log("Smart Pair mode - double-click a seated student to find their partner");
+      alert("In Smart Pair mode, double-click a seated student to find their partner");
       return;
     }
     
@@ -2392,7 +2545,8 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
                   },
                   React.createElement("option", { value: "random" }, "Random"),
                   React.createElement("option", { value: "matchGender" }, "Match Gender"),
-                  React.createElement("option", { value: "balanceGender" }, "Balance Gender")
+                  React.createElement("option", { value: "balanceGender" }, "Balance Gender"),
+                  React.createElement("option", { value: "smartPair" }, "Smart Pair")
                 )
               ),
               // Auto button
@@ -2403,12 +2557,16 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
                   style: { 
                     width: "100%", 
                     fontSize: "12px",
-                    marginTop: "0.5rem"
+                    marginTop: "0.5rem",
+                    opacity: fillMode === "smartPair" ? 0.5 : 1,
+                    cursor: fillMode === "smartPair" ? "not-allowed" : "pointer"
                   },
-                  onClick: handleAutoFill,
+                  onClick: fillMode === "smartPair" ? undefined : handleAutoFill,
+                  disabled: fillMode === "smartPair",
+                  title: fillMode === "smartPair" ? "Smart Pair works by double-clicking seated students" : "Fill all empty seats"
                 },
                 React.createElement("i", { className: "fas fa-magic", style: { fontSize: "10px" } }),
-                " Auto"
+                fillMode === "smartPair" ? " Auto (Disabled)" : " Auto"
               )
             )
           ),
@@ -3239,22 +3397,45 @@ const SeatingCanvas = ({
                 cursor: isDeactivated ? "not-allowed" : "pointer",
               },
               onClick: (e) => {
-                // Shift+click for deactivation
+                // Shift+click for deactivation always fires immediately
                 if (e.shiftKey) {
                   onSeatClick(table.id, seat.seat_number, e);
+                  return;
                 }
-                // Single click on occupied seat shows partnership history
-                else if (assignedStudent && !e.shiftKey) {
-                  e.stopPropagation();
-                  if (onStudentClick) {
+                
+                // For non-shift clicks, use timer to detect single vs double
+                if (clickTimerRef && clickTimerRef.current) {
+                  // This is the second click of a double-click
+                  clearTimeout(clickTimerRef.current);
+                  clickTimerRef.current = null;
+                  return; // Let onDoubleClick handle it
+                }
+                
+                // Set timer for single click action
+                clickTimerRef.current = setTimeout(() => {
+                  clickTimerRef.current = null;
+                  // Single click on occupied seat shows partnership history
+                  if (assignedStudent && onStudentClick) {
                     onStudentClick(assignedStudent);
                   }
-                }
+                }, 250); // 250ms delay to wait for potential double-click
               },
               onDoubleClick: (e) => {
-                // Double-click on empty seat for normal fill
-                if (!assignedStudent && !e.shiftKey) {
-                  onSeatClick(table.id, seat.seat_number, e);
+                // Clear any pending single-click timer
+                if (clickTimerRef && clickTimerRef.current) {
+                  clearTimeout(clickTimerRef.current);
+                  clickTimerRef.current = null;
+                }
+                
+                // Handle double-click based on seat state and fill mode
+                if (!e.shiftKey) {
+                  if (!assignedStudent) {
+                    // Empty seat - fill it
+                    onSeatClick(table.id, seat.seat_number, e);
+                  } else if (fillMode === "smartPair") {
+                    // Occupied seat in smart pair mode - find partner
+                    handleSmartPartnerSelection(assignedStudent, table.id);
+                  }
                 }
               },
               onMouseEnter: !assignedStudent && !isDeactivated ? (e) => {
