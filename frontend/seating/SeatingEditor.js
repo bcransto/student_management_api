@@ -148,19 +148,29 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
   // Helper function to check if there are any "Never Together" restrictions
   const hasPartnershipRestrictions = () => {
     if (!partnershipRatings || !partnershipRatings.grid) {
+      console.log("No partnership ratings available for restrictions check");
       return false;
     }
     
+    console.log("Checking for partnership restrictions in grid:", partnershipRatings.grid);
+    
     // Check if any rating is -2 (Never Together)
+    let restrictionCount = 0;
     for (const student1 in partnershipRatings.grid) {
-      for (const student2 in partnershipRatings.grid[student1]) {
-        if (partnershipRatings.grid[student1][student2] === -2) {
-          return true;
+      // The grid structure is: grid[student1].ratings[student2] = rating
+      const studentData = partnershipRatings.grid[student1];
+      if (studentData && studentData.ratings) {
+        for (const student2 in studentData.ratings) {
+          if (studentData.ratings[student2] === -2) {
+            restrictionCount++;
+            console.log(`Found restriction: Student ${student1} (${studentData.student_name}) and ${student2} are Never Together (-2)`);
+          }
         }
       }
     }
     
-    return false;
+    console.log(`Total restrictions found: ${restrictionCount}`);
+    return restrictionCount > 0;
   };
 
   // Expose debug functions for testing partnership data

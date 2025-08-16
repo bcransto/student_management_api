@@ -119,12 +119,17 @@ const PartnershipHistoryModal = ({ student, partnershipData, partnershipRatings,
     const s1 = String(student1Id);
     const s2 = String(student2Id);
     
+    // The grid structure is: grid[student1].ratings[student2] = rating
     // Check both directions since grid might have either order
-    if (partnershipRatings.grid[s1] && partnershipRatings.grid[s1][s2] !== undefined) {
-      return partnershipRatings.grid[s1][s2];
+    if (partnershipRatings.grid[s1] && 
+        partnershipRatings.grid[s1].ratings && 
+        partnershipRatings.grid[s1].ratings[s2] !== undefined) {
+      return partnershipRatings.grid[s1].ratings[s2];
     }
-    if (partnershipRatings.grid[s2] && partnershipRatings.grid[s2][s1] !== undefined) {
-      return partnershipRatings.grid[s2][s1];
+    if (partnershipRatings.grid[s2] && 
+        partnershipRatings.grid[s2].ratings && 
+        partnershipRatings.grid[s2].ratings[s1] !== undefined) {
+      return partnershipRatings.grid[s2].ratings[s1];
     }
     
     return null;
