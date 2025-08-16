@@ -2709,6 +2709,9 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
               highlightMode: highlightMode,
               deactivatedSeats: deactivatedSeats,  // Pass deactivated seats to canvas
               previousPeriodData: previousPeriodData,  // Pass previous period data for highlighting
+              clickTimerRef: clickTimerRef,  // Pass click timer ref for single/double click handling
+              fillMode: fillMode,  // Pass fill mode for smart pair detection
+              handleSmartPartnerSelection: handleSmartPartnerSelection,  // Pass smart partner handler
               onSeatClick: (tableId, seatNumber, event) => {
                 const seatId = `${tableId}-${seatNumber}`;
                 const isModifierPressed = event && event.shiftKey;
@@ -3071,6 +3074,9 @@ const SeatingCanvas = ({
   deactivatedSeats,
   onStudentClick,
   previousPeriodData,
+  clickTimerRef,  // Add click timer ref
+  fillMode,  // Add fill mode
+  handleSmartPartnerSelection  // Add smart partner handler
 }) => {
   // Get shared styles
   const { LayoutStyles } = window;
