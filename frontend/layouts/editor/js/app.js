@@ -127,6 +127,33 @@ const LayoutEditor = () => {
     }
   };
 
+  const handleDelete = async () => {
+    if (!layout.id) {
+      alert("❌ This layout hasn't been saved yet.");
+      return;
+    }
+
+    const confirmDelete = confirm(`Are you sure you want to delete "${layout.name}"? This action cannot be undone.`);
+    if (!confirmDelete) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await ApiHelper.request(`/layouts/${layout.id}/`, {
+        method: "DELETE",
+      });
+      alert("✅ Layout deleted successfully!");
+      // Redirect to layouts page after deletion
+      window.location.href = "/#layouts";
+    } catch (error) {
+      console.error("Delete error:", error);
+      alert("❌ Error deleting layout. Please check console for details.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Loading state
   if (loading) {
     return React.createElement(
@@ -192,6 +219,7 @@ const LayoutEditor = () => {
       selectedTool,
       setSelectedTool,
       onSave: handleSave,
+      onDelete: handleDelete,
       showGrid,
       setShowGrid,
       selectedItem,

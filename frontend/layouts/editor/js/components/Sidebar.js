@@ -5,6 +5,7 @@ const Sidebar = ({
   selectedTool,
   setSelectedTool,
   onSave,
+  onDelete,
   showGrid,
   setShowGrid,
   selectedItem,
@@ -88,13 +89,32 @@ const Sidebar = ({
 
   // Save button style
   const saveButtonStyle = {
-    width: '100%',
+    flex: 1,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     gap: '8px',
     padding: '12px 16px',
     backgroundColor: '#2563eb',
+    color: '#ffffff',
+    borderRadius: '8px',
+    border: 'none',
+    cursor: 'pointer',
+    fontWeight: '500',
+    fontSize: '16px',
+    transition: 'background-color 0.2s',
+    outline: 'none'
+  };
+
+  // Delete button style
+  const deleteButtonStyle = {
+    flex: 1,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8px',
+    padding: '12px 16px',
+    backgroundColor: '#dc2626',
     color: '#ffffff',
     borderRadius: '8px',
     border: 'none',
@@ -355,24 +375,45 @@ const Sidebar = ({
     // Spacer to push save button to bottom
     React.createElement("div", { style: { flex: 1 } }),
 
-    // Save Button
+    // Save and Delete Buttons
     React.createElement(
       "div",
       { style: { padding: '16px', borderTop: '1px solid #e5e7eb' } },
       React.createElement(
-        "button",
-        {
-          onClick: onSave,
-          style: saveButtonStyle,
-          onMouseEnter: (e) => {
-            e.target.style.backgroundColor = '#1d4ed8';
+        "div",
+        { style: { display: 'flex', gap: '8px' } },
+        // Save Button
+        React.createElement(
+          "button",
+          {
+            onClick: onSave,
+            style: saveButtonStyle,
+            onMouseEnter: (e) => {
+              e.target.style.backgroundColor = '#1d4ed8';
+            },
+            onMouseLeave: (e) => {
+              e.target.style.backgroundColor = '#2563eb';
+            }
           },
-          onMouseLeave: (e) => {
-            e.target.style.backgroundColor = '#2563eb';
-          }
-        },
-        React.createElement(Save, { size: 18 }),
-        layout.id ? "Update Layout" : "Save Layout"
+          React.createElement(Save, { size: 18 }),
+          layout.id ? "Update" : "Save"
+        ),
+        // Delete Button (only show if layout has been saved)
+        layout.id && React.createElement(
+          "button",
+          {
+            onClick: onDelete,
+            style: deleteButtonStyle,
+            onMouseEnter: (e) => {
+              e.target.style.backgroundColor = '#b91c1c';
+            },
+            onMouseLeave: (e) => {
+              e.target.style.backgroundColor = '#dc2626';
+            }
+          },
+          React.createElement(Trash2, { size: 18 }),
+          "Delete"
+        )
       )
     )
   );
