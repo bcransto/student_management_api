@@ -8,6 +8,16 @@ from django.urls import include, path
 
 from students.views import frontend_view, test_view
 
+def test_optimizer_view(request):
+    """Serve the test optimizer page"""
+    test_file_path = os.path.join(settings.BASE_DIR, "test_optimizer.html")
+    if os.path.exists(test_file_path):
+        with open(test_file_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        return HttpResponse(content, content_type="text/html")
+    else:
+        raise Http404("Test optimizer page not found")
+
 
 def serve_frontend_file(request, file_path):
     """Serve frontend static files from the frontend directory"""
@@ -60,6 +70,8 @@ urlpatterns = [
     path("api/", include("students.urls")),
     # Single layout editor route - serves the frontend editor
     path("layout-editor/", lambda request: serve_frontend_file(request, "layouts/editor/index.html"), name="layout_editor"),
+    # Test optimizer page
+    path("test_optimizer.html", test_optimizer_view, name="test_optimizer"),
     # Serve frontend static files
     path("frontend/<path:file_path>", serve_frontend_file, name="frontend_static"),
     path("test/", test_view, name="test"),

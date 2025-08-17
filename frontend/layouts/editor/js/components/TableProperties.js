@@ -633,11 +633,41 @@ const TablePropertiesPanel = ({ selectedItem, layout, setLayout, setSelectedItem
           "button",
           {
             onClick: () => {
+              // Generate a smart copy name with numbering
+              const generateCopyName = (originalName) => {
+                // Check if the name already has a copy pattern like "Table 1 (2)"
+                const copyPattern = /^(.*?)\s*\((\d+)\)$/;
+                const match = originalName.match(copyPattern);
+                
+                let baseName;
+                let startNum = 2;
+                
+                if (match) {
+                  // If it's already a copy, use the base name and increment
+                  baseName = match[1].trim();
+                  startNum = parseInt(match[2]) + 1;
+                } else {
+                  baseName = originalName;
+                }
+                
+                // Find the next available number
+                const existingNames = layout.tables.map(t => t.table_name);
+                let copyNum = startNum;
+                let newName = `${baseName} (${copyNum})`;
+                
+                while (existingNames.includes(newName)) {
+                  copyNum++;
+                  newName = `${baseName} (${copyNum})`;
+                }
+                
+                return newName;
+              };
+              
               const newTable = {
                 ...table,
                 id: Date.now(),
                 table_number: layout.tables.length + 1,
-                table_name: `${table.table_name} Copy`,
+                table_name: generateCopyName(table.table_name),
                 x_position: Math.min(table.x_position + 1, layout.room_width - table.width),
                 y_position: Math.min(table.y_position + 1, layout.room_height - table.height),
               };

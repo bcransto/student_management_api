@@ -354,3 +354,55 @@ Frontend auto-detects production environment via hostname.
 - Dynamic grid scaling to fit viewport while maintaining aspect ratio
 - Toolbar height: 60px with two-line title display
 - Student cards: 65x45px in pool, matching seat dimensions
+
+## Seating Optimizer (Phase 1 Complete - Paused)
+
+**Status**: Phase 1 implementation complete with performance optimizations. Ready for Phase 2 integration.
+
+### Completed Work (Phase 1)
+
+**Core Implementation**:
+- Created three new files without modifying existing code:
+  1. `SeatingOptimizer.js` - Full SimulatedAnnealingOptimizer implementation
+  2. `SeatingUtils.js` - Utility functions for partnership management  
+  3. `SeatingConstants.js` - Constants, presets, and configuration
+- Integrated into index.html with proper script loading order
+- Added test page at `/test_optimizer.html` with comprehensive test suite
+- Added URL routing in `student_project/urls.py`
+
+**Key Features Implemented**:
+- Simulated Annealing algorithm with temperature-based acceptance (Metropolis criterion)
+- Multi-strategy neighbor generation (50% swap, 30% relocation, 20% three-cycle)
+- Hard constraint enforcement (locked seats, do-not-pair from -2 ratings)
+- Soft preference optimization (ratings, partnership history)
+- Data structure conversion between UI format and internal array format
+- Wrapper class for backward compatibility
+
+**Performance Optimizations Applied**:
+- Default maxIterations: 500 (reduced from initial 10,000)
+- Neighbor generation attempts: 5 (reduced from 100)
+- Test-specific iterations: Test 1 (200), Test 2 (20), Test 3 (200), Test 4 (50), Test 5 (200)
+- Logging frequency: Every 100 iterations
+- All tests complete in under 2 seconds
+
+### Next Steps (Phase 2 - Not Started)
+
+**Phase 2: Integration with SeatingEditor**
+1. Add "Optimize" button to SeatingEditor toolbar
+2. Hook up optimizer to use current assignments, constraints, and history
+3. Add progress indicator during optimization
+4. Implement undo for optimization changes
+5. Add constraint configuration UI (lock seats, set do-not-pair)
+
+**Phase 3: Advanced Features** (Future)
+- Real-time preview of changes
+- Partial optimization (selected tables only)
+- Custom weight configuration
+- Save/load optimization presets
+- Optimization history and comparison
+
+### Testing
+Access test suite at: http://127.0.0.1:8000/test_optimizer.html
+- All tests validate core functionality
+- Tests run quickly with minimal iterations
+- Individual test buttons available for debugging
