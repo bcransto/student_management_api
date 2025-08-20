@@ -551,13 +551,24 @@ class ClassroomLayoutViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         # All users (including superusers) only see their own layouts
-        return ClassroomLayout.objects.filter(created_by=self.request.user)
+        # Filter out soft-deleted layouts
+        return ClassroomLayout.objects.filter(
+            created_by=self.request.user,
+            is_active=True
+        )
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
 
     def perform_update(self, serializer):
         serializer.save(created_by=self.request.user)
+    
+    def destroy(self, request, *args, **kwargs):
+        """Perform soft delete instead of hard delete"""
+        instance = self.get_object()
+        instance.is_active = False
+        instance.save()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=False, methods=["post"])
     def create_from_editor(self, request):

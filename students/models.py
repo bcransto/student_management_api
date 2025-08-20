@@ -33,6 +33,7 @@ class ClassroomLayout(models.Model):
     # Layout metadata
     created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name="created_layouts")
     is_template = models.BooleanField(default=False, help_text="Can this layout be used by other teachers?")
+    is_active = models.BooleanField(default=True, help_text="Soft delete flag - False means layout is deleted")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

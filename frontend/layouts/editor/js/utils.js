@@ -424,6 +424,11 @@ const ApiHelper = {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
+    // Handle 204 No Content response (e.g., from DELETE requests)
+    if (response.status === 204) {
+      return null;
+    }
+
     return await response.json();
   },
 };
