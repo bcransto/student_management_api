@@ -68,6 +68,11 @@ Student.gender    # 'male', 'female', 'other' (lowercase in DB)
 # Partnership tracking
 PartnershipRating → class_assigned, student1, student2
 # Auto-orders: student1 always has lower ID than student2
+
+# Class fields (required)
+Class.name        # CharField, required
+Class.subject     # CharField, required
+Class.teacher     # ForeignKey to User, required
 ```
 
 ### Frontend Component Architecture
@@ -86,10 +91,16 @@ React.createElement("div", { className: "example" }, children)
    - Seat ID format: "tableNumber-seatNumber" (e.g., "1-2")
    - Left sidebar (250px) and right sidebar (250px) with controls
    - Search includes nickname field
-   - **Fill System**: Four modes (Random, Match Gender, Balance Gender, Smart Pair)
-     - Double-click empty seats to auto-assign students (except Smart Pair mode)
-     - Auto button: Fill all empty seats at once (disabled in Smart Pair mode)
+   - **Fill System**: Six modes
+     - Random: Random student selection
+     - First Name (A-Z): Alphabetical by first name/nickname
+     - Last Name (A-Z): Alphabetical by last name
+     - Match Gender: Groups similar genders
+     - Balance Gender: Alternates genders
      - Smart Pair: Double-click seated student to find optimal partner
+   - **Fill Interactions**:
+     - Double-click empty seat: Auto-assigns student based on mode
+     - Auto button: Fills all empty seats (disabled in Smart Pair mode)
      - Batch operations create single undo entry
    - **Undo System**: Full history tracking with 50-level limit
    - **Seat Deactivation**: Shift+click to block seats (red, stored in Set)
@@ -105,22 +116,32 @@ React.createElement("div", { className: "example" }, children)
      - Tracks historical seating partnerships across completed periods
      - Smart Pair algorithm uses weighted lottery based on history and ratings
 
-2. **Students Components**
+2. **SeatingViewer.js** (Read-only viewer)
+   - View modes: Teacher View, Student View, Print View (placeholder)
+   - Student View: Mirrors layout 180° for student perspective
+   - Text counter-rotation keeps names/numbers readable in all views
+   - View transformations handled by `viewTransformations.js`
+   - Button-style dropdown for view selection
+   - Toolbar buttons fixed at 100px width with 10px spacing
+
+3. **Students Components**
    - `formatStudentNameTwoLine()` returns { line1: nickname, line2: "Smi." } for consistent two-line display
    - `formatStudentName()` deprecated - use formatStudentNameTwoLine for new features
    - Search filters by nickname, first_name, last_name, student_id, email
    - StudentEditor includes nickname and gender fields
    - All name displays (pool, seats, viewer) use two-line format: nickname on line 1, last name truncated to 3 chars on line 2
 
-3. **Layout System**
+4. **Layout System**
    - ClassroomLayout filtered by `created_by` user
    - Layouts can be templates (`is_template` flag)
    - Tables contain seats with relative positioning
    - Layout editor at `/layout-editor/` (standalone page)
    - Opens in same window when clicking layout cards
+   - Soft delete for layouts (is_active field)
 
-4. **Classes Components**
+5. **Classes Components**
    - ClassView shows individual class with roster management
+   - ClassEditor: Edit name, subject (required), grade_level, description
    - Soft delete for roster entries (is_active field) preserves history
    - ClassStudentManager handles bulk enrollment with search/filter
    - Re-enrollment capability for previously enrolled students
@@ -191,6 +212,14 @@ await ApiModule.request(url, method, body)  // ❌
 // 4. Partner placed in lowest numbered empty seat at table
 ```
 
+**Alphabetical Fill Modes**:
+```javascript
+// sortStudentsByFirstName(): Primary by first_name/nickname, secondary by last_name
+// sortStudentsByLastName(): Primary by last_name, secondary by first_name
+// Double-click: Always picks first student from sorted list
+// Auto-fill: Places students sequentially in empty seats
+```
+
 ### History & Undo System
 
 **Implementation Pattern**:
@@ -200,7 +229,7 @@ const addToHistory = (newAssignments, description) => {
   const entry = {
     assignments: JSON.parse(JSON.stringify(assignments)), // Deep copy before
     newAssignments: JSON.parse(JSON.stringify(newAssignments)), // Deep copy after
-    description: description,  // e.g., "Place John Doe", "Auto-fill 12 seats (random)"
+    description: description,  // e.g., "Place John Doe", "Auto-fill 12 seats (alphabeticalLast)"
     timestamp: Date.now()
   };
   // Truncate future history, add new entry, limit to 50 entries
@@ -269,6 +298,7 @@ python test_chart_naming.py           # Chart auto-naming tests
 
 # Frontend testing
 open test_nickname_frontend.html      # Interactive browser tests
+open test_optimizer.html              # Seating optimizer tests
 ```
 
 ## Deployment to PythonAnywhere
@@ -289,6 +319,7 @@ Frontend auto-detects production environment via hostname.
 - `/api/` - REST endpoints
 - `/admin/` - Django admin
 - `/layout-editor/` - Standalone layout editor (opens in same window)
+- `/test_optimizer.html` - Seating optimizer test suite
 - `/frontend/<path>` - Static files served via Django
 
 **Frontend Hash Routes**:
@@ -319,20 +350,22 @@ Frontend auto-detects production environment via hostname.
 1. `students/models.py` - Model relationships and save() overrides
 2. `frontend/shared/core.js` - ApiModule request pattern and JWT auth
 3. `frontend/seating/SeatingEditor.js` - Complex state management & highlighting
-4. `students/views.py` - ViewSet filtering, permissions, and custom actions
-5. `frontend/shared/utils.js` - formatStudentNameTwoLine() for unified name display
-6. `frontend/shared/layoutStyles.js` - formatSeatName() for canvas rendering
-7. `frontend/seating/PartnershipHistoryModal.js` - Partnership visualization with rating badges
-8. `frontend/seating/PartnershipRatingGrid.js` - Teacher rating preferences grid (-2 to +2)
-9. `frontend/classes/ClassStudentManager.js` - Bulk enrollment with batch ID pasting mode
-10. `frontend/classes/ClassEditor.js` - Edit class details with inline button styling
-11. `students/serializers.py` - Custom roster filtering and JWT claims
+4. `frontend/seating/SeatingViewer.js` - Read-only viewer with view modes
+5. `frontend/seating/viewTransformations.js` - Layout transformations for student view
+6. `students/views.py` - ViewSet filtering, permissions, and custom actions
+7. `frontend/shared/utils.js` - formatStudentNameTwoLine() for unified name display
+8. `frontend/shared/layoutStyles.js` - formatSeatName() for canvas rendering
+9. `frontend/seating/PartnershipHistoryModal.js` - Partnership visualization with rating badges
+10. `frontend/seating/PartnershipRatingGrid.js` - Teacher rating preferences grid (-2 to +2)
+11. `frontend/classes/ClassStudentManager.js` - Bulk enrollment with batch ID pasting mode
+12. `frontend/classes/ClassEditor.js` - Edit class details with required field validation
+13. `students/serializers.py` - Custom roster filtering and JWT claims
 
 ## Important Behavioral Notes
 
 ### Seating Editor Interactions
 - **Single-click** seated student: Show partnership history modal (250ms delay)
-- **Double-click** empty seat: Fill with student from pool (except Smart Pair mode)
+- **Double-click** empty seat: Fill with student from pool based on mode
 - **Double-click** seated student in Smart Pair mode: Find and place optimal partner
 - **Shift+click** any seat: Toggle deactivation (red/blocked)
 - **Drag & Drop**: Move students between seats or back to pool
@@ -340,6 +373,13 @@ Frontend auto-detects production environment via hostname.
 - **Highlight buttons**: Normal/Gender/Previous modes
 - **Partnership Ratings button**: Opens grid for teacher preferences
 - **Click Timer**: Uses React.useRef for single/double click differentiation
+
+### Seating Viewer Features
+- **View Modes**: Teacher View (default), Student View (180° mirror), Print View (placeholder)
+- **View Selector**: Button dropdown with consistent 10px spacing
+- **Text Rotation**: Counter-rotates in student view to keep readable
+- **No Canvas Badge**: Removed view indicator for cleaner UI
+- **Toolbar Buttons**: Fixed 100px width for consistency
 
 ### Ownership & Permissions
 - All users (including superusers) only see their own:
@@ -354,6 +394,7 @@ Frontend auto-detects production environment via hostname.
 - Dynamic grid scaling to fit viewport while maintaining aspect ratio
 - Toolbar height: 60px with two-line title display
 - Student cards: 65x45px in pool, matching seat dimensions
+- Toolbar button width: 100px with 10px spacing between buttons
 
 ## Seating Optimizer (Phase 1 Complete - Paused)
 

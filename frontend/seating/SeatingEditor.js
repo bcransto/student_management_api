@@ -722,6 +722,48 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
     return students.filter((student) => !assigned.has(student.id));
   };
 
+  // Sort students by first name (A-Z)
+  const sortStudentsByFirstName = (studentList) => {
+    return [...studentList].sort((a, b) => {
+      // Primary sort by first name (or nickname if available)
+      const firstA = (a.nickname || a.first_name || "").toLowerCase();
+      const firstB = (b.nickname || b.first_name || "").toLowerCase();
+      
+      if (firstA < firstB) return -1;
+      if (firstA > firstB) return 1;
+      
+      // Secondary sort by last name for same first names
+      const lastA = (a.last_name || "").toLowerCase();
+      const lastB = (b.last_name || "").toLowerCase();
+      
+      if (lastA < lastB) return -1;
+      if (lastA > lastB) return 1;
+      
+      return 0;
+    });
+  };
+
+  // Sort students by last name (A-Z)
+  const sortStudentsByLastName = (studentList) => {
+    return [...studentList].sort((a, b) => {
+      // Primary sort by last name
+      const lastA = (a.last_name || "").toLowerCase();
+      const lastB = (b.last_name || "").toLowerCase();
+      
+      if (lastA < lastB) return -1;
+      if (lastA > lastB) return 1;
+      
+      // Secondary sort by first name (or nickname) for same last names
+      const firstA = (a.nickname || a.first_name || "").toLowerCase();
+      const firstB = (b.nickname || b.first_name || "").toLowerCase();
+      
+      if (firstA < firstB) return -1;
+      if (firstA > firstB) return 1;
+      
+      return 0;
+    });
+  };
+
   // Get the gender of neighbors for a given seat
   const getNeighborGenders = (tableId, seatNumber) => {
     const tableIdStr = String(tableId);
@@ -1018,6 +1060,18 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
         selectedStudent = unassignedStudents[randomIndex];
       }
       
+    } else if (fillMode === "alphabeticalFirst") {
+      // First Name (A-Z) - pick first student alphabetically by first name
+      const sortedStudents = sortStudentsByFirstName(unassignedStudents);
+      selectedStudent = sortedStudents[0]; // Always pick the first one
+      console.log(`First Name (A-Z): Selected ${selectedStudent.first_name} ${selectedStudent.last_name}`);
+      
+    } else if (fillMode === "alphabeticalLast") {
+      // Last Name (A-Z) - pick first student alphabetically by last name
+      const sortedStudents = sortStudentsByLastName(unassignedStudents);
+      selectedStudent = sortedStudents[0]; // Always pick the first one
+      console.log(`Last Name (A-Z): Selected ${selectedStudent.first_name} ${selectedStudent.last_name}`);
+      
     } else {
       // Unknown mode, fall back to random
       console.log(`Unknown fill mode "${fillMode}", using random`);
@@ -1208,6 +1262,42 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
           
           // Alternate preference for next seat
           preferFemale = !preferFemale;
+        }
+      });
+      
+    } else if (fillMode === "alphabeticalFirst") {
+      // First Name (A-Z) mode - sort and assign in order
+      const sortedStudents = sortStudentsByFirstName(unassignedStudents);
+      
+      emptySeats.forEach((seat, index) => {
+        if (index < sortedStudents.length) {
+          const student = sortedStudents[index];
+          const tableIdStr = String(seat.tableId);
+          const seatNumberStr = String(seat.seatNumber);
+          
+          if (!newAssignments[tableIdStr]) {
+            newAssignments[tableIdStr] = {};
+          }
+          newAssignments[tableIdStr][seatNumberStr] = student.id;
+          placedStudents.push(student.first_name);
+        }
+      });
+      
+    } else if (fillMode === "alphabeticalLast") {
+      // Last Name (A-Z) mode - sort and assign in order
+      const sortedStudents = sortStudentsByLastName(unassignedStudents);
+      
+      emptySeats.forEach((seat, index) => {
+        if (index < sortedStudents.length) {
+          const student = sortedStudents[index];
+          const tableIdStr = String(seat.tableId);
+          const seatNumberStr = String(seat.seatNumber);
+          
+          if (!newAssignments[tableIdStr]) {
+            newAssignments[tableIdStr] = {};
+          }
+          newAssignments[tableIdStr][seatNumberStr] = student.id;
+          placedStudents.push(student.first_name);
         }
       });
     }
@@ -2544,6 +2634,8 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
                     }
                   },
                   React.createElement("option", { value: "random" }, "Random"),
+                  React.createElement("option", { value: "alphabeticalFirst" }, "First Name (A-Z)"),
+                  React.createElement("option", { value: "alphabeticalLast" }, "Last Name (A-Z)"),
                   React.createElement("option", { value: "matchGender" }, "Match Gender"),
                   React.createElement("option", { value: "balanceGender" }, "Balance Gender"),
                   React.createElement("option", { value: "smartPair" }, "Smart Pair")
