@@ -95,6 +95,11 @@ const ClassEditor = ({ classId, navigateTo }) => {
       return;
     }
     
+    if (!subject.trim()) {
+      setError("Subject is required");
+      return;
+    }
+    
     try {
       setSaving(true);
       setError(null);
@@ -310,7 +315,12 @@ const ClassEditor = ({ classId, navigateTo }) => {
       React.createElement(
         "div",
         { className: "form-group" },
-        React.createElement("label", { htmlFor: "subject" }, "Subject"),
+        React.createElement(
+          "label",
+          { htmlFor: "subject" },
+          "Subject",
+          React.createElement("span", { className: "required" }, " *")
+        ),
         React.createElement("input", {
           type: "text",
           id: "subject",
