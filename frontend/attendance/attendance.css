@@ -126,29 +126,62 @@
 .attendance-card-footer {
   padding: 0 1.25rem 1.25rem;
   margin-top: auto;
+  display: flex;
+  gap: 0.75rem;
 }
 
-.attendance-action {
+/* Attendance Action Buttons */
+.attendance-action-btn {
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
   padding: 0.75rem;
-  background: #f3f4f6;
+  border: none;
   border-radius: 8px;
-  color: #10b981;
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: 0.875rem;
+  cursor: pointer;
   transition: all 0.2s ease;
+  background: #f3f4f6;
+  color: #374151;
 }
 
-.attendance-card:hover .attendance-action {
+.attendance-action-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.attendance-action-btn i {
+  font-size: 0.9rem;
+}
+
+/* List Mode Button */
+.attendance-list-mode {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.attendance-list-mode:hover {
+  background: #0ea5e9;
+  color: white;
+}
+
+/* Visual Mode Button */
+.attendance-visual-mode {
+  background: #f0fdf4;
+  color: #14532d;
+}
+
+.attendance-visual-mode:hover {
   background: #10b981;
   color: white;
 }
 
-.attendance-action i {
-  font-size: 1rem;
+/* Remove old attendance-action styles */
+.attendance-action {
+  display: none;
 }
 
 /* Empty State */

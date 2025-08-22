@@ -19,7 +19,13 @@
       "Bash(python test:*)",
       "Bash(open http://127.0.0.1:8000)",
       "Bash(python:*)",
-      "Bash(pip install:*)"
+      "Bash(pip install:*)",
+      "Bash(open http://127.0.0.1:8000/layout-editor/)",
+      "Bash(git commit:*)",
+      "Bash(kill:*)",
+      "Bash(./myenv/bin/python manage.py makemigrations:*)",
+      "Bash(./myenv/bin/python:*)",
+      "Bash(mkdir:*)"
     ],
     "deny": []
   }

@@ -1,0 +1,228 @@
+/* AttendanceVisual.css - Styles for visual attendance editor */
+
+.attendance-visual-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: #f5f5f5;
+  overflow: hidden; /* No scrolling */
+}
+
+/* Minimal header - narrow to maximize canvas space */
+.attendance-visual-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 50px;
+  padding: 0 10px;
+  background: white;
+  border-bottom: 1px solid #e0e0e0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Back button - compact */
+.av-btn-back {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 36px;
+  background: #f5f5f5;
+  border: 1px solid #d0d0d0;
+  border-radius: 4px;
+  color: #555;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.av-btn-back:hover {
+  background: #e8e8e8;
+  transform: translateX(-1px);
+}
+
+/* Header info - center section */
+.av-header-info {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
+  font-size: 16px;
+}
+
+.av-class-name {
+  font-weight: 600;
+  color: #333;
+}
+
+.av-date {
+  color: #666;
+}
+
+/* Save button - compact but visible */
+.av-btn-save {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 16px;
+  background: #10b981;
+  border: none;
+  border-radius: 4px;
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.av-btn-save:hover:not(:disabled) {
+  background: #059669;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
+.av-btn-save:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Pulse animation for unsaved changes */
+.av-btn-save.has-changes {
+  animation: pulse-save 2s infinite;
+}
+
+@keyframes pulse-save {
+  0% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(16, 185, 129, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+}
+
+/* Canvas container - fills remaining space */
+.attendance-visual-canvas-container {
+  flex: 1;
+  position: relative;
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0; /* Important for flexbox */
+}
+
+/* Canvas element */
+.attendance-visual-canvas {
+  background: white;
+  border: 1px solid #d0d0d0;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  max-width: 100%;
+  max-height: 100%;
+  cursor: pointer;
+}
+
+/* Loading state */
+.attendance-visual-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  color: #666;
+}
+
+.attendance-visual-loading i {
+  color: #10b981;
+  margin-bottom: 15px;
+}
+
+.attendance-visual-loading p {
+  font-size: 16px;
+  margin: 0;
+}
+
+/* No layout message */
+.av-no-layout {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  color: #999;
+}
+
+.av-no-layout i {
+  color: #d0d0d0;
+  margin-bottom: 15px;
+}
+
+.av-no-layout h3 {
+  color: #666;
+  font-size: 20px;
+  margin: 0 0 10px 0;
+}
+
+.av-no-layout p {
+  color: #999;
+  margin: 5px 0;
+  font-size: 14px;
+}
+
+/* Status color indicators (for Phase 3) */
+.av-color-legend {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  background: white;
+  border: 1px solid #d0d0d0;
+  border-radius: 4px;
+  padding: 8px;
+  font-size: 12px;
+  display: flex;
+  gap: 15px;
+}
+
+.av-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.av-legend-color {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  border: 1px solid #d0d0d0;
+}
+
+/* Status colors (will be used in Phase 3) */
+.av-status-present { background: #d4f4dd; }
+.av-status-absent { background: #fecaca; }
+.av-status-tardy { background: #fed7aa; }
+.av-status-early { background: #bfdbfe; }
+
+/* Responsive adjustments for smaller iPads */
+@media (max-width: 768px) {
+  .attendance-visual-header {
+    height: 44px;
+    padding: 0 8px;
+  }
+  
+  .av-header-info {
+    font-size: 14px;
+    gap: 10px;
+  }
+  
+  .av-btn-save {
+    padding: 6px 12px;
+    font-size: 13px;
+  }
+  
+  .attendance-visual-canvas-container {
+    padding: 8px;
+  }
+}

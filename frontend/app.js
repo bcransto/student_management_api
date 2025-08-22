@@ -462,10 +462,24 @@ const App = () => {
         });
 
       case "attendance":
-        // Parse the URL to determine if we're in list or editor mode
+        // Parse the URL to determine if we're in list, editor, or visual mode
         const attendanceHash = window.location.hash.slice(1);
         
-        // Check if we're editing attendance for a specific class
+        // Check if we're in visual mode for a specific class
+        if (attendanceHash.startsWith("attendance/visual/")) {
+          const visualParts = attendanceHash.replace("attendance/visual/", "").split("/");
+          const visualClassId = visualParts[0];
+          const visualDate = visualParts[1] || null; // Optional date parameter
+          
+          return React.createElement(window.AttendanceVisual, {
+            classId: visualClassId,
+            date: visualDate,
+            navigateTo: handleNavigate,
+            onBack: () => handleNavigate("attendance")
+          });
+        }
+        
+        // Check if we're editing attendance for a specific class (list mode)
         if (attendanceHash.startsWith("attendance/") && attendanceHash.split("/").length >= 2) {
           const attendanceClassId = attendanceHash.split("/")[1];
           const attendanceDate = attendanceHash.split("/")[2] || null; // Optional date parameter
@@ -551,7 +565,19 @@ const App = () => {
   // Debug log to track renders
   console.log("App render - currentView:", currentView, "hash:", window.location.hash);
   
-  // Main app layout
+  // Check if we're in visual attendance mode (fullscreen, no sidebar/header)
+  const isVisualAttendanceMode = window.location.hash.includes("attendance/visual/");
+  
+  // For visual attendance mode, render only the component (fullscreen)
+  if (isVisualAttendanceMode) {
+    return React.createElement(
+      "div",
+      { className: "app app-fullscreen" },
+      renderCurrentView()
+    );
+  }
+  
+  // Main app layout (normal mode with header and sidebar)
   return React.createElement(
     "div",
     { className: "app" },

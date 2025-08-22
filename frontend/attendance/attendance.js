@@ -33,6 +33,20 @@ const Attendance = ({ data, refreshData, navigateTo, currentParams }) => {
     }
   };
 
+  const handleVisualMode = (e, cls) => {
+    e.stopPropagation(); // Prevent card click
+    console.log("Visual mode clicked for class:", cls.name);
+    console.log("Navigating to visual attendance for class:", cls.id);
+    
+    // Navigate to visual attendance editor for this class
+    if (navigateTo && typeof navigateTo === 'function') {
+      navigateTo(`attendance/visual/${cls.id}`);
+    } else {
+      // Fallback: use hash navigation directly
+      window.location.hash = `#attendance/visual/${cls.id}`;
+    }
+  };
+
   // Get today's date for display
   const today = new Date().toLocaleDateString('en-US', { 
     weekday: 'long', 
@@ -123,18 +137,41 @@ const Attendance = ({ data, refreshData, navigateTo, currentParams }) => {
               )
             ),
             
-            // Take Attendance Button/Indicator
+            // Attendance Action Buttons
             React.createElement(
               "div",
               { className: "attendance-card-footer" },
+              // List Mode Button
               React.createElement(
-                "div",
-                { className: "attendance-action" },
-                React.createElement("i", { className: "fas fa-clipboard-check" }),
+                "button",
+                { 
+                  className: "attendance-action-btn attendance-list-mode",
+                  onClick: (e) => {
+                    e.stopPropagation();
+                    handleClassClick(cls);
+                  },
+                  title: "Take attendance (list view)"
+                },
+                React.createElement("i", { className: "fas fa-list" }),
                 React.createElement(
                   "span",
                   null,
-                  " Take Attendance"
+                  " List Mode"
+                )
+              ),
+              // Visual Mode Button
+              React.createElement(
+                "button",
+                { 
+                  className: "attendance-action-btn attendance-visual-mode",
+                  onClick: (e) => handleVisualMode(e, cls),
+                  title: "Take attendance (visual seating view)"
+                },
+                React.createElement("i", { className: "fas fa-th" }),
+                React.createElement(
+                  "span",
+                  null,
+                  " Visual Mode"
                 )
               )
             )
