@@ -198,10 +198,16 @@ const App = () => {
         return;
       }
 
+      // Check for attendance patterns
+      if (hash === "attendance" || hash.startsWith("attendance/")) {
+        setCurrentView("attendance");
+        return;
+      }
+
       // Clear editing state if navigating away
       setEditingStudentId(null);
 
-      const validViews = ["dashboard", "students", "classes", "seating", "layouts", "users"];
+      const validViews = ["dashboard", "students", "classes", "seating", "attendance", "layouts", "users"];
       if (validViews.includes(hash)) {
         setCurrentView(hash);
       } else {
@@ -456,6 +462,23 @@ const App = () => {
         });
 
       case "attendance":
+        // Parse the URL to determine if we're in list or editor mode
+        const attendanceHash = window.location.hash.slice(1);
+        
+        // Check if we're editing attendance for a specific class
+        if (attendanceHash.startsWith("attendance/") && attendanceHash.split("/").length >= 2) {
+          const attendanceClassId = attendanceHash.split("/")[1];
+          const attendanceDate = attendanceHash.split("/")[2] || null; // Optional date parameter
+          
+          return React.createElement(window.AttendanceEditor, {
+            classId: attendanceClassId,
+            date: attendanceDate,
+            navigateTo: handleNavigate,
+            onBack: () => handleNavigate("attendance")
+          });
+        }
+        
+        // Otherwise show the attendance list
         return React.createElement(window.Attendance, {
           data: appData,
           refreshData: fetchData,
