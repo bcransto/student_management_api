@@ -12,6 +12,7 @@ const SeatingViewer = ({ classId, periodId, onEdit, onBack, navigateTo }) => {
   const [students, setStudents] = React.useState([]);
   const [assignments, setAssignments] = React.useState({});
   const [isCreatingPeriod, setIsCreatingPeriod] = React.useState(false);
+  const [viewMode, setViewMode] = React.useState("teacher"); // "teacher" or "student"
 
   // Load class data
   const loadClassData = async () => {
@@ -522,6 +523,46 @@ const SeatingViewer = ({ classId, periodId, onEdit, onBack, navigateTo }) => {
         getTitle()
       ),
 
+      // View mode selector
+      React.createElement(
+        "div",
+        {
+          style: { 
+            display: "flex", 
+            alignItems: "center", 
+            gap: "0.5rem",
+            marginRight: "1rem"
+          }
+        },
+        React.createElement(
+          "label",
+          {
+            htmlFor: "view-mode-select",
+            style: { 
+              fontSize: "0.875rem",
+              fontWeight: "500"
+            }
+          },
+          "View:"
+        ),
+        React.createElement(
+          "select",
+          {
+            id: "view-mode-select",
+            value: viewMode,
+            onChange: (e) => setViewMode(e.target.value),
+            className: "form-select form-select-sm",
+            style: {
+              padding: "0.25rem 0.5rem",
+              fontSize: "0.875rem",
+              minWidth: "130px"
+            }
+          },
+          React.createElement("option", { value: "teacher" }, "Teacher View"),
+          React.createElement("option", { value: "student" }, "Student View")
+        )
+      ),
+
       // Period navigation buttons (right-justified)
       React.createElement(
         "div",
@@ -607,6 +648,7 @@ const SeatingViewer = ({ classId, periodId, onEdit, onBack, navigateTo }) => {
         assignments: assignments,
         students: students,
         highlightMode: "none",
+        viewMode: viewMode, // Pass the view mode to canvas
         onSeatClick: () => {}, // No-op for viewer
         onStudentDrop: () => {}, // No-op for viewer
         onStudentUnassign: () => {}, // No-op for viewer
@@ -626,6 +668,7 @@ const SeatingViewerCanvas = ({
   assignments,
   students,
   highlightMode,
+  viewMode = "teacher", // Default to teacher view
   onSeatClick,
   onStudentDrop,
   onStudentUnassign,
@@ -638,6 +681,12 @@ const SeatingViewerCanvas = ({
   const { formatStudentName } = window.SharedUtils;
   const containerRef = React.useRef(null);
   const [gridSize, setGridSize] = React.useState(80);
+  
+  // Apply view transformations if needed
+  const displayLayout = React.useMemo(() => {
+    if (!layout || !window.ViewTransformations) return layout;
+    return window.ViewTransformations.transformLayoutForView(layout, viewMode);
+  }, [layout, viewMode]);
 
   // Calculate grid size based on container
   React.useEffect(() => {
@@ -653,8 +702,8 @@ const SeatingViewerCanvas = ({
       const availableHeight = window.innerHeight - containerRect.top - 100; // Use viewport height minus top position
       
       // Calculate optimal grid size to fit the layout
-      const gridSizeByWidth = Math.floor(availableWidth / layout.room_width);
-      const gridSizeByHeight = Math.floor(availableHeight / layout.room_height);
+      const gridSizeByWidth = Math.floor(availableWidth / displayLayout.room_width);
+      const gridSizeByHeight = Math.floor(availableHeight / displayLayout.room_height);
       
       // Use the smaller of the two to ensure it fits
       const optimalGridSize = Math.min(gridSizeByWidth, gridSizeByHeight, 120); // Increased cap to 120px
@@ -667,7 +716,10 @@ const SeatingViewerCanvas = ({
     setTimeout(calculateGridSize, 100);
     window.addEventListener('resize', calculateGridSize);
     return () => window.removeEventListener('resize', calculateGridSize);
-  }, [layout.room_width, layout.room_height]);
+  }, [displayLayout?.room_width, displayLayout?.room_height]);
+
+  // Don't render if no layout
+  if (!displayLayout) return null;
 
   return React.createElement(
     "div",
@@ -675,8 +727,8 @@ const SeatingViewerCanvas = ({
       ref: containerRef,
       className: `seating-canvas ${draggedStudent ? "drag-active" : ""}`,
       style: {
-        width: `${layout.room_width * gridSize}px`,
-        height: `${layout.room_height * gridSize}px`,
+        width: `${displayLayout.room_width * gridSize}px`,
+        height: `${displayLayout.room_height * gridSize}px`,
         position: "relative",
         backgroundColor: "#ffffff",
         border: "2px solid #e5e7eb",
@@ -686,8 +738,29 @@ const SeatingViewerCanvas = ({
       },
     },
 
+    // View mode indicator
+    React.createElement(
+      "div",
+      {
+        style: {
+          position: "absolute",
+          top: "10px",
+          right: "10px",
+          padding: "4px 8px",
+          backgroundColor: viewMode === "student" ? "#10b981" : "#3b82f6",
+          color: "white",
+          borderRadius: "4px",
+          fontSize: "12px",
+          fontWeight: "500",
+          zIndex: 10,
+          opacity: 0.8,
+        }
+      },
+      viewMode === "student" ? "Student View" : "Teacher View"
+    ),
+
     // Render obstacles
-    layout.obstacles?.map((obstacle) =>
+    displayLayout.obstacles?.map((obstacle) =>
       React.createElement(
         "div",
         {
@@ -703,6 +776,7 @@ const SeatingViewerCanvas = ({
             opacity: 0.3,
             borderRadius: "4px",
             pointerEvents: "none",
+            transform: obstacle.rotation !== undefined ? `rotate(${obstacle.rotation}deg)` : undefined,
           },
         },
         obstacle.name
@@ -710,7 +784,7 @@ const SeatingViewerCanvas = ({
     ),
 
     // Render tables
-    layout.tables?.map((table) =>
+    displayLayout.tables?.map((table) =>
       React.createElement(
         "div",
         {
@@ -740,7 +814,9 @@ const SeatingViewerCanvas = ({
               position: "absolute",
               top: "50%",
               left: "50%",
-              transform: "translate(-50%, -50%)",
+              transform: viewMode === "student" 
+                ? `translate(-50%, -50%) rotate(-${table.rotation || 0}deg)` 
+                : "translate(-50%, -50%)",
               fontSize: "28px",
               fontWeight: "bold",
               color: "#ffffff",
@@ -810,8 +886,14 @@ const SeatingViewerCanvas = ({
                     assignedStudent.last_name
                   );
                   return React.createElement(
-                    React.Fragment,
-                    null,
+                    "div",
+                    {
+                      style: {
+                        transform: viewMode === "student" 
+                          ? `rotate(-${table.rotation || 0}deg)` 
+                          : undefined,
+                      }
+                    },
                     React.createElement(
                       "div",
                       {
@@ -835,7 +917,17 @@ const SeatingViewerCanvas = ({
                     )
                   );
                 })()
-              : seat.seat_number
+              : React.createElement(
+                  "div",
+                  {
+                    style: {
+                      transform: viewMode === "student" 
+                        ? `rotate(-${table.rotation || 0}deg)` 
+                        : undefined,
+                    }
+                  },
+                  seat.seat_number
+                )
           );
         })
       )
