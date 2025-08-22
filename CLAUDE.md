@@ -26,6 +26,7 @@ python test_nickname_functionality.py   # Standalone test file
 python test_seating_api.py             # Test seating APIs
 python test_save.py                    # Test save functionality
 python test_chart_naming.py            # Test chart auto-naming
+python test_attendance_api.py          # Test attendance APIs
 
 # Linting and formatting
 npm run lint:all          # Frontend + backend linting
@@ -68,6 +69,11 @@ Student.gender    # 'male', 'female', 'other' (lowercase in DB)
 # Partnership tracking
 PartnershipRating → class_assigned, student1, student2
 # Auto-orders: student1 always has lower ID than student2
+
+# Attendance tracking
+AttendanceRecord → roster_entry (FK to ClassRoster)
+AttendanceRecord → date, status, notes
+# Status choices: 'present', 'absent', 'tardy', 'early_dismissal'
 
 # Class fields (required)
 Class.name        # CharField, required
@@ -147,19 +153,29 @@ React.createElement("div", { className: "example" }, children)
    - Re-enrollment capability for previously enrolled students
    - Permission-based UI - only class teacher sees management controls
 
+6. **Attendance Components**
+   - AttendanceEditor.js: Core attendance taking interface
+   - Status options: present, absent, tardy, early_dismissal
+   - Date navigation with Previous/Next buttons (view-only)
+   - Unsaved changes warning before navigation
+   - Bulk save for all students at once
+   - Student list sorted alphabetically by last name, then first name
+   - Responsive design with mobile-friendly layout
+
 ### API Patterns
 
 **ApiModule.request() - MUST use options object**:
 ```javascript
-// CORRECT
-await ApiModule.request('/api/endpoint/', {
+// CORRECT - ApiModule automatically prepends /api/
+await ApiModule.request('/endpoint/', {  // Note: no /api/ prefix needed
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify(data)
 });
 
-// WRONG - DO NOT use separate parameters
-await ApiModule.request(url, method, body)  // ❌
+// WRONG - Common mistakes
+await ApiModule.request(url, method, body)  // ❌ Separate parameters
+await ApiModule.request('/api/endpoint/')   // ❌ Double /api/ prefix
 ```
 
 **Critical Serializer Behaviors**:
@@ -168,6 +184,7 @@ await ApiModule.request(url, method, body)  // ❌
 - API responses may be paginated: check for `results` key
 - ClassRoomLayout ViewSet filters by `created_by` user (except superusers)
 - ClassSerializer.roster only returns active entries (is_active=True)
+- ClassRosterSerializer returns flattened student fields (student_first_name, not student.first_name)
 - JWT token includes user_id for permission checks
 
 **Partnership API Endpoints**:
@@ -196,6 +213,28 @@ await ApiModule.request(url, method, body)  // ❌
 # POST /api/classes/{class_id}/bulk-update-ratings/
 # Update multiple ratings at once
 # Body: {ratings: [{student1_id, student2_id, rating}]}
+```
+
+**Attendance API Endpoints**:
+```python
+# GET /api/attendance/by-class/{class_id}/{date}/
+# Returns attendance records for specific class and date
+# Response: {attendance_records: [{student, status, notes}...]}
+
+# GET /api/attendance/dates/{class_id}/
+# Returns list of dates with attendance for a class
+# Response: {dates: ["2024-01-15", "2024-01-16"...]}
+
+# POST /api/attendance/bulk-save/
+# Save or update attendance for multiple students
+# Body: {
+#   date: "2024-01-15",
+#   attendance_records: [
+#     {class_roster_id: 1, status: "present", notes: ""},
+#     {class_roster_id: 2, status: "absent", notes: "Sick"}
+#   ]
+# }
+# CRITICAL: Use class_roster_id, not roster_entry or student_id
 ```
 
 **Smart Pair Algorithm**:
@@ -251,6 +290,46 @@ assignments = {
 }
 ```
 
+**API Request Format Issues**:
+```javascript
+// PROBLEM: Double /api/ prefix
+await ApiModule.request('/api/classes/')  // ❌ Results in /api/api/classes/
+await ApiModule.request('/classes/')      // ✓ Correctly becomes /api/classes/
+
+// PROBLEM: Wrong data structure for bulk operations
+// Attendance bulk save expects specific format:
+await ApiModule.request('/attendance/bulk-save/', {
+  body: JSON.stringify({
+    date: "2024-01-15",
+    attendance_records: [  // Must use this exact field name
+      {class_roster_id: 1, status: "present", notes: ""}  // Use class_roster_id
+    ]
+  })
+});
+```
+
+**React Key Prop Warnings**:
+```javascript
+// Lists must have unique keys
+students.map(student => 
+  React.createElement("option", { 
+    key: student.id,  // ✓ Always include key for list items
+    value: student.id 
+  }, student.name)
+)
+```
+
+**Accessing Flattened Serializer Fields**:
+```javascript
+// ClassRosterSerializer returns flattened fields
+// WRONG - API doesn't return nested student object
+const name = roster.student.first_name;  // ❌ undefined
+
+// CORRECT - Use flattened field names
+const name = roster.student_first_name;  // ✓
+const nickname = roster.student_nickname || roster.student_first_name;
+```
+
 **CSS Specificity Battles & DOM Manipulation**:
 ```javascript
 // Inline styles won't work due to !important rules elsewhere
@@ -287,6 +366,12 @@ element.style.removeProperty('color');
 - Re-enrollment reactivates existing roster entry
 - current_enrollment property filters by is_active=True
 
+**Attendance Record Management**:
+- Always defaults to 'present' for new records
+- Bulk save creates/updates all records in single transaction
+- Records linked to ClassRoster (not Student directly)
+- Date navigation is view-only - doesn't create new records until saved
+
 ## Testing Strategy
 
 ```bash
@@ -295,10 +380,15 @@ python test_nickname_functionality.py  # Comprehensive nickname tests
 python test_seating_api.py            # Seating API tests
 python test_save.py                   # Save functionality tests
 python test_chart_naming.py           # Chart auto-naming tests
+python test_attendance_api.py         # Attendance API tests
 
 # Frontend testing
 open test_nickname_frontend.html      # Interactive browser tests
 open test_optimizer.html              # Seating optimizer tests
+
+# Django app tests
+python manage.py test attendance.tests # Attendance app tests
+python manage.py test students.tests   # Students app tests
 ```
 
 ## Deployment to PythonAnywhere
@@ -339,6 +429,9 @@ Frontend auto-detects production environment via hostname.
 - `#users` - User management (superusers only)
 - `#users/edit/{id}` - Edit specific user
 - `#profile` - Edit current user's profile
+- `#attendance` - Attendance class list
+- `#attendance/{classId}` - Take/edit attendance for today
+- `#attendance/{classId}/{date}` - Take/edit attendance for specific date
 
 **Navigation & Routing**:
 - Router utility at `frontend/shared/router.js` provides consistent URL generation
@@ -360,6 +453,8 @@ Frontend auto-detects production environment via hostname.
 11. `frontend/classes/ClassStudentManager.js` - Bulk enrollment with batch ID pasting mode
 12. `frontend/classes/ClassEditor.js` - Edit class details with required field validation
 13. `students/serializers.py` - Custom roster filtering and JWT claims
+14. `frontend/attendance/AttendanceEditor.js` - Attendance taking with status management
+15. `attendance/views.py` - Bulk save and attendance record management
 
 ## Important Behavioral Notes
 
@@ -447,3 +542,54 @@ Access test suite at: http://127.0.0.1:8000/test_optimizer.html
 - All tests validate core functionality
 - Tests run quickly with minimal iterations
 - Individual test buttons available for debugging
+
+## Troubleshooting Guide
+
+### Common Errors & Solutions
+
+**404 Not Found on API calls**:
+- Check for double /api/ prefix (ApiModule adds it automatically)
+- Verify endpoint path matches Django URL patterns
+- Ensure trailing slash is included where needed
+
+**400 Bad Request on POST/PATCH**:
+- Check request body format matches serializer expectations
+- Verify required fields are included
+- Check field names (e.g., class_roster_id vs roster_entry)
+- Ensure Content-Type header is set to 'application/json'
+
+**Students showing as "undefined"**:
+- Check if using flattened serializer fields (student_first_name not student.first_name)
+- Verify roster is loaded and has data
+- Check console for data structure
+
+**React warnings about keys**:
+- Add unique key prop to all list items
+- Keys should be stable (use IDs, not array indices)
+- Keys must be unique among siblings
+
+**Unsaved changes lost**:
+- Implement beforeunload event listener
+- Add confirmation dialogs before navigation
+- Track dirty state with hasUnsavedChanges flag
+
+**CSS styles not applying**:
+- Check for !important declarations overriding styles
+- Use DOM manipulation with setProperty('important') for critical styles
+- Clear conflicting styles with removeProperty() when switching modes
+
+**Port 8000 already in use**:
+```bash
+lsof -ti:8000 | xargs kill -9 2>/dev/null
+python manage.py runserver
+```
+
+**Virtual environment not found**:
+```bash
+# Must use 'myenv' not 'venv'
+source myenv/bin/activate
+# If missing, recreate:
+python -m venv myenv
+source myenv/bin/activate
+pip install -r requirements.txt
+```
