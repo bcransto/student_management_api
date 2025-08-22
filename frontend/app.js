@@ -71,7 +71,12 @@ const App = () => {
       return "seating";
     }
 
-    const validViews = ["dashboard", "students", "classes", "seating", "layouts", "users"];
+    // Check for attendance patterns
+    if (hash === "attendance" || hash.startsWith("attendance/")) {
+      return "attendance";
+    }
+
+    const validViews = ["dashboard", "students", "classes", "seating", "attendance", "layouts", "users"];
     return validViews.includes(hash) ? hash : "dashboard";
   };
 
@@ -450,6 +455,13 @@ const App = () => {
           periodId: seatingPeriodId,
         });
 
+      case "attendance":
+        return React.createElement(window.Attendance, {
+          data: appData,
+          refreshData: fetchData,
+          navigateTo: handleNavigate,
+          currentParams: null,
+        });
       case "layouts":
         return React.createElement(Components.Layouts, {
           data: appData,
