@@ -3,6 +3,7 @@ from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from .models import (
+    AttendanceRecord,
     Class,
     ClassroomLayout,
     ClassroomTable,
@@ -541,4 +542,73 @@ class BulkPartnershipRatingSerializer(serializers.Serializer):
                 raise serializers.ValidationError(
                     f"Invalid rating value: {rating['rating']}. Must be between -2 and 2"
                 )
+        return value
+
+
+class AttendanceRecordSerializer(serializers.ModelSerializer):
+    """Serializer for AttendanceRecord model"""
+    
+    # Include student info for display
+    student_id = serializers.IntegerField(source='class_roster.student.id', read_only=True)
+    student_name = serializers.CharField(source='class_roster.student.get_full_name', read_only=True)
+    student_first_name = serializers.CharField(source='class_roster.student.first_name', read_only=True)
+    student_last_name = serializers.CharField(source='class_roster.student.last_name', read_only=True)
+    student_nickname = serializers.CharField(source='class_roster.student.nickname', read_only=True)
+    
+    # Include class info
+    class_id = serializers.IntegerField(source='class_roster.class_assigned.id', read_only=True)
+    class_name = serializers.CharField(source='class_roster.class_assigned.name', read_only=True)
+    
+    class Meta:
+        model = AttendanceRecord
+        fields = [
+            'id',
+            'class_roster',
+            'date',
+            'status',
+            'notes',
+            'student_id',
+            'student_name',
+            'student_first_name',
+            'student_last_name',
+            'student_nickname',
+            'class_id',
+            'class_name',
+            'created_at',
+            'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+    
+    def validate_class_roster(self, value):
+        """Ensure the roster entry is active"""
+        if not value.is_active:
+            raise serializers.ValidationError("Cannot create attendance for inactive roster entry")
+        return value
+
+
+class AttendanceBulkSerializer(serializers.Serializer):
+    """Serializer for bulk attendance updates"""
+    
+    date = serializers.DateField()
+    attendance_records = serializers.ListField(
+        child=serializers.DictField(),
+        allow_empty=False
+    )
+    
+    def validate_attendance_records(self, value):
+        """Validate each attendance record"""
+        valid_statuses = ['present', 'absent', 'tardy', 'early_dismissal']
+        
+        for record in value:
+            if 'class_roster_id' not in record:
+                raise serializers.ValidationError("Each record must have class_roster_id")
+            
+            if 'status' not in record:
+                raise serializers.ValidationError("Each record must have a status")
+                
+            if record['status'] not in valid_statuses:
+                raise serializers.ValidationError(
+                    f"Invalid status: {record['status']}. Must be one of {valid_statuses}"
+                )
+        
         return value

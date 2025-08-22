@@ -2,6 +2,7 @@
 from django.contrib import admin
 
 from .models import (
+    AttendanceRecord,
     Class,
     ClassroomLayout,
     ClassroomTable,
@@ -352,3 +353,63 @@ class PartnershipRatingAdmin(admin.ModelAdmin):
         if not change:  # If creating new rating
             obj.created_by = request.user
         super().save_model(request, obj, form, change)
+
+
+@admin.register(AttendanceRecord)
+class AttendanceRecordAdmin(admin.ModelAdmin):
+    list_display = ["student_name", "class_name", "date", "status_display", "has_notes", "updated_at"]
+    list_filter = ["status", "date", "class_roster__class_assigned", "class_roster__class_assigned__teacher"]
+    search_fields = [
+        "class_roster__student__first_name",
+        "class_roster__student__last_name", 
+        "class_roster__student__student_id",
+        "class_roster__class_assigned__name",
+        "notes"
+    ]
+    readonly_fields = ["created_at", "updated_at"]
+    autocomplete_fields = ["class_roster"]
+    date_hierarchy = "date"
+    
+    fieldsets = (
+        ("Attendance Information", {
+            "fields": ("class_roster", "date", "status")
+        }),
+        ("Additional Information", {
+            "fields": ("notes",),
+            "classes": ("collapse",)
+        }),
+        ("Timestamps", {
+            "fields": ("created_at", "updated_at"),
+            "classes": ("collapse",)
+        }),
+    )
+    
+    def student_name(self, obj):
+        return obj.class_roster.student.get_full_name()
+    student_name.short_description = "Student"
+    student_name.admin_order_field = "class_roster__student__last_name"
+    
+    def class_name(self, obj):
+        return obj.class_roster.class_assigned.name
+    class_name.short_description = "Class"
+    class_name.admin_order_field = "class_roster__class_assigned__name"
+    
+    def status_display(self, obj):
+        return obj.get_status_display()
+    status_display.short_description = "Status"
+    status_display.admin_order_field = "status"
+    
+    def has_notes(self, obj):
+        return bool(obj.notes)
+    has_notes.boolean = True
+    has_notes.short_description = "Notes?"
+    
+    def get_queryset(self, request):
+        qs = super().get_queryset(request).select_related(
+            'class_roster__student',
+            'class_roster__class_assigned'
+        )
+        if request.user.is_superuser:
+            # Superusers still only see attendance for their own classes
+            return qs.filter(class_roster__class_assigned__teacher=request.user)
+        return qs.filter(class_roster__class_assigned__teacher=request.user)

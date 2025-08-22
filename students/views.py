@@ -13,6 +13,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from .models import (
+    AttendanceRecord,
     Class,
     ClassroomLayout,
     ClassroomTable,
@@ -27,6 +28,8 @@ from .models import (
 )
 from .permissions import IsSuperuser, IsSuperuserOrOwner
 from .serializers import (
+    AttendanceBulkSerializer,
+    AttendanceRecordSerializer,
     ChangePasswordSerializer,
     ClassroomLayoutSerializer,
     ClassroomTableSerializer,
@@ -829,6 +832,219 @@ def frontend_view(request):
 def test_view(request):
     """Test view"""
     return HttpResponse("<h1>Test Success!</h1><p>Django is working</p>")
+
+
+class AttendanceViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing attendance records.
+    Teachers can only manage attendance for their own classes.
+    """
+    serializer_class = AttendanceRecordSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        """Filter attendance records based on user's classes"""
+        user = self.request.user
+        if user.is_superuser:
+            # Superusers still only see their own classes' attendance
+            return AttendanceRecord.objects.filter(
+                class_roster__class_assigned__teacher=user
+            ).select_related('class_roster__student', 'class_roster__class_assigned')
+        else:
+            return AttendanceRecord.objects.filter(
+                class_roster__class_assigned__teacher=user
+            ).select_related('class_roster__student', 'class_roster__class_assigned')
+    
+    @action(detail=False, methods=['GET'], url_path='by-class/(?P<class_id>[^/.]+)/(?P<date>[^/.]+)')
+    def by_class_and_date(self, request, class_id=None, date=None):
+        """Get attendance records for a specific class and date"""
+        try:
+            # Verify teacher owns the class
+            class_obj = Class.objects.get(id=class_id)
+            if class_obj.teacher != request.user and not request.user.is_superuser:
+                return Response(
+                    {"error": "You don't have permission to view this class's attendance"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            
+            # Get all active roster entries for the class
+            roster_entries = ClassRoster.objects.filter(
+                class_assigned_id=class_id,
+                is_active=True
+            ).select_related('student').order_by('student__last_name', 'student__first_name')
+            
+            # Get existing attendance records for this date
+            attendance_records = AttendanceRecord.objects.filter(
+                class_roster__class_assigned_id=class_id,
+                date=date
+            ).select_related('class_roster__student')
+            
+            # Create a map of existing records
+            attendance_map = {
+                record.class_roster_id: record 
+                for record in attendance_records
+            }
+            
+            # Build response with all students, using existing records or defaults
+            response_data = []
+            for roster_entry in roster_entries:
+                if roster_entry.id in attendance_map:
+                    # Use existing record
+                    serializer = AttendanceRecordSerializer(attendance_map[roster_entry.id])
+                    response_data.append(serializer.data)
+                else:
+                    # Create default data for students without records
+                    response_data.append({
+                        'id': None,
+                        'class_roster': roster_entry.id,
+                        'date': date,
+                        'status': 'present',  # Default status
+                        'notes': '',
+                        'student_id': roster_entry.student.id,
+                        'student_name': roster_entry.student.get_full_name(),
+                        'student_first_name': roster_entry.student.first_name,
+                        'student_last_name': roster_entry.student.last_name,
+                        'student_nickname': roster_entry.student.nickname,
+                        'class_id': class_obj.id,
+                        'class_name': class_obj.name,
+                        'created_at': None,
+                        'updated_at': None
+                    })
+            
+            return Response(response_data)
+            
+        except Class.DoesNotExist:
+            return Response(
+                {"error": "Class not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+    
+    @action(detail=False, methods=['POST'], url_path='bulk-save')
+    def bulk_save(self, request):
+        """Save attendance for multiple students at once"""
+        serializer = AttendanceBulkSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        date = serializer.validated_data['date']
+        records = serializer.validated_data['attendance_records']
+        
+        created_count = 0
+        updated_count = 0
+        
+        for record_data in records:
+            roster_id = record_data['class_roster_id']
+            
+            # Verify teacher owns this class
+            try:
+                roster_entry = ClassRoster.objects.select_related('class_assigned').get(id=roster_id)
+                if roster_entry.class_assigned.teacher != request.user and not request.user.is_superuser:
+                    continue  # Skip records for classes not owned by teacher
+            except ClassRoster.DoesNotExist:
+                continue
+            
+            # Create or update attendance record
+            attendance_record, created = AttendanceRecord.objects.update_or_create(
+                class_roster_id=roster_id,
+                date=date,
+                defaults={
+                    'status': record_data['status'],
+                    'notes': record_data.get('notes', '')
+                }
+            )
+            
+            if created:
+                created_count += 1
+            else:
+                updated_count += 1
+        
+        return Response({
+            'message': f'Attendance saved successfully',
+            'created': created_count,
+            'updated': updated_count,
+            'date': date
+        })
+    
+    @action(detail=False, methods=['GET'], url_path='dates/(?P<class_id>[^/.]+)')
+    def attendance_dates(self, request, class_id=None):
+        """Get list of dates with attendance records for navigation"""
+        try:
+            # Verify teacher owns the class
+            class_obj = Class.objects.get(id=class_id)
+            if class_obj.teacher != request.user and not request.user.is_superuser:
+                return Response(
+                    {"error": "You don't have permission to view this class's attendance"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            
+            # Get unique dates with attendance records
+            dates = AttendanceRecord.objects.filter(
+                class_roster__class_assigned_id=class_id
+            ).values_list('date', flat=True).distinct().order_by('-date')
+            
+            return Response({
+                'class_id': class_id,
+                'dates': list(dates)
+            })
+            
+        except Class.DoesNotExist:
+            return Response(
+                {"error": "Class not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+    
+    @action(detail=False, methods=['GET'], url_path='totals/(?P<class_id>[^/.]+)')
+    def attendance_totals(self, request, class_id=None):
+        """Get running totals for each student in a class"""
+        try:
+            # Verify teacher owns the class
+            class_obj = Class.objects.get(id=class_id)
+            if class_obj.teacher != request.user and not request.user.is_superuser:
+                return Response(
+                    {"error": "You don't have permission to view this class's attendance"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            
+            # Get all active roster entries
+            roster_entries = ClassRoster.objects.filter(
+                class_assigned_id=class_id,
+                is_active=True
+            ).select_related('student')
+            
+            # Calculate totals for each student
+            totals = []
+            for roster_entry in roster_entries:
+                student_totals = AttendanceRecord.objects.filter(
+                    class_roster=roster_entry
+                ).aggregate(
+                    absent_count=models.Count('id', filter=models.Q(status='absent')),
+                    tardy_count=models.Count('id', filter=models.Q(status='tardy')),
+                    early_dismissal_count=models.Count('id', filter=models.Q(status='early_dismissal'))
+                )
+                
+                totals.append({
+                    'student_id': roster_entry.student.id,
+                    'student_name': roster_entry.student.get_full_name(),
+                    'absent': student_totals['absent_count'] or 0,
+                    'tardy': student_totals['tardy_count'] or 0,
+                    'early_dismissal': student_totals['early_dismissal_count'] or 0
+                })
+            
+            return Response({
+                'class_id': class_id,
+                'totals': totals
+            })
+            
+        except Class.DoesNotExist:
+            return Response(
+                {"error": "Class not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
 
 
 def layout_editor_view(request):

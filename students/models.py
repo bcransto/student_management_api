@@ -773,3 +773,65 @@ class PartnershipRating(models.Model):
             }
         )
         return rating_obj
+
+
+class AttendanceRecord(models.Model):
+    """Model to track student attendance for each class by date"""
+    
+    # Status choices
+    STATUS_CHOICES = [
+        ('present', 'Present'),
+        ('absent', 'Absent'),
+        ('tardy', 'Tardy'),
+        ('early_dismissal', 'Early Dismissal'),
+    ]
+    
+    # Foreign key to ClassRoster (not Student directly)
+    class_roster = models.ForeignKey(
+        ClassRoster,
+        on_delete=models.CASCADE,
+        related_name='attendance_records'
+    )
+    
+    # Date of attendance
+    date = models.DateField()
+    
+    # Attendance status
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='present'
+    )
+    
+    # Optional notes
+    notes = models.TextField(
+        blank=True,
+        help_text="Additional notes about this attendance record"
+    )
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        # Ensure one attendance record per student per date
+        unique_together = [['class_roster', 'date']]
+        ordering = ['-date', 'class_roster__student__last_name', 'class_roster__student__first_name']
+        indexes = [
+            models.Index(fields=['date']),  # Fast lookup by date
+            models.Index(fields=['class_roster', 'date']),  # Fast lookup for specific student on date
+            models.Index(fields=['status']),  # Fast filtering by status
+        ]
+    
+    def __str__(self):
+        return f"{self.class_roster.student.get_full_name()} - {self.date} - {self.get_status_display()}"
+    
+    @property
+    def student(self):
+        """Convenience property to access student directly"""
+        return self.class_roster.student
+    
+    @property
+    def class_assigned(self):
+        """Convenience property to access class directly"""
+        return self.class_roster.class_assigned

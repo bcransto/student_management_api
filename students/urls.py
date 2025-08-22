@@ -33,6 +33,9 @@ router.register(r"obstacles", views.LayoutObstacleViewSet)
 router.register(r"seating-periods", views.SeatingPeriodViewSet)
 router.register(r"seating-assignments", views.SeatingAssignmentViewSet)
 
+# Attendance
+router.register(r"attendance", views.AttendanceViewSet, basename="attendance")
+
 # Add snake_case aliases for consistency (both hyphenated and snake_case work)
 router.register(r"seating_periods", views.SeatingPeriodViewSet, basename="seating_periods")
 router.register(r"seating_assignments", views.SeatingAssignmentViewSet, basename="seating_assignments")
