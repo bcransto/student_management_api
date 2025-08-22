@@ -12,7 +12,26 @@ const SeatingViewer = ({ classId, periodId, onEdit, onBack, navigateTo }) => {
   const [students, setStudents] = React.useState([]);
   const [assignments, setAssignments] = React.useState({});
   const [isCreatingPeriod, setIsCreatingPeriod] = React.useState(false);
-  const [viewMode, setViewMode] = React.useState("teacher"); // "teacher" or "student"
+  const [viewMode, setViewMode] = React.useState("teacher"); // "teacher", "student", or "print"
+  const [showViewDropdown, setShowViewDropdown] = React.useState(false);
+  const dropdownRef = React.useRef(null);
+
+  // Handle click outside to close dropdown
+  React.useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowViewDropdown(false);
+      }
+    };
+
+    if (showViewDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showViewDropdown]);
 
   // Load class data
   const loadClassData = async () => {
@@ -523,43 +542,120 @@ const SeatingViewer = ({ classId, periodId, onEdit, onBack, navigateTo }) => {
         getTitle()
       ),
 
-      // View mode selector
+      // View mode dropdown button
       React.createElement(
         "div",
         {
+          ref: dropdownRef,
           style: { 
-            display: "flex", 
-            alignItems: "center", 
-            gap: "0.5rem",
-            marginRight: "1rem"
+            position: "relative",
+            marginRight: "10px"
           }
         },
         React.createElement(
-          "label",
+          "button",
           {
-            htmlFor: "view-mode-select",
+            className: "btn btn-sm btn-secondary",
+            onClick: () => setShowViewDropdown(!showViewDropdown),
             style: { 
-              fontSize: "0.875rem",
-              fontWeight: "500"
+              width: "80px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "0.25rem"
             }
           },
-          "View:"
+          "View ",
+          React.createElement("i", { 
+            className: showViewDropdown ? "fas fa-chevron-up" : "fas fa-chevron-down",
+            style: { fontSize: "0.75rem" }
+          })
         ),
-        React.createElement(
-          "select",
+        // Dropdown menu
+        showViewDropdown && React.createElement(
+          "div",
           {
-            id: "view-mode-select",
-            value: viewMode,
-            onChange: (e) => setViewMode(e.target.value),
-            className: "form-select form-select-sm",
             style: {
-              padding: "0.25rem 0.5rem",
-              fontSize: "0.875rem",
-              minWidth: "130px"
+              position: "absolute",
+              top: "100%",
+              left: 0,
+              marginTop: "0.25rem",
+              backgroundColor: "white",
+              border: "1px solid #e5e7eb",
+              borderRadius: "0.375rem",
+              boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+              zIndex: 1000,
+              minWidth: "140px"
             }
           },
-          React.createElement("option", { value: "teacher" }, "Teacher View"),
-          React.createElement("option", { value: "student" }, "Student View")
+          React.createElement(
+            "button",
+            {
+              onClick: () => {
+                setViewMode("teacher");
+                setShowViewDropdown(false);
+              },
+              style: {
+                display: "block",
+                width: "100%",
+                padding: "0.5rem 1rem",
+                textAlign: "left",
+                border: "none",
+                backgroundColor: viewMode === "teacher" ? "#f3f4f6" : "transparent",
+                cursor: "pointer",
+                fontSize: "0.875rem"
+              },
+              onMouseEnter: (e) => e.target.style.backgroundColor = "#f3f4f6",
+              onMouseLeave: (e) => e.target.style.backgroundColor = viewMode === "teacher" ? "#f3f4f6" : "transparent"
+            },
+            "Teacher View"
+          ),
+          React.createElement(
+            "button",
+            {
+              onClick: () => {
+                setViewMode("student");
+                setShowViewDropdown(false);
+              },
+              style: {
+                display: "block",
+                width: "100%",
+                padding: "0.5rem 1rem",
+                textAlign: "left",
+                border: "none",
+                backgroundColor: viewMode === "student" ? "#f3f4f6" : "transparent",
+                cursor: "pointer",
+                fontSize: "0.875rem"
+              },
+              onMouseEnter: (e) => e.target.style.backgroundColor = "#f3f4f6",
+              onMouseLeave: (e) => e.target.style.backgroundColor = viewMode === "student" ? "#f3f4f6" : "transparent"
+            },
+            "Student View"
+          ),
+          React.createElement(
+            "button",
+            {
+              onClick: () => {
+                // Print view is placeholder for now
+                console.log("Print view not yet implemented");
+                setShowViewDropdown(false);
+              },
+              style: {
+                display: "block",
+                width: "100%",
+                padding: "0.5rem 1rem",
+                textAlign: "left",
+                border: "none",
+                backgroundColor: viewMode === "print" ? "#f3f4f6" : "transparent",
+                cursor: "pointer",
+                fontSize: "0.875rem",
+                color: "#9ca3af" // Grayed out since it's a placeholder
+              },
+              onMouseEnter: (e) => e.target.style.backgroundColor = "#f3f4f6",
+              onMouseLeave: (e) => e.target.style.backgroundColor = viewMode === "print" ? "#f3f4f6" : "transparent"
+            },
+            "Print View"
+          )
         )
       ),
 
@@ -568,7 +664,7 @@ const SeatingViewer = ({ classId, periodId, onEdit, onBack, navigateTo }) => {
         "div",
         {
           className: "period-navigation",
-          style: { display: "flex", gap: "0.5rem", marginLeft: "1rem" },
+          style: { display: "flex", gap: "10px" },
         },
         React.createElement(
           "button",
@@ -576,6 +672,7 @@ const SeatingViewer = ({ classId, periodId, onEdit, onBack, navigateTo }) => {
             className: "btn btn-sm btn-secondary",
             onClick: () => handlePeriodNavigation("previous"),
             title: "View previous seating period",
+            style: { width: "100px" }
           },
           React.createElement("i", { className: "fas fa-chevron-left" }),
           " Previous"
@@ -586,6 +683,7 @@ const SeatingViewer = ({ classId, periodId, onEdit, onBack, navigateTo }) => {
             className: "btn btn-sm btn-secondary",
             onClick: () => handlePeriodNavigation("next"),
             title: "View next seating period",
+            style: { width: "100px" }
           },
           "Next ",
           React.createElement("i", { className: "fas fa-chevron-right" })
@@ -597,6 +695,7 @@ const SeatingViewer = ({ classId, periodId, onEdit, onBack, navigateTo }) => {
             className: "btn btn-sm btn-secondary",
             onClick: onEdit,
             title: "Switch to edit mode",
+            style: { width: "100px" }
           },
           React.createElement("i", { className: "fas fa-edit" }),
           " Edit Mode"
@@ -609,6 +708,7 @@ const SeatingViewer = ({ classId, periodId, onEdit, onBack, navigateTo }) => {
             onClick: handleNewPeriod,
             disabled: isCreatingPeriod || !layout,
             title: layout ? "Start a new seating period" : "No layout available",
+            style: { width: "100px" }
           },
           React.createElement("i", { className: "fas fa-calendar-plus" }),
           " New Period"
@@ -737,27 +837,6 @@ const SeatingViewerCanvas = ({
         boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
       },
     },
-
-    // View mode indicator
-    React.createElement(
-      "div",
-      {
-        style: {
-          position: "absolute",
-          top: "10px",
-          right: "10px",
-          padding: "4px 8px",
-          backgroundColor: viewMode === "student" ? "#10b981" : "#3b82f6",
-          color: "white",
-          borderRadius: "4px",
-          fontSize: "12px",
-          fontWeight: "500",
-          zIndex: 10,
-          opacity: 0.8,
-        }
-      },
-      viewMode === "student" ? "Student View" : "Teacher View"
-    ),
 
     // Render obstacles
     displayLayout.obstacles?.map((obstacle) =>
