@@ -114,15 +114,28 @@
   min-height: 0; /* Important for flexbox */
 }
 
-/* Canvas element */
-.attendance-visual-canvas {
-  background: white;
-  border: 1px solid #d0d0d0;
-  border-radius: 4px;
+/* Seating grid */
+.attendance-visual-grid {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  max-width: 100%;
-  max-height: 100%;
-  cursor: pointer;
+  user-select: none;
+}
+
+/* Tables */
+.av-table {
+  position: relative;
+  transition: all 0.2s;
+}
+
+/* Seats */
+.av-seat {
+  user-select: none;
+  transition: all 0.2s;
+}
+
+.av-seat:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  z-index: 10;
 }
 
 /* Loading state */
@@ -200,10 +213,29 @@
 }
 
 /* Status colors (will be used in Phase 3) */
-.av-status-present { background: #d4f4dd; }
-.av-status-absent { background: #fecaca; }
-.av-status-tardy { background: #fed7aa; }
-.av-status-early { background: #bfdbfe; }
+.av-status-present { 
+  background: #d4f4dd !important;
+  border-color: #10b981 !important;
+}
+.av-status-absent { 
+  background: #fecaca !important;
+  border-color: #ef4444 !important;
+}
+.av-status-tardy { 
+  background: #fed7aa !important;
+  border-color: #f97316 !important;
+}
+.av-status-early { 
+  background: #bfdbfe !important;
+  border-color: #3b82f6 !important;
+}
+
+/* Empty seat */
+.av-status-empty {
+  background: #f9fafb !important;
+  border-color: #d1d5db !important;
+  color: #9ca3af !important;
+}
 
 /* Responsive adjustments for smaller iPads */
 @media (max-width: 768px) {
