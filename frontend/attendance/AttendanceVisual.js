@@ -14,7 +14,16 @@ const AttendanceVisual = ({ classId, date, onBack, navigateTo }) => {
   const [layout, setLayout] = useState(null);
   const [students, setStudents] = useState([]);
   const [assignments, setAssignments] = useState({});
-  const [currentDate, setCurrentDate] = useState(date || new Date().toISOString().split('T')[0]);
+  // Use local date instead of UTC to avoid timezone issues
+  const getLocalDateString = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+  
+  const [currentDate, setCurrentDate] = useState(date || getLocalDateString());
   const [gridSize, setGridSize] = useState(60); // Base grid size for scaling
   
   // Attendance state - track status for each student
@@ -174,6 +183,7 @@ const AttendanceVisual = ({ classId, date, onBack, navigateTo }) => {
       
       // Load attendance data for the date
       try {
+        console.log("Loading attendance for date:", currentDate);
         const attendanceResponse = await window.ApiModule.request(
           `/attendance/by-class/${classId}/${currentDate}/`
         );

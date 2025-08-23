@@ -17,7 +17,16 @@ const AttendanceEditor = ({ classId, date, onBack, navigateTo }) => {
   const [students, setStudents] = useState([]);
   const [attendanceRecords, setAttendanceRecords] = useState({}); // {studentId: {status, notes}}
   const [initialRecords, setInitialRecords] = useState({}); // Track original state
-  const [currentDate, setCurrentDate] = useState(date || new Date().toISOString().split('T')[0]);
+  // Use local date instead of UTC to avoid timezone issues
+  const getLocalDateString = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+  
+  const [currentDate, setCurrentDate] = useState(date || getLocalDateString());
   
   // Navigation state
   const [availableDates, setAvailableDates] = useState([]);
@@ -129,7 +138,7 @@ const AttendanceEditor = ({ classId, date, onBack, navigateTo }) => {
   // Update navigation button states
   const updateNavigationState = (dates, current) => {
     const currentIndex = dates.indexOf(current);
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDateString();
     
     // Can go previous if there are earlier dates with attendance
     setCanGoPrevious(currentIndex > 0 || (dates.length > 0 && dates[0] < current));
