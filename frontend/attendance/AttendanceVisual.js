@@ -191,12 +191,13 @@ const AttendanceVisual = ({ classId, date, onBack, navigateTo }) => {
         
         // Convert to our format keyed by roster ID
         const records = {};
-        if (attendanceResponse.attendance_records) {
-          attendanceResponse.attendance_records.forEach(record => {
-            // Find the roster entry for this student
-            const rosterEntry = classData.roster.find(r => r.student === record.student);
-            if (rosterEntry) {
-              records[rosterEntry.id] = {
+        // The API returns an array directly, not wrapped in an object
+        if (Array.isArray(attendanceResponse)) {
+          attendanceResponse.forEach(record => {
+            // The record contains class_roster ID and student info
+            const rosterId = record.class_roster;
+            if (rosterId) {
+              records[rosterId] = {
                 status: record.status || 'present',
                 notes: record.notes || ''
               };

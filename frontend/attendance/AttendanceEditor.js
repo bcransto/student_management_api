@@ -94,10 +94,13 @@ const AttendanceEditor = ({ classId, date, onBack, navigateTo }) => {
           console.log("Existing attendance data:", attendanceData);
           
           // Merge existing records with defaults
-          if (attendanceData.attendance_records && Array.isArray(attendanceData.attendance_records)) {
-            attendanceData.attendance_records.forEach(record => {
-              if (defaultRecords[record.student]) {
-                defaultRecords[record.student] = {
+          // The API returns an array directly, not wrapped in an object
+          if (Array.isArray(attendanceData)) {
+            attendanceData.forEach(record => {
+              // Use student_id from the record to match with our defaultRecords
+              const studentId = record.student_id;
+              if (studentId && defaultRecords[studentId]) {
+                defaultRecords[studentId] = {
                   status: record.status,
                   notes: record.notes || ''
                 };
