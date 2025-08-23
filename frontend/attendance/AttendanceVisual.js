@@ -17,6 +17,10 @@ const AttendanceVisual = ({ classId, date, onBack, navigateTo }) => {
   const [currentDate, setCurrentDate] = useState(date || new Date().toISOString().split('T')[0]);
   const [gridSize, setGridSize] = useState(60); // Base grid size for scaling
   
+  // Attendance state - track status for each student
+  const [attendanceRecords, setAttendanceRecords] = useState({});
+  const [statusAnnouncements, setStatusAnnouncements] = useState([]);
+  
   // Container ref for auto-scaling
   const containerRef = useRef(null);
   
@@ -168,7 +172,52 @@ const AttendanceVisual = ({ classId, date, onBack, navigateTo }) => {
         console.log("Error loading seating data:", error);
       }
       
-      // TODO: Load attendance data for the date
+      // Load attendance data for the date
+      try {
+        const attendanceResponse = await window.ApiModule.request(
+          `/attendance/by-class/${classId}/${currentDate}/`
+        );
+        console.log("Attendance data loaded:", attendanceResponse);
+        
+        // Convert to our format keyed by roster ID
+        const records = {};
+        if (attendanceResponse.attendance_records) {
+          attendanceResponse.attendance_records.forEach(record => {
+            // Find the roster entry for this student
+            const rosterEntry = classData.roster.find(r => r.student === record.student);
+            if (rosterEntry) {
+              records[rosterEntry.id] = {
+                status: record.status || 'present',
+                notes: record.notes || ''
+              };
+            }
+          });
+        }
+        
+        // Initialize all students as present if no existing record
+        classData.roster.forEach(roster => {
+          if (!records[roster.id]) {
+            records[roster.id] = {
+              status: 'present',
+              notes: ''
+            };
+          }
+        });
+        
+        setAttendanceRecords(records);
+        console.log("Initialized attendance records:", records);
+      } catch (error) {
+        console.log("No existing attendance data, initializing all as present");
+        // Initialize all students as present
+        const records = {};
+        classData.roster.forEach(roster => {
+          records[roster.id] = {
+            status: 'present',
+            notes: ''
+          };
+        });
+        setAttendanceRecords(records);
+      }
       
     } catch (error) {
       console.error("Failed to load class data:", error);
@@ -189,10 +238,38 @@ const AttendanceVisual = ({ classId, date, onBack, navigateTo }) => {
       setSaving(true);
       console.log("Saving visual attendance...");
       
-      // TODO: Implement save logic
+      // Build attendance records for API
+      const recordsToSave = [];
+      Object.keys(attendanceRecords).forEach(rosterId => {
+        const record = attendanceRecords[rosterId];
+        recordsToSave.push({
+          class_roster_id: parseInt(rosterId),
+          status: record.status,
+          notes: record.notes || ''
+        });
+      });
       
+      // Save via bulk API
+      const response = await window.ApiModule.request('/attendance/bulk-save/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          date: currentDate,
+          attendance_records: recordsToSave
+        })
+      });
+      
+      console.log("Attendance saved:", response);
       setHasUnsavedChanges(false);
-      alert("Attendance saved successfully!");
+      
+      // Show success briefly (no alert)
+      const saveBtn = document.querySelector('.av-btn-save');
+      if (saveBtn) {
+        saveBtn.textContent = '✓ Saved';
+        setTimeout(() => {
+          saveBtn.innerHTML = '<i class="fas fa-save"></i> Save';
+        }, 2000);
+      }
       
     } catch (error) {
       console.error("Failed to save attendance:", error);
@@ -210,12 +287,17 @@ const AttendanceVisual = ({ classId, date, onBack, navigateTo }) => {
       }
     }
     
-    if (onBack) {
+    // Navigate back to attendance list
+    // First try the callback if provided
+    if (onBack && typeof onBack === 'function') {
+      console.log("Using onBack callback");
       onBack();
-    } else if (navigateTo) {
-      navigateTo('attendance');
     } else {
-      window.location.hash = '#attendance';
+      console.log("Using direct hash navigation");
+      // Set the hash which should trigger hashchange event
+      window.location.hash = 'attendance';
+      // Also dispatch a custom event to ensure the app updates
+      window.dispatchEvent(new HashChangeEvent('hashchange'));
     }
   };
   
@@ -228,6 +310,84 @@ const AttendanceVisual = ({ classId, date, onBack, navigateTo }) => {
       day: 'numeric' 
     });
   };
+  
+  // Status cycle order
+  const statusCycle = ['present', 'absent', 'tardy', 'early_dismissal'];
+  
+  // Handle seat click - cycle through statuses
+  const handleSeatClick = (e, student, rosterId) => {
+    if (!student || !rosterId) return;
+    
+    e.stopPropagation();
+    
+    // Get current status
+    const currentStatus = attendanceRecords[rosterId]?.status || 'present';
+    
+    // Find next status in cycle
+    const currentIndex = statusCycle.indexOf(currentStatus);
+    const nextIndex = (currentIndex + 1) % statusCycle.length;
+    const nextStatus = statusCycle[nextIndex];
+    
+    // Update attendance record
+    setAttendanceRecords(prev => ({
+      ...prev,
+      [rosterId]: {
+        ...prev[rosterId],
+        status: nextStatus
+      }
+    }));
+    
+    setHasUnsavedChanges(true);
+    
+    // Add brief visual feedback
+    const seatElement = e.currentTarget;
+    seatElement.style.transform = 'scale(1.15)';
+    setTimeout(() => {
+      seatElement.style.transform = '';
+    }, 200);
+    
+    // Create floating status announcement
+    const rect = seatElement.getBoundingClientRect();
+    const announcementId = `${rosterId}-${Date.now()}`;
+    const statusLabels = {
+      'present': 'Present',
+      'absent': 'Absent',
+      'tardy': 'Tardy',
+      'early_dismissal': 'Early Dismissal'
+    };
+    
+    setStatusAnnouncements(prev => [...prev, {
+      id: announcementId,
+      text: statusLabels[nextStatus],
+      x: rect.left + rect.width / 2,
+      y: rect.top - 10,
+      color: getStatusColor(nextStatus).border
+    }]);
+    
+    // Remove announcement after animation
+    setTimeout(() => {
+      setStatusAnnouncements(prev => prev.filter(a => a.id !== announcementId));
+    }, 1500);
+    
+    console.log(`Updated ${student.first_name} from ${currentStatus} to ${nextStatus}`);
+  };
+  
+  // Get status color
+  const getStatusColor = (status) => {
+    switch(status) {
+      case 'present':
+        return { bg: '#d4f4dd', border: '#10b981' }; // Green
+      case 'absent':
+        return { bg: '#fee2e2', border: '#ef4444' }; // Red
+      case 'tardy':
+        return { bg: '#fef3c7', border: '#f59e0b' }; // Yellow
+      case 'early_dismissal':
+        return { bg: '#fed7aa', border: '#fb923c' }; // Orange
+      default:
+        return { bg: '#f3f4f6', border: '#d1d5db' }; // Gray
+    }
+  };
+  
   
   // Render loading state
   if (loading) {
@@ -294,6 +454,58 @@ const AttendanceVisual = ({ classId, date, onBack, navigateTo }) => {
           React.createElement("i", { className: "fas fa-save" }),
         saving ? " Saving" : " Save"
       )
+    ),
+    
+    // Legend for attendance statuses
+    React.createElement(
+      "div",
+      { 
+        className: "av-legend",
+        style: {
+          position: "absolute",
+          bottom: "10px",
+          left: "10px",
+          display: "flex",
+          alignItems: "center",
+          gap: "12px",
+          backgroundColor: "rgba(255, 255, 255, 0.95)",
+          padding: "8px 12px",
+          borderRadius: "6px",
+          border: "1px solid #e5e7eb",
+          fontSize: "11px",
+          zIndex: 10
+        }
+      },
+      // Status items
+      [
+        { status: 'present', label: 'Present' },
+        { status: 'absent', label: 'Absent' },
+        { status: 'tardy', label: 'Tardy' },
+        { status: 'early_dismissal', label: 'Early' }
+      ].map(item => {
+        const colors = getStatusColor(item.status);
+        return React.createElement(
+          "div",
+          { 
+            key: item.status,
+            style: { 
+              display: "flex", 
+              alignItems: "center", 
+              gap: "4px"
+            }
+          },
+          React.createElement("div", {
+            style: {
+              width: "12px",
+              height: "12px",
+              backgroundColor: colors.bg,
+              border: `2px solid ${colors.border}`,
+              borderRadius: "50%"
+            }
+          }),
+          React.createElement("span", null, item.label)
+        );
+      })
     ),
     
     // Seating grid area
@@ -365,13 +577,12 @@ const AttendanceVisual = ({ classId, date, onBack, navigateTo }) => {
               const tableKey = String(table.id);
               const studentId = assignments[tableKey]?.[seatKey];
               const student = studentId ? students.find(s => s.id === studentId) : null;
+              const rosterId = student ? students.find(s => s.id === studentId)?.rosterId : null;
               
-              // Debug logging
-              console.log(`Table ${table.table_number}, Seat ${seat.seat_number}:`, {
-                relative_x: seat.relative_x,
-                relative_y: seat.relative_y,
-                hasStudent: !!student
-              });
+              // Get attendance status for this student
+              const attendanceStatus = rosterId && attendanceRecords[rosterId] 
+                ? attendanceRecords[rosterId].status 
+                : 'present';
               
               // Use LayoutStyles helper for consistent styling
               const seatStyle = window.LayoutStyles?.getSeatStyle ? 
@@ -409,9 +620,11 @@ const AttendanceVisual = ({ classId, date, onBack, navigateTo }) => {
                 };
               
               // Override colors for attendance status
-              if (student) {
-                seatStyle.backgroundColor = "#d4f4dd";
-                seatStyle.border = "2px solid #10b981";
+              if (student && rosterId) {
+                const statusColors = getStatusColor(attendanceStatus);
+                seatStyle.backgroundColor = statusColors.bg;
+                seatStyle.border = `2px solid ${statusColors.border}`;
+                seatStyle.cursor = 'pointer';
               }
               
               return React.createElement(
@@ -420,12 +633,9 @@ const AttendanceVisual = ({ classId, date, onBack, navigateTo }) => {
                   key: seat.seat_number,
                   className: "av-seat",
                   style: seatStyle,
-                  onClick: () => {
-                    // TODO: Handle attendance marking (Phase 3)
-                    console.log("Seat clicked:", seat.seat_number, student);
-                  },
+                  onClick: (e) => handleSeatClick(e, student, rosterId),
                   title: student ? 
-                    `${student.first_name} ${student.last_name}` : 
+                    `${student.first_name} ${student.last_name} - ${attendanceStatus}` : 
                     `Seat ${seat.seat_number}`
                 },
                 
@@ -458,6 +668,35 @@ const AttendanceVisual = ({ classId, date, onBack, navigateTo }) => {
         React.createElement("i", { className: "fas fa-th fa-3x" }),
         React.createElement("h3", null, "No Seating Layout"),
         React.createElement("p", null, "This class needs a seating layout for visual attendance.")
+      )
+    ),
+    
+    // Floating status announcements
+    statusAnnouncements.map(announcement =>
+      React.createElement(
+        "div",
+        {
+          key: announcement.id,
+          className: "av-status-announcement",
+          style: {
+            position: "fixed",
+            left: `${announcement.x}px`,
+            top: `${announcement.y}px`,
+            transform: "translateX(-50%)",
+            backgroundColor: "white",
+            color: announcement.color,
+            border: `2px solid ${announcement.color}`,
+            borderRadius: "16px",
+            padding: "4px 12px",
+            fontSize: "14px",
+            fontWeight: "600",
+            boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
+            zIndex: 1000,
+            pointerEvents: "none",
+            animation: "floatUp 1.5s ease-out forwards"
+          }
+        },
+        announcement.text
       )
     )
   );

@@ -200,7 +200,12 @@ const App = () => {
 
       // Check for attendance patterns
       if (hash === "attendance" || hash.startsWith("attendance/")) {
+        console.log("Hash change detected for attendance:", hash);
         setCurrentView("attendance");
+        // Force update to ensure proper re-render when leaving visual mode
+        if (window.location.hash === "#attendance") {
+          console.log("Navigating back to attendance list from visual mode");
+        }
         return;
       }
 
@@ -349,6 +354,25 @@ const App = () => {
         console.log("Timeout check - currentView should be 'seating', hash:", window.location.hash);
       }, 0);
       
+      return;
+    }
+
+    // Handle attendance navigation specifically (especially when coming back from visual mode)
+    if (view === "attendance") {
+      console.log("Navigating to attendance list view");
+      console.log("Current hash before:", window.location.hash);
+      
+      // Update the hash
+      window.location.hash = "attendance";
+      
+      // Update state
+      setCurrentView("attendance");
+      setEditingStudentId(null);
+      
+      // Force a re-render
+      forceUpdate();
+      
+      console.log("Hash after update:", window.location.hash);
       return;
     }
 
