@@ -30,6 +30,10 @@ const AttendanceVisual = ({ classId, date, onBack, navigateTo }) => {
   const [attendanceRecords, setAttendanceRecords] = useState({});
   const [statusAnnouncements, setStatusAnnouncements] = useState([]);
   
+  // State for static historical data (never changes based on today's attendance)
+  const [consecutiveAbsences, setConsecutiveAbsences] = useState({}); // rosterId -> count (historical only)
+  const [birthdayStudents, setBirthdayStudents] = useState(new Set()); // Set of student IDs with birthdays today
+  
   // Container ref for auto-scaling
   const containerRef = useRef(null);
   
@@ -217,6 +221,65 @@ const AttendanceVisual = ({ classId, date, onBack, navigateTo }) => {
         
         setAttendanceRecords(records);
         console.log("Initialized attendance records:", records);
+        
+        // Now fetch recent history for static historical absences and birthdays
+        try {
+          console.log("Fetching recent attendance history...");
+          const recentResponse = await window.ApiModule.request(
+            `/attendance/recent/${classId}/${currentDate}/`
+          );
+          console.log("Recent history response:", recentResponse);
+          
+          // Set birthday students
+          if (recentResponse.birthday_students && Array.isArray(recentResponse.birthday_students)) {
+            setBirthdayStudents(new Set(recentResponse.birthday_students));
+            console.log("Birthday students for today:", recentResponse.birthday_students);
+          }
+          
+          // Calculate STATIC historical consecutive absences (excluding today)
+          const historicalAbsences = {};
+          
+          // For each student in the roster
+          classData.roster.forEach(roster => {
+            const studentId = roster.student;
+            const rosterId = roster.id;
+            let consecutiveCount = 0;
+            
+            // Look through historical records ONLY (not today)
+            // The attendance_history from API is already sorted most recent first
+            for (const dateEntry of recentResponse.attendance_history || []) {
+              // Find this student's record for this historical date
+              const histRecord = dateEntry.records.find(r => r.student_id === studentId);
+              
+              if (histRecord && histRecord.status === 'absent') {
+                consecutiveCount++;
+              } else {
+                // Break on first non-absence or missing record
+                break;
+              }
+              
+              // Cap at 11 for display purposes (will show as >10)
+              if (consecutiveCount >= 11) {
+                break;
+              }
+            }
+            
+            // Only store if there are historical consecutive absences
+            if (consecutiveCount > 0) {
+              historicalAbsences[rosterId] = consecutiveCount;
+              console.log(`Student ${studentId} (roster ${rosterId}): ${consecutiveCount} historical consecutive absences`);
+            }
+          });
+          
+          setConsecutiveAbsences(historicalAbsences);
+          console.log("Static historical consecutive absences:", historicalAbsences);
+          
+        } catch (error) {
+          console.log("Could not load recent history:", error);
+          // Continue without history data - not critical for basic functionality
+          // Leave consecutiveAbsences and birthdayStudents as empty
+        }
+        
       } catch (error) {
         console.log("No existing attendance data, initializing all as present");
         // Initialize all students as present
@@ -228,6 +291,44 @@ const AttendanceVisual = ({ classId, date, onBack, navigateTo }) => {
           };
         });
         setAttendanceRecords(records);
+        
+        // Still try to fetch historical data even if no current attendance
+        try {
+          const recentResponse = await window.ApiModule.request(
+            `/attendance/recent/${classId}/${currentDate}/`
+          );
+          
+          // Set birthdays
+          if (recentResponse.birthday_students) {
+            setBirthdayStudents(new Set(recentResponse.birthday_students));
+          }
+          
+          // Calculate historical absences (same logic as above)
+          const historicalAbsences = {};
+          classData.roster.forEach(roster => {
+            const studentId = roster.student;
+            const rosterId = roster.id;
+            let consecutiveCount = 0;
+            
+            for (const dateEntry of recentResponse.attendance_history || []) {
+              const histRecord = dateEntry.records.find(r => r.student_id === studentId);
+              if (histRecord && histRecord.status === 'absent') {
+                consecutiveCount++;
+              } else {
+                break;
+              }
+              if (consecutiveCount >= 11) break;
+            }
+            
+            if (consecutiveCount > 0) {
+              historicalAbsences[rosterId] = consecutiveCount;
+            }
+          });
+          
+          setConsecutiveAbsences(historicalAbsences);
+        } catch (err) {
+          console.log("Could not load recent history:", err);
+        }
       }
       
     } catch (error) {
