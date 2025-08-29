@@ -1045,6 +1045,99 @@ class AttendanceViewSet(viewsets.ModelViewSet):
                 {"error": "Class not found"},
                 status=status.HTTP_404_NOT_FOUND
             )
+    
+    @action(detail=False, methods=['GET'], url_path='recent/(?P<class_id>[^/.]+)/(?P<date>[^/.]+)')
+    def recent_attendance(self, request, class_id=None, date=None):
+        """Get recent attendance history for consecutive absence tracking and birthdays"""
+        from datetime import datetime, timedelta
+        
+        try:
+            # Verify teacher owns the class
+            class_obj = Class.objects.get(id=class_id)
+            if class_obj.teacher != request.user and not request.user.is_superuser:
+                return Response(
+                    {"error": "You don't have permission to view this class's attendance"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            
+            # Parse the requested date
+            try:
+                current_date = datetime.strptime(date, '%Y-%m-%d').date()
+            except ValueError:
+                return Response(
+                    {"error": "Invalid date format. Use YYYY-MM-DD"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Get all active roster entries with student info
+            roster_entries = ClassRoster.objects.filter(
+                class_assigned_id=class_id,
+                is_active=True
+            ).select_related('student').order_by('student__last_name', 'student__first_name')
+            
+            # Find students with birthdays on the requested date
+            birthday_students = []
+            for roster_entry in roster_entries:
+                student = roster_entry.student
+                if student.date_of_birth:
+                    # Check if birthday matches (month and day only)
+                    if (student.date_of_birth.month == current_date.month and 
+                        student.date_of_birth.day == current_date.day):
+                        birthday_students.append(student.id)
+            
+            # Get dates with attendance records before the current date
+            # Limit to 11 most recent dates for consecutive absence calculation
+            previous_dates = AttendanceRecord.objects.filter(
+                class_roster__class_assigned_id=class_id,
+                date__lt=current_date
+            ).values_list('date', flat=True).distinct().order_by('-date')[:11]
+            
+            # Convert to list and sort in descending order (most recent first)
+            previous_dates = sorted(list(previous_dates), reverse=True)
+            
+            # Build attendance history for these dates
+            attendance_history = []
+            for hist_date in previous_dates:
+                # Get attendance records for this date
+                records = AttendanceRecord.objects.filter(
+                    class_roster__class_assigned_id=class_id,
+                    date=hist_date
+                ).select_related('class_roster__student')
+                
+                # Build list of records for this date
+                date_records = []
+                for record in records:
+                    date_records.append({
+                        'class_roster': record.class_roster_id,
+                        'student_id': record.class_roster.student.id,
+                        'status': record.status,
+                        'notes': record.notes
+                    })
+                
+                attendance_history.append({
+                    'date': str(hist_date),
+                    'records': date_records
+                })
+            
+            # Build response
+            response_data = {
+                'current_date': str(current_date),
+                'birthday_students': birthday_students,
+                'attendance_history': attendance_history
+            }
+            
+            return Response(response_data)
+            
+        except Class.DoesNotExist:
+            return Response(
+                {"error": "Class not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
 
 def layout_editor_view(request):
