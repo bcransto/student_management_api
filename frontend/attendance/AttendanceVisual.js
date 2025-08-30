@@ -785,8 +785,8 @@ const AttendanceVisual = ({ classId, date, onBack, navigateTo }) => {
                       {
                         style: {
                           position: "absolute",
-                          top: "-2px",  // Moved from 2px to -2px (more outside)
-                          left: "-2px", // Moved from 2px to -2px (more outside)
+                          top: "-6px",  // Further outside for better separation
+                          left: "-6px", // Further outside for better separation
                           width: `${gridSize * 0.25}px`,
                           height: `${gridSize * 0.25}px`,
                           backgroundColor: "#dc2626",
@@ -815,8 +815,8 @@ const AttendanceVisual = ({ classId, date, onBack, navigateTo }) => {
                       {
                         style: {
                           position: "absolute",
-                          top: "-2px",   // Moved from 2px to -2px (more outside)
-                          right: "-2px", // Moved from 2px to -2px (more outside)
+                          top: "-6px",   // Further outside for better separation
+                          right: "-6px", // Further outside for better separation
                           width: `${gridSize * 0.22}px`,
                           height: `${gridSize * 0.22}px`,
                           backgroundColor: "#fbbf24",
@@ -837,15 +837,36 @@ const AttendanceVisual = ({ classId, date, onBack, navigateTo }) => {
                   // Student name or seat number
                   student ? React.createElement(
                     "div",
-                    { style: { textAlign: "center", width: "100%" } },
+                    { 
+                      style: { 
+                        textAlign: "center", 
+                        width: "100%",
+                        overflow: "hidden",  // Prevent text overflow
+                        padding: "2px"       // Small padding to keep text from edge
+                      } 
+                    },
                     React.createElement(
                       "div",
-                      { style: { fontWeight: "bold", fontSize: `${gridSize * 0.2}px`, lineHeight: "1.1" } },
+                      { 
+                        style: { 
+                          fontWeight: "bold", 
+                          fontSize: `${gridSize * 0.2}px`, 
+                          lineHeight: "1.1",
+                          overflow: "hidden",
+                          whiteSpace: "nowrap"  // Keep on single line, clip if too long
+                        } 
+                      },
                       student.nickname
                     ),
                     React.createElement(
                       "div",
-                      { style: { fontSize: `${gridSize * 0.15}px`, lineHeight: "1.1" } },
+                      { 
+                        style: { 
+                          fontSize: `${gridSize * 0.15}px`, 
+                          lineHeight: "1.1",
+                          overflow: "hidden"
+                        } 
+                      },
                       student.last_name.substring(0, 3) + "."
                     )
                   ) : React.createElement(
