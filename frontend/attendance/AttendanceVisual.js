@@ -34,6 +34,10 @@ const AttendanceVisual = ({ classId, date, onBack, navigateTo }) => {
   const [consecutiveAbsences, setConsecutiveAbsences] = useState({}); // rosterId -> count (historical only)
   const [birthdayStudents, setBirthdayStudents] = useState(new Set()); // Set of student IDs with birthdays today
   
+  // State for class dropdown
+  const [teacherClasses, setTeacherClasses] = useState([]);
+  const [showClassDropdown, setShowClassDropdown] = useState(false);
+  
   // Container ref for auto-scaling
   const containerRef = useRef(null);
   
@@ -43,6 +47,23 @@ const AttendanceVisual = ({ classId, date, onBack, navigateTo }) => {
       loadClassData();
     }
   }, [classId, currentDate]);
+  
+  // Load teacher's classes for dropdown
+  useEffect(() => {
+    loadTeacherClasses();
+  }, []);
+  
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showClassDropdown && !event.target.closest('.av-class-dropdown-btn')) {
+        setShowClassDropdown(false);
+      }
+    };
+    
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [showClassDropdown]);
   
   // Auto-scale to fit container
   useEffect(() => {
@@ -339,6 +360,34 @@ const AttendanceVisual = ({ classId, date, onBack, navigateTo }) => {
     }
   };
   
+  // Load teacher's classes for dropdown
+  const loadTeacherClasses = async () => {
+    try {
+      const response = await window.ApiModule.request('/classes/');
+      const classes = response.results || response;
+      setTeacherClasses(classes);
+      console.log("Loaded teacher's classes:", classes);
+    } catch (error) {
+      console.error("Failed to load teacher's classes:", error);
+    }
+  };
+  
+  // Handle class selection from dropdown
+  const handleClassSelect = (selectedClassId) => {
+    setShowClassDropdown(false);
+    
+    if (selectedClassId !== parseInt(classId)) {
+      console.log(`Switching from class ${classId} to ${selectedClassId}`);
+      // Navigate to the new class
+      const newHash = `attendance/visual/${selectedClassId}/${currentDate}`;
+      console.log(`Navigating to: #${newHash}`);
+      window.location.hash = newHash;
+      
+      // Force a page reload to ensure the component remounts with new class
+      window.location.reload();
+    }
+  };
+  
   // Handle save
   const handleSave = async () => {
     if (!hasUnsavedChanges) {
@@ -536,18 +585,98 @@ const AttendanceVisual = ({ classId, date, onBack, navigateTo }) => {
         React.createElement("i", { className: "fas fa-arrow-left" })
       ),
       
-      // Class and date info
+      // Class and date info with dropdown
       React.createElement(
         "div",
         { className: "av-header-info" },
+        // Class dropdown button
         React.createElement(
-          "span",
-          { className: "av-class-name" },
-          classInfo?.name || "Class"
+          "div",
+          { style: { position: "relative", display: "inline-block" } },
+          React.createElement(
+            "button",
+            {
+              className: "av-class-dropdown-btn",
+              onClick: () => setShowClassDropdown(!showClassDropdown),
+              style: {
+                background: "transparent",
+                border: "1px solid #d1d5db",
+                borderRadius: "6px",
+                padding: "6px 12px",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                fontSize: "14px",
+                fontWeight: "600",
+                color: "#374151"
+              }
+            },
+            React.createElement("span", null, classInfo?.name || "Class"),
+            React.createElement("i", { 
+              className: `fas fa-chevron-${showClassDropdown ? 'up' : 'down'}`,
+              style: { fontSize: "12px" }
+            })
+          ),
+          // Dropdown menu
+          showClassDropdown && React.createElement(
+            "div",
+            {
+              style: {
+                position: "absolute",
+                top: "100%",
+                left: "0",
+                marginTop: "4px",
+                background: "white",
+                border: "1px solid #d1d5db",
+                borderRadius: "6px",
+                boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+                minWidth: "200px",
+                maxHeight: "300px",
+                overflowY: "auto",
+                zIndex: 100
+              }
+            },
+            teacherClasses.length > 0 ? 
+              teacherClasses.map(cls => 
+                React.createElement(
+                  "button",
+                  {
+                    key: cls.id,
+                    onClick: () => handleClassSelect(cls.id),
+                    style: {
+                      display: "block",
+                      width: "100%",
+                      padding: "8px 12px",
+                      textAlign: "left",
+                      border: "none",
+                      background: cls.id === parseInt(classId) ? "#f3f4f6" : "transparent",
+                      cursor: "pointer",
+                      fontSize: "14px",
+                      color: "#374151",
+                      borderBottom: "1px solid #f3f4f6"
+                    },
+                    onMouseEnter: (e) => e.target.style.background = "#f9fafb",
+                    onMouseLeave: (e) => e.target.style.background = cls.id === parseInt(classId) ? "#f3f4f6" : "transparent"
+                  },
+                  React.createElement(
+                    "div",
+                    null,
+                    React.createElement("div", { style: { fontWeight: "600" } }, cls.name),
+                    React.createElement("div", { style: { fontSize: "12px", color: "#6b7280" } }, cls.subject)
+                  )
+                )
+              ) :
+              React.createElement(
+                "div",
+                { style: { padding: "12px", color: "#6b7280", fontSize: "14px" } },
+                "No classes available"
+              )
+          )
         ),
         React.createElement(
           "span",
-          { className: "av-date" },
+          { className: "av-date", style: { marginLeft: "12px" } },
           formatDateDisplay(currentDate)
         )
       ),
