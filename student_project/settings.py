@@ -161,7 +161,7 @@ REST_FRAMEWORK = {
 
 # JWT Configuration
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(hours=8),  # Extended to 8 hours (full school day)
+    "ACCESS_TOKEN_LIFETIME": timedelta(days=7),  # Extended to 7 days (login weekly)
     "REFRESH_TOKEN_LIFETIME": timedelta(days=30),  # Extended to 30 days
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
