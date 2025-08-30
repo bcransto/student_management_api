@@ -29,6 +29,7 @@ const AttendanceVisual = ({ classId, date, onBack, navigateTo }) => {
   // Attendance state - track status for each student
   const [attendanceRecords, setAttendanceRecords] = useState({});
   const [statusAnnouncements, setStatusAnnouncements] = useState([]);
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false); // Track if initial load is done
   
   // State for static historical data (never changes based on today's attendance)
   const [consecutiveAbsences, setConsecutiveAbsences] = useState({}); // rosterId -> count (historical only)
@@ -243,6 +244,13 @@ const AttendanceVisual = ({ classId, date, onBack, navigateTo }) => {
         setAttendanceRecords(records);
         console.log("Initialized attendance records:", records);
         
+        // Mark as having unsaved changes on initial load (all default to present)
+        if (!initialLoadComplete) {
+          setHasUnsavedChanges(true);
+          setInitialLoadComplete(true);
+          console.log("Initial load complete - save button activated");
+        }
+        
         // Now fetch recent history for static historical absences and birthdays
         try {
           console.log("Fetching recent attendance history...");
@@ -312,6 +320,13 @@ const AttendanceVisual = ({ classId, date, onBack, navigateTo }) => {
           };
         });
         setAttendanceRecords(records);
+        
+        // Mark as having unsaved changes on initial load
+        if (!initialLoadComplete) {
+          setHasUnsavedChanges(true);
+          setInitialLoadComplete(true);
+          console.log("Initial load complete (no existing data) - save button activated");
+        }
         
         // Still try to fetch historical data even if no current attendance
         try {
@@ -393,6 +408,11 @@ const AttendanceVisual = ({ classId, date, onBack, navigateTo }) => {
     if (!hasUnsavedChanges) {
       console.log("No changes to save");
       return;
+    }
+    
+    // Log if this is the initial save (marking all present)
+    if (initialLoadComplete && Object.values(attendanceRecords).every(r => r.status === 'present')) {
+      console.log("Initial save - marking all students as present");
     }
     
     try {
