@@ -745,6 +745,8 @@ const AttendanceVisual = ({ classId, date, onBack, navigateTo }) => {
               const finalSeatStyle = {
                 ...seatStyle,
                 position: seatStyle.position || "absolute", // Keep absolute for seat placement
+                overflow: "visible", // Allow badges to extend outside seat boundary
+                zIndex: 1 // Base z-index for seat
               };
               
               return React.createElement(
@@ -770,7 +772,8 @@ const AttendanceVisual = ({ classId, date, onBack, navigateTo }) => {
                       display: "flex",
                       flexDirection: "column",
                       alignItems: "center",
-                      justifyContent: "center"
+                      justifyContent: "center",
+                      overflow: "visible"  // Allow badges to extend outside
                     } 
                   },
                   
@@ -782,8 +785,8 @@ const AttendanceVisual = ({ classId, date, onBack, navigateTo }) => {
                       {
                         style: {
                           position: "absolute",
-                          top: "2px",
-                          left: "2px",
+                          top: "-2px",  // Moved from 2px to -2px (more outside)
+                          left: "-2px", // Moved from 2px to -2px (more outside)
                           width: `${gridSize * 0.25}px`,
                           height: `${gridSize * 0.25}px`,
                           backgroundColor: "#dc2626",
@@ -794,7 +797,7 @@ const AttendanceVisual = ({ classId, date, onBack, navigateTo }) => {
                           justifyContent: "center",
                           fontSize: `${gridSize * 0.15}px`,
                           fontWeight: "bold",
-                          zIndex: 2,
+                          zIndex: 10,  // Increased from 2 to ensure it's on top
                           border: "1px solid white",
                           boxShadow: "0 1px 2px rgba(0,0,0,0.2)"
                         },
@@ -812,8 +815,8 @@ const AttendanceVisual = ({ classId, date, onBack, navigateTo }) => {
                       {
                         style: {
                           position: "absolute",
-                          top: "2px",
-                          right: "2px",
+                          top: "-2px",   // Moved from 2px to -2px (more outside)
+                          right: "-2px", // Moved from 2px to -2px (more outside)
                           width: `${gridSize * 0.22}px`,
                           height: `${gridSize * 0.22}px`,
                           backgroundColor: "#fbbf24",
@@ -822,7 +825,7 @@ const AttendanceVisual = ({ classId, date, onBack, navigateTo }) => {
                           alignItems: "center",
                           justifyContent: "center",
                           fontSize: `${gridSize * 0.16}px`,
-                          zIndex: 2,
+                          zIndex: 10,  // Increased from 2 to ensure it's on top
                           border: "1px solid white",
                           boxShadow: "0 1px 2px rgba(0,0,0,0.2)"
                         },
