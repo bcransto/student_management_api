@@ -853,7 +853,8 @@ const AttendanceVisual = ({ classId, date, onBack, navigateTo }) => {
                           fontSize: `${gridSize * 0.2}px`, 
                           lineHeight: "1.1",
                           overflow: "hidden",
-                          whiteSpace: "nowrap"  // Keep on single line, clip if too long
+                          whiteSpace: "nowrap",  // Keep on single line, clip if too long
+                          color: "#374151"  // Dark gray for softer appearance
                         } 
                       },
                       student.nickname
@@ -864,7 +865,8 @@ const AttendanceVisual = ({ classId, date, onBack, navigateTo }) => {
                         style: { 
                           fontSize: `${gridSize * 0.15}px`, 
                           lineHeight: "1.1",
-                          overflow: "hidden"
+                          overflow: "hidden",
+                          color: "#374151"  // Dark gray for softer appearance
                         } 
                       },
                       student.last_name.substring(0, 3) + "."
