@@ -804,6 +804,33 @@ const AttendanceVisual = ({ classId, date, onBack, navigateTo }) => {
                       consecutiveAbsences[rosterId] >= 11 ? ">10" : String(consecutiveAbsences[rosterId])
                     ) : null,
                   
+                  // PHASE 3C: Birthday indicator badge (top-right)
+                  // Only show if student has birthday today
+                  student && birthdayStudents.has(student.id) ?
+                    React.createElement(
+                      "div",
+                      {
+                        style: {
+                          position: "absolute",
+                          top: "2px",
+                          right: "2px",
+                          width: `${gridSize * 0.22}px`,
+                          height: `${gridSize * 0.22}px`,
+                          backgroundColor: "#fbbf24",
+                          borderRadius: "50%",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: `${gridSize * 0.16}px`,
+                          zIndex: 2,
+                          border: "1px solid white",
+                          boxShadow: "0 1px 2px rgba(0,0,0,0.2)"
+                        },
+                        title: "Birthday today!"
+                      },
+                      "🎂"
+                    ) : null,
+                  
                   // Student name or seat number
                   student ? React.createElement(
                     "div",
