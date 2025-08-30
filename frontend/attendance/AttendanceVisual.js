@@ -739,36 +739,90 @@ const AttendanceVisual = ({ classId, date, onBack, navigateTo }) => {
                 seatStyle.cursor = 'pointer';
               }
               
+              // PHASE 3A: Ensure seat container is properly positioned
+              // The seat uses absolute positioning relative to the table for placement
+              // We add position: relative to enable absolute positioning of badges within
+              const finalSeatStyle = {
+                ...seatStyle,
+                position: seatStyle.position || "absolute", // Keep absolute for seat placement
+              };
+              
               return React.createElement(
                 "div",
                 {
                   key: seat.seat_number,
                   className: "av-seat",
-                  style: seatStyle,
+                  style: finalSeatStyle,
                   onClick: (e) => handleSeatClick(e, student, rosterId),
                   title: student ? 
                     `${student.first_name} ${student.last_name} - ${attendanceStatus}` : 
                     `Seat ${seat.seat_number}`
                 },
                 
-                // Student name or seat number
-                student ? React.createElement(
+                // Inner container with relative positioning for badge placement
+                React.createElement(
                   "div",
-                  { style: { textAlign: "center", width: "100%" } },
-                  React.createElement(
+                  { 
+                    style: { 
+                      position: "relative", 
+                      width: "100%", 
+                      height: "100%",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center"
+                    } 
+                  },
+                  
+                  // PHASE 3B: Consecutive absence counter badge (top-left)
+                  // Only show if there are historical consecutive absences
+                  rosterId && consecutiveAbsences[rosterId] && consecutiveAbsences[rosterId] > 0 ? 
+                    React.createElement(
+                      "div",
+                      {
+                        style: {
+                          position: "absolute",
+                          top: "2px",
+                          left: "2px",
+                          width: `${gridSize * 0.25}px`,
+                          height: `${gridSize * 0.25}px`,
+                          backgroundColor: "#dc2626",
+                          color: "white",
+                          borderRadius: "50%",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: `${gridSize * 0.15}px`,
+                          fontWeight: "bold",
+                          zIndex: 2,
+                          border: "1px solid white",
+                          boxShadow: "0 1px 2px rgba(0,0,0,0.2)"
+                        },
+                        title: `${consecutiveAbsences[rosterId]} consecutive absence${consecutiveAbsences[rosterId] > 1 ? 's' : ''} before today`
+                      },
+                      // Display count or >10 for 11+
+                      consecutiveAbsences[rosterId] >= 11 ? ">10" : String(consecutiveAbsences[rosterId])
+                    ) : null,
+                  
+                  // Student name or seat number
+                  student ? React.createElement(
                     "div",
-                    { style: { fontWeight: "bold", fontSize: `${gridSize * 0.2}px`, lineHeight: "1.1" } },
-                    student.nickname
-                  ),
-                  React.createElement(
+                    { style: { textAlign: "center", width: "100%" } },
+                    React.createElement(
+                      "div",
+                      { style: { fontWeight: "bold", fontSize: `${gridSize * 0.2}px`, lineHeight: "1.1" } },
+                      student.nickname
+                    ),
+                    React.createElement(
+                      "div",
+                      { style: { fontSize: `${gridSize * 0.15}px`, lineHeight: "1.1" } },
+                      student.last_name.substring(0, 3) + "."
+                    )
+                  ) : React.createElement(
                     "div",
-                    { style: { fontSize: `${gridSize * 0.15}px`, lineHeight: "1.1" } },
-                    student.last_name.substring(0, 3) + "."
+                    { style: { color: "#9ca3af", fontSize: `${gridSize * 0.25}px` } },
+                    seat.seat_number
                   )
-                ) : React.createElement(
-                  "div",
-                  { style: { color: "#9ca3af", fontSize: `${gridSize * 0.25}px` } },
-                  seat.seat_number
                 )
               );
             })
