@@ -393,9 +393,9 @@ const AttendanceVisual = ({ classId, date, onBack, navigateTo }) => {
     
     if (selectedClassId !== parseInt(classId)) {
       console.log(`Switching from class ${classId} to ${selectedClassId}`);
-      // Navigate to the new class
-      const newHash = `attendance/visual/${selectedClassId}/${currentDate}`;
-      console.log(`Navigating to: #${newHash}`);
+      // Navigate to the new class without date (will default to today)
+      const newHash = `attendance/visual/${selectedClassId}`;
+      console.log(`Navigating to: #${newHash} (will load today's date)`);
       window.location.hash = newHash;
       
       // Force a page reload to ensure the component remounts with new class
