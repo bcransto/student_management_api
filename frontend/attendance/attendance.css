@@ -179,6 +179,17 @@
   color: white;
 }
 
+/* Report Mode Button */
+.attendance-report-mode {
+  background: #fef3f2;
+  color: #7c2d12;
+}
+
+.attendance-report-mode:hover {
+  background: #f97316;
+  color: white;
+}
+
 /* Remove old attendance-action styles */
 .attendance-action {
   display: none;

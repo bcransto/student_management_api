@@ -503,6 +503,18 @@ const App = () => {
           });
         }
         
+        // Check if we're viewing attendance report
+        if (attendanceHash.startsWith("attendance/report/")) {
+          const reportClassId = attendanceHash.replace("attendance/report/", "").split("/")[0];
+          
+          return React.createElement(window.AttendanceReport, {
+            classId: reportClassId,
+            data: appData,
+            refreshData: fetchData,
+            navigateTo: handleNavigate
+          });
+        }
+        
         // Check if we're editing attendance for a specific class (list mode)
         if (attendanceHash.startsWith("attendance/") && attendanceHash.split("/").length >= 2) {
           const attendanceClassId = attendanceHash.split("/")[1];

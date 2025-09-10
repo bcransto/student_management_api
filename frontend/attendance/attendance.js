@@ -47,6 +47,20 @@ const Attendance = ({ data, refreshData, navigateTo, currentParams }) => {
     }
   };
 
+  const handleReportMode = (e, cls) => {
+    e.stopPropagation(); // Prevent card click
+    console.log("Report mode clicked for class:", cls.name);
+    console.log("Navigating to attendance report for class:", cls.id);
+    
+    // Navigate to attendance report for this class
+    if (navigateTo && typeof navigateTo === 'function') {
+      navigateTo(`attendance/report/${cls.id}`);
+    } else {
+      // Fallback: use hash navigation directly
+      window.location.hash = `#attendance/report/${cls.id}`;
+    }
+  };
+
   // Get today's date for display
   const today = new Date().toLocaleDateString('en-US', { 
     weekday: 'long', 
@@ -172,6 +186,21 @@ const Attendance = ({ data, refreshData, navigateTo, currentParams }) => {
                   "span",
                   null,
                   " Visual Mode"
+                )
+              ),
+              // Report Button
+              React.createElement(
+                "button",
+                { 
+                  className: "attendance-action-btn attendance-report-mode",
+                  onClick: (e) => handleReportMode(e, cls),
+                  title: "View attendance report"
+                },
+                React.createElement("i", { className: "fas fa-chart-bar" }),
+                React.createElement(
+                  "span",
+                  null,
+                  " Report"
                 )
               )
             )

@@ -20,17 +20,21 @@ python manage.py shell  # Django shell for debugging
 python manage.py createsuperuser  # Create admin user
 
 # Run tests
-python manage.py test                    # All tests
-python manage.py test students.tests    # Specific app
-python test_nickname_functionality.py   # Standalone test file
-python test_seating_api.py             # Test seating APIs
-python test_save.py                    # Test save functionality
-python test_chart_naming.py            # Test chart auto-naming
-python test_attendance_api.py          # Test attendance APIs
+python manage.py test                    # All Django app tests
+python manage.py test students.tests    # Students app tests
+python manage.py test attendance.tests  # Attendance app tests
+
+# Standalone test files (run from project root)
+python test_nickname_functionality.py   # Nickname handling tests
+python test_seating_api.py             # Seating API tests
+python test_chart_naming.py            # Chart auto-naming tests
+python test_attendance_api.py          # Attendance API tests
+python test_partnership_endpoint.py    # Partnership rating tests
+python test_recent_attendance.py       # Recent attendance history
 
 # Linting and formatting
 npm run lint:all          # Frontend + backend linting
-npm run lint:python       # Backend only (flake8, pylint)
+npm run lint:python       # Backend only (flake8, black check, isort check)
 npm run format:python     # Format with Black/isort
 npm run lint              # Frontend only (ESLint, HTMLHint)
 npm run format            # Format frontend with Prettier

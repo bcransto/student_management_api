@@ -25,7 +25,9 @@
       "Bash(kill:*)",
       "Bash(./myenv/bin/python manage.py makemigrations:*)",
       "Bash(./myenv/bin/python:*)",
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "Bash(find:*)",
+      "Bash(curl:*)"
     ],
     "deny": []
   }
