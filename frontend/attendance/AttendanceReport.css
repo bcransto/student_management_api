@@ -89,6 +89,11 @@
   color: #d97706;
 }
 
+.summary-card-icon.days {
+  background: #e0e7ff;
+  color: #4f46e5;
+}
+
 .summary-card-content {
   flex: 1;
 }

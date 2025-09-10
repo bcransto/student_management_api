@@ -206,6 +206,24 @@ const AttendanceReport = ({ classId, data, refreshData, navigateTo }) => {
       "div",
       { className: "report-summary-cards" },
       
+      // Total Days Card
+      React.createElement(
+        "div",
+        { className: "summary-card" },
+        React.createElement(
+          "div",
+          { className: "summary-card-icon days" },
+          React.createElement("i", { className: "fas fa-calendar-check" })
+        ),
+        React.createElement(
+          "div",
+          { className: "summary-card-content" },
+          React.createElement("h3", null, "Total Days"),
+          React.createElement("p", { className: "summary-value" }, reportData.stats.totalDays),
+          React.createElement("span", { className: "summary-label" }, "Days of attendance recorded")
+        )
+      ),
+      
       // Overall Attendance Rate
       React.createElement(
         "div",
@@ -220,7 +238,7 @@ const AttendanceReport = ({ classId, data, refreshData, navigateTo }) => {
           { className: "summary-card-content" },
           React.createElement("h3", null, "Attendance Rate"),
           React.createElement("p", { className: "summary-value" }, `${reportData.stats.attendanceRate}%`),
-          React.createElement("span", { className: "summary-label" }, `${reportData.stats.totalDays} total days`)
+          React.createElement("span", { className: "summary-label" }, "Overall class attendance")
         )
       ),
 
