@@ -232,17 +232,66 @@ class UserViewSet(viewsets.ModelViewSet):
 
 
 class StudentViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing student records.
+    
+    Provides full CRUD operations for student management.
+    All authenticated users can manage students.
+    
+    Attributes:
+        - first_name: Student's first name (required)
+        - last_name: Student's last name (required)
+        - nickname: Display name (defaults to first_name if empty)
+        - gender: Student's gender ('male', 'female', 'other')
+        - student_id: Unique identifier for the student
+        - email: Student's email address
+        - is_active: Soft delete flag (default: True)
+    
+    Special Behaviors:
+        - Nickname automatically defaults to first_name when saved as empty/whitespace
+        - Search functionality includes nickname, first_name, last_name, student_id, and email
+        - Students marked as inactive (is_active=False) are still returned but can be filtered
+    """
     queryset = Student.objects.all()
     serializer_class = StudentSerializer
     permission_classes = [IsAuthenticated]
 
 
 class ClassViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing classes.
+    
+    Teachers can only see and manage their own classes.
+    Superusers still follow the same ownership rules.
+    
+    Standard Operations:
+        - GET /api/classes/ - List user's classes
+        - POST /api/classes/ - Create new class (auto-assigns current user as teacher)
+        - GET /api/classes/{id}/ - Get class details with roster
+        - PUT/PATCH /api/classes/{id}/ - Update class information
+        - DELETE /api/classes/{id}/ - Delete class (cascades to related data)
+    
+    Required Fields:
+        - name: Class name (CharField)
+        - subject: Subject being taught (CharField)
+        - teacher: Auto-assigned to current user on creation
+    
+    Optional Fields:
+        - grade_level: Grade level of the class
+        - description: Additional class description
+        - classroom_layout: FK to ClassroomLayout for seating arrangement
+    
+    Special Behaviors:
+        - Roster automatically filtered to show only active students (is_active=True)
+        - Deleting a class cascades to all related seating periods and assignments
+        - Layout assignment enables seating chart functionality
+    """
     queryset = Class.objects.all()
     serializer_class = ClassSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+        """Filter to show only classes where the user is the teacher"""
         # All users (including superusers) only see their own classes
         return Class.objects.filter(teacher=self.request.user)
     
@@ -252,7 +301,18 @@ class ClassViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["get"])
     def seating_chart(self, request, pk=None):
-        """Get current seating chart for this class"""
+        """
+        Get the current seating chart for this class.
+        
+        Returns the complete seating arrangement including:
+        - Layout information (tables, seats, obstacles)
+        - Current seating period details
+        - All student assignments with their positions
+        
+        Returns:
+            200: Seating chart data with layout and assignments
+            404: No seating chart available (needs layout and active period)
+        """
         class_obj = self.get_object()
         chart = class_obj.get_current_seating_chart()
 
@@ -266,7 +326,17 @@ class ClassViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["get"], url_path="validate-seat/(?P<seat_id>[^/.]+)")
     def validate_seat(self, request, pk=None, seat_id=None):
-        """Validate if a seat ID exists in the class layout"""
+        """
+        Validate if a seat ID exists in the class layout.
+        
+        Args:
+            seat_id: Seat identifier in format "tableNumber-seatNumber" (e.g., "1-2")
+        
+        Returns:
+            200: {"valid": true/false, "message": "explanation"}
+        
+        Used by frontend to validate seat assignments before saving.
+        """
         class_obj = self.get_object()
 
         if not class_obj.classroom_layout:
@@ -286,7 +356,28 @@ class ClassViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["get"], url_path="partnership-history")
     def partnership_history(self, request, pk=None):
-        """Get historical seating partnerships for all students in completed periods"""
+        """
+        Get historical seating partnerships for all students.
+        
+        Analyzes completed seating periods (end_date != null) to track
+        which students have sat together at the same table.
+        
+        Returns:
+            200: {
+                "class_id": int,
+                "partnership_data": {
+                    "student_id": {
+                        "name": "First Last",
+                        "is_active": bool,
+                        "partnerships": {
+                            "partner_id": ["2024-01-15", "2024-02-20", ...]
+                        }
+                    }
+                }
+            }
+        
+        Used by the seating optimizer to avoid repeat partnerships.
+        """
         class_obj = self.get_object()
         
         # Get all completed seating periods (end_date is not null)
@@ -372,7 +463,35 @@ class ClassViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=["get", "post"], url_path="partnership-ratings")
     def partnership_ratings(self, request, pk=None):
-        """Get or set partnership ratings for this class in grid format"""
+        """
+        Manage teacher partnership preferences for student pairs.
+        
+        GET: Returns rating grid for all active students
+            Response: {
+                "class_id": int,
+                "students": [{"id": int, "name": str, "nickname": str}, ...],
+                "grid": {
+                    "student_id": {
+                        "student_name": str,
+                        "ratings": {"partner_id": rating, ...}
+                    }
+                }
+            }
+        
+        POST: Set single partnership rating
+            Body: {
+                "student1_id": int,
+                "student2_id": int,
+                "rating": int  # -2 to 2
+            }
+        
+        Rating Scale:
+            -2: Never Together (hard constraint)
+            -1: Avoid if Possible
+             0: Neutral (default)
+             1: Good Partnership
+             2: Best Partnership
+        """
         class_obj = self.get_object()
         
         if request.method == "GET":
@@ -471,7 +590,33 @@ class ClassViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=["post"], url_path="bulk-update-ratings")
     def bulk_update_ratings(self, request, pk=None):
-        """Bulk update multiple partnership ratings at once"""
+        """
+        Bulk update multiple partnership ratings at once.
+        
+        Efficiently updates multiple partnership ratings in a single request.
+        Used by the partnership rating grid UI to save all changes at once.
+        
+        Request Body:
+            {
+                "ratings": [
+                    {
+                        "student1_id": int,
+                        "student2_id": int,
+                        "rating": int  # -2 to 2
+                    },
+                    ...
+                ]
+            }
+        
+        Returns:
+            200: {
+                "message": "Updated N partnership ratings",
+                "updated_count": int
+            }
+            400: Validation errors
+        
+        Note: Automatically handles student ID ordering (lower ID always student1)
+        """
         class_obj = self.get_object()
         
         from .serializers import BulkPartnershipRatingSerializer
@@ -534,6 +679,37 @@ class ClassViewSet(viewsets.ModelViewSet):
 
 
 class ClassRosterViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing class roster entries (student enrollments).
+    
+    Handles the many-to-many relationship between Students and Classes.
+    Teachers can only manage rosters for their own classes.
+    
+    Standard Operations:
+        - GET /api/roster/ - List roster entries with filtering
+        - POST /api/roster/ - Enroll a student in a class
+        - GET /api/roster/{id}/ - Get roster entry details
+        - PUT/PATCH /api/roster/{id}/ - Update roster entry
+        - DELETE /api/roster/{id}/ - Remove student from class (soft delete)
+    
+    Filtering:
+        - ?student={id} - Filter by student ID
+        - ?class_assigned={id} - Filter by class ID
+        - ?is_active={true/false} - Filter by active status
+    
+    Important Fields:
+        - student: FK to Student (required)
+        - class_assigned: FK to Class (required)
+        - is_active: Soft delete flag (default: True)
+        - enrollment_date: Auto-set on creation
+        - attendance_notes: Optional notes about the student
+    
+    Special Behaviors:
+        - Soft delete: DELETE sets is_active=False, preserving history
+        - Re-enrollment: Creating duplicate entry reactivates existing if inactive
+        - Flattened response includes student fields (student_first_name, etc.)
+        - Seating assignments and attendance records linked via roster entry
+    """
     queryset = ClassRoster.objects.all()
     serializer_class = ClassRosterSerializer
     permission_classes = [IsAuthenticated]
@@ -541,6 +717,7 @@ class ClassRosterViewSet(viewsets.ModelViewSet):
     filterset_fields = ['student', 'class_assigned', 'is_active']  # Enable filtering
 
     def get_queryset(self):
+        """Filter roster entries to only show those for user's classes"""
         # All users (including superusers) only see their own class rosters
         return ClassRoster.objects.filter(class_assigned__teacher=self.request.user)
 
@@ -549,10 +726,46 @@ class ClassRosterViewSet(viewsets.ModelViewSet):
 
 
 class ClassroomLayoutViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing classroom layouts.
+    
+    Users can only see and manage their own layouts.
+    Layouts define the physical arrangement of tables, seats, and obstacles.
+    
+    Standard Operations:
+        - GET /api/layouts/ - List user's active layouts
+        - POST /api/layouts/ - Create new layout
+        - GET /api/layouts/{id}/ - Get layout details with tables/seats/obstacles
+        - PUT/PATCH /api/layouts/{id}/ - Update layout
+        - DELETE /api/layouts/{id}/ - Soft delete layout (sets is_active=False)
+    
+    Required Fields:
+        - name: Layout name (CharField)
+        - room_width: Width in pixels (IntegerField)
+        - room_height: Height in pixels (IntegerField)
+        - created_by: Auto-assigned to current user
+    
+    Optional Fields:
+        - description: Layout description (TextField)
+        - is_template: Flag for reusable templates (BooleanField)
+        - is_active: Soft delete flag (default: True)
+    
+    Nested Data Structure:
+        Layout contains:
+        - tables[]: Array of ClassroomTable objects
+            - Each table contains seats[]: Array of TableSeat objects
+        - obstacles[]: Array of LayoutObstacle objects
+    
+    Special Behaviors:
+        - Soft delete preserves layout for historical seating periods
+        - Deleting layout with PROTECT relationship to SeatingPeriod will fail
+        - Layout assigned to class enables seating chart functionality
+    """
     serializer_class = ClassroomLayoutSerializer
     permission_classes = [IsAuthenticated]
     
     def get_queryset(self):
+        """Filter layouts to show only those created by the current user"""
         # All users (including superusers) only see their own layouts
         # Filter out soft-deleted layouts
         return ClassroomLayout.objects.filter(
@@ -561,13 +774,15 @@ class ClassroomLayoutViewSet(viewsets.ModelViewSet):
         )
 
     def perform_create(self, serializer):
+        """Auto-assign the created_by field to current user"""
         serializer.save(created_by=self.request.user)
 
     def perform_update(self, serializer):
+        """Ensure created_by remains the current user"""
         serializer.save(created_by=self.request.user)
     
     def destroy(self, request, *args, **kwargs):
-        """Perform soft delete instead of hard delete"""
+        """Perform soft delete instead of hard delete to preserve history"""
         instance = self.get_object()
         instance.is_active = False
         instance.save()
@@ -575,7 +790,57 @@ class ClassroomLayoutViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["post"])
     def create_from_editor(self, request):
-        """Create layout from editor data"""
+        """
+        Create a complete layout from the visual layout editor.
+        
+        Accepts nested JSON structure with tables, seats, and obstacles.
+        Used by the standalone layout editor at /layout-editor/.
+        
+        Request Body:
+            {
+                "name": str,
+                "description": str,
+                "room_width": int,
+                "room_height": int,
+                "tables": [
+                    {
+                        "table_number": str,
+                        "table_name": str,
+                        "x_position": float,
+                        "y_position": float,
+                        "width": float,
+                        "height": float,
+                        "max_seats": int,
+                        "table_shape": str,
+                        "rotation": float,
+                        "seats": [
+                            {
+                                "seat_number": str,
+                                "relative_x": float,
+                                "relative_y": float,
+                                "is_accessible": bool,
+                                "notes": str
+                            }
+                        ]
+                    }
+                ],
+                "obstacles": [
+                    {
+                        "name": str,
+                        "obstacle_type": str,
+                        "x_position": float,
+                        "y_position": float,
+                        "width": float,
+                        "height": float,
+                        "color": str
+                    }
+                ]
+            }
+        
+        Returns:
+            200: Created layout with all nested data
+            400: Validation error
+        """
         try:
             layout_data = request.data
 
@@ -632,7 +897,20 @@ class ClassroomLayoutViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["put"])
     def update_from_editor(self, request, pk=None):
-        """Update layout from editor data"""
+        """
+        Update an existing layout from the visual layout editor.
+        
+        Replaces all tables, seats, and obstacles with new data.
+        Preserves layout ID and creation metadata.
+        
+        Request Body: Same structure as create_from_editor
+        
+        Returns:
+            200: Updated layout with all nested data
+            400: Validation error
+        
+        Warning: This completely replaces existing tables/seats/obstacles.
+        """
         try:
             layout = self.get_object()  # Get the existing layout
             layout_data = request.data
@@ -694,18 +972,84 @@ class ClassroomLayoutViewSet(viewsets.ModelViewSet):
 
 
 class ClassroomTableViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing classroom tables within layouts.
+    
+    Tables are physical furniture pieces that contain seats.
+    Usually managed through the layout editor rather than directly.
+    
+    Standard CRUD Operations Available.
+    
+    Required Fields:
+        - layout: FK to ClassroomLayout
+        - table_number: Unique identifier within layout (e.g., "1", "A")
+        - x_position, y_position: Position in layout (float)
+        - width, height: Dimensions in pixels (float)
+        - max_seats: Maximum number of seats (int)
+    
+    Optional Fields:
+        - table_name: Display name (defaults to "Table {number}")
+        - table_shape: Shape type ("rectangle", "circle", etc.)
+        - rotation: Rotation angle in degrees (float)
+    
+    Note: Tables are typically created/updated via ClassroomLayoutViewSet's
+    create_from_editor and update_from_editor actions.
+    """
     queryset = ClassroomTable.objects.all()
     serializer_class = ClassroomTableSerializer
     permission_classes = [IsAuthenticated]
 
 
 class TableSeatViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing individual seats within tables.
+    
+    Seats are positions where students can be assigned.
+    Usually managed through the layout editor rather than directly.
+    
+    Standard CRUD Operations Available.
+    
+    Required Fields:
+        - table: FK to ClassroomTable
+        - seat_number: Unique identifier within table (e.g., "1", "2")
+        - relative_x, relative_y: Position relative to table center (float)
+    
+    Optional Fields:
+        - is_accessible: Wheelchair accessible flag (bool)
+        - notes: Additional seat notes (text)
+    
+    Important:
+        - Seat IDs in frontend: "tableNumber-seatNumber" (e.g., "1-2")
+        - Seats can be deactivated in seating editor (shift+click)
+        - Typically created via layout editor, not API directly
+    """
     queryset = TableSeat.objects.all()
     serializer_class = TableSeatSerializer
     permission_classes = [IsAuthenticated]
 
 
 class LayoutObstacleViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing obstacles in classroom layouts.
+    
+    Obstacles represent non-seating elements like doors, columns, or equipment.
+    Usually managed through the layout editor rather than directly.
+    
+    Standard CRUD Operations Available.
+    
+    Required Fields:
+        - layout: FK to ClassroomLayout
+        - name: Obstacle name (e.g., "Door", "Projector")
+        - obstacle_type: Type category (e.g., "door", "column", "equipment")
+        - x_position, y_position: Position in layout (float)
+        - width, height: Dimensions in pixels (float)
+    
+    Optional Fields:
+        - color: Display color in hex format (e.g., "#FF0000")
+    
+    Note: Obstacles are visual aids only and don't affect seating logic.
+    Typically created via layout editor's obstacle tools.
+    """
     queryset = LayoutObstacle.objects.all()
     serializer_class = LayoutObstacleSerializer
     permission_classes = [IsAuthenticated]
@@ -715,12 +1059,47 @@ class LayoutObstacleViewSet(viewsets.ModelViewSet):
 
 
 class SeatingPeriodViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing seating periods (time-bounded seating arrangements).
+    
+    Each period represents a specific seating arrangement for a class over time.
+    Only one period per class can be active (end_date=None) at a time.
+    
+    Standard Operations:
+        - GET /api/seating-periods/ - List seating periods with filtering
+        - POST /api/seating-periods/ - Create new period (auto-ends previous)
+        - GET /api/seating-periods/{id}/ - Get period details
+        - PUT/PATCH /api/seating-periods/{id}/ - Update period
+        - DELETE /api/seating-periods/{id}/ - Delete period
+    
+    Filtering:
+        - ?class_assigned={id} - Filter by class ID
+        - ?is_active={true/false} - Filter by active status (deprecated)
+    
+    Required Fields:
+        - class_assigned: FK to Class
+        - layout: FK to ClassroomLayout (PROTECT on delete)
+        - name: Period name (auto-generated as "Chart N" if empty)
+        - start_date: When this period begins
+    
+    Optional Fields:
+        - end_date: When period ends (null = current period)
+        - notes: Additional notes about the period
+    
+    Critical Behaviors:
+        - Only ONE period per class can have end_date=None (current period)
+        - Creating new period automatically sets end_date on previous current
+        - Period navigation in UI is view-only - does NOT modify end_dates
+        - Deleting layout will fail if referenced by period (PROTECT)
+        - Auto-naming: Empty name becomes "Chart N" where N increments
+    """
     queryset = SeatingPeriod.objects.all()
     serializer_class = SeatingPeriodSerializer
     permission_classes = [IsAuthenticated]
     filterset_fields = ["class_assigned", "is_active"]  # Enable filtering
 
     def get_queryset(self):
+        """Filter periods to only show those for user's classes"""
         # All users (including superusers) only see seating periods for their own classes
         queryset = SeatingPeriod.objects.filter(class_assigned__teacher=self.request.user)
 
@@ -730,10 +1109,75 @@ class SeatingPeriodViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(class_assigned_id=class_assigned)
 
         return queryset
+    
+    @action(detail=True, methods=["post"])
+    def make_current(self, request, pk=None):
+        """
+        Make this seating period the current active period for the class.
+        This will end any other active periods for the same class.
+        
+        POST /api/seating-periods/{id}/make_current/
+        
+        Returns:
+            - Updated seating period data
+            - 400 if period is already current
+            - 403 if user doesn't own the class
+        """
+        from datetime import date
+        
+        period = self.get_object()
+        
+        # Check if user owns the class
+        if period.class_assigned.teacher != request.user:
+            return Response(
+                {"error": "You don't have permission to modify this seating period"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Check if already current
+        if period.end_date is None:
+            return Response(
+                {"error": "This period is already the current active period"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Find and end any current periods for this class
+        current_periods = SeatingPeriod.objects.filter(
+            class_assigned=period.class_assigned,
+            end_date__isnull=True
+        ).exclude(id=period.id)
+        
+        today = date.today()
+        for current_period in current_periods:
+            current_period.end_date = today
+            current_period.save(update_fields=["end_date"])
+        
+        # Make this period current by removing its end date
+        period.end_date = None
+        period.save(update_fields=["end_date"])
+        
+        # Return updated period data
+        serializer = self.get_serializer(period)
+        return Response({
+            "message": f"Period '{period.name}' is now the active seating period",
+            "period": serializer.data
+        })
 
     @action(detail=False, methods=["get"])
     def previous_period(self, request):
-        """Get the most recent completed seating period for a class with all assignments."""
+        """
+        Get the most recent completed seating period with all assignments.
+        
+        Used by the seating editor to copy assignments from previous period.
+        
+        Query Parameters:
+            - class_assigned: Required class ID
+        
+        Returns:
+            200: Previous period with all seating assignments
+            404: No previous period found
+            400: Missing class_assigned parameter
+        """
         class_id = request.query_params.get("class_assigned")
         
         if not class_id:
@@ -783,12 +1227,45 @@ class SeatingPeriodViewSet(viewsets.ModelViewSet):
 
 
 class SeatingAssignmentViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing individual student seat assignments.
+    
+    Links students (via roster entries) to specific seats in a seating period.
+    Each assignment places one student at one table/seat combination.
+    
+    Standard Operations:
+        - GET /api/seating-assignments/ - List assignments with filtering
+        - POST /api/seating-assignments/ - Create new assignment
+        - GET /api/seating-assignments/{id}/ - Get assignment details
+        - PUT/PATCH /api/seating-assignments/{id}/ - Update assignment
+        - DELETE /api/seating-assignments/{id}/ - Remove assignment
+    
+    Filtering:
+        - ?seating_period={id} - Filter by seating period ID
+    
+    Required Fields:
+        - seating_period: FK to SeatingPeriod
+        - roster_entry: FK to ClassRoster (NOT Student directly!)
+        - table_number: String identifier for the table
+        - seat_number: String identifier for the seat
+    
+    Important Notes:
+        - Assignments link to ClassRoster, not Student directly
+        - This preserves historical seating even if student unenrolled
+        - Table/seat numbers are strings to support various naming schemes
+        - One student can only have one assignment per period
+    
+    Data Format:
+        Frontend uses format: {tableId: {seatNumber: studentId}}
+        API expects: roster_entry (ClassRoster ID), not student ID
+    """
     queryset = SeatingAssignment.objects.all()
     serializer_class = SeatingAssignmentSerializer
     permission_classes = [IsAuthenticated]
     filterset_fields = ["seating_period"]  # Enable filtering by seating_period
 
     def get_queryset(self):
+        """Filter assignments to only show those for user's classes"""
         # All users (including superusers) only see assignments for their own classes
         queryset = SeatingAssignment.objects.filter(
             seating_period__class_assigned__teacher=self.request.user

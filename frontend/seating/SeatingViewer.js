@@ -268,6 +268,82 @@ const SeatingViewer = ({ classId, periodId, onEdit, onBack, navigateTo }) => {
   };
 
 
+  // Handle making an inactive period the current active period
+  const handleMakeActive = async () => {
+    // Check if we have a viewed period
+    if (!viewedPeriod) {
+      alert("No period to activate. Please refresh and try again.");
+      return;
+    }
+
+    // Check if the viewed period is already active
+    if (viewedPeriod.end_date === null) {
+      alert("This period is already the active period.");
+      return;
+    }
+
+    // Get the actual current active period name (to show in the message)
+    let currentActivePeriodName = "current period";
+    try {
+      const periodsResponse = await window.ApiModule.request(
+        `/seating-periods/?class_assigned=${classId}`
+      );
+      const periods = periodsResponse.results || [];
+      const activePeriod = periods.find(p => p.end_date === null);
+      if (activePeriod) {
+        currentActivePeriodName = activePeriod.name;
+      }
+    } catch (error) {
+      console.error("Error fetching current active period:", error);
+    }
+
+    // Get the viewed period name
+    const viewedPeriodName = viewedPeriod.name || "this period";
+    
+    const confirmMessage = 
+      `Are you sure you want to make "${viewedPeriodName}" the active seating period?\n\n` +
+      `This will:\n` +
+      `• End the "${currentActivePeriodName}" as of today\n` +
+      `• Restore "${viewedPeriodName}" as the current active arrangement\n` +
+      `• Keep all seating assignments intact\n\n` +
+      `Continue?`;
+
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // Use the ID of the period we're currently viewing
+      const periodId = viewedPeriod.id;
+      
+      const response = await window.ApiModule.request(
+        `/seating-periods/${periodId}/make_current/`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" }
+        }
+      );
+
+      console.log("Period made active:", response);
+
+      // Show success message
+      if (response.message) {
+        alert(response.message);
+      }
+
+      // Reload the class data to reflect the changes
+      await loadClassData();
+      
+    } catch (error) {
+      console.error("Error making period active:", error);
+      alert(`Failed to activate period: ${error.message || "Unknown error"}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Handle creating a new seating period
   const handleNewPeriod = async () => {
     console.log("handleNewPeriod called");
@@ -712,7 +788,21 @@ const SeatingViewer = ({ classId, periodId, onEdit, onBack, navigateTo }) => {
           },
           React.createElement("i", { className: "fas fa-calendar-plus" }),
           " New Period"
-        )
+        ),
+        // Make Active button - only show when viewing an inactive period
+        viewedPeriod && viewedPeriod.end_date !== null &&
+          React.createElement(
+            "button",
+            {
+              className: "btn btn-sm btn-warning",
+              onClick: handleMakeActive,
+              disabled: loading,
+              title: "Make this period the active seating arrangement",
+              style: { width: "100px", marginLeft: "10px" }
+            },
+            React.createElement("i", { className: "fas fa-check-circle" }),
+            " Make Active"
+          )
       )
     ),
 
