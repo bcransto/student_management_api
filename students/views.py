@@ -252,7 +252,7 @@ class StudentViewSet(viewsets.ModelViewSet):
         - Search functionality includes nickname, first_name, last_name, student_id, and email
         - Students marked as inactive (is_active=False) are still returned but can be filtered
     """
-    queryset = Student.objects.all()
+    queryset = Student.objects.prefetch_related('enrollments__class_assigned').all()
     serializer_class = StudentSerializer
     permission_classes = [IsAuthenticated]
 
