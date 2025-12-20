@@ -450,7 +450,7 @@ const ClassStudentManager = ({ classId, navigateTo }) => {
                   React.createElement("input", {
                     type: "checkbox",
                     checked: selectedStudents.has(student.id),
-                    onChange: () => {},
+                    onChange: () => handleToggleStudent(student.id),
                     onClick: (e) => e.stopPropagation()
                   }),
                   React.createElement(
