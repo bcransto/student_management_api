@@ -1585,28 +1585,32 @@ class AttendanceViewSet(viewsets.ModelViewSet):
             # Convert to list and sort in descending order (most recent first)
             previous_dates = sorted(list(previous_dates), reverse=True)
             
-            # Build attendance history for these dates
+            # Fetch all records at once (fixes N+1 query)
+            all_records = AttendanceRecord.objects.filter(
+                class_roster__class_assigned_id=class_id,
+                date__in=previous_dates
+            ).select_related('class_roster__student')
+
+            # Group records by date
+            records_by_date = {}
+            for record in all_records:
+                date_str = str(record.date)
+                if date_str not in records_by_date:
+                    records_by_date[date_str] = []
+                records_by_date[date_str].append({
+                    'class_roster': record.class_roster_id,
+                    'student_id': record.class_roster.student.id,
+                    'status': record.status,
+                    'notes': record.notes
+                })
+
+            # Build response using the grouped data
             attendance_history = []
             for hist_date in previous_dates:
-                # Get attendance records for this date
-                records = AttendanceRecord.objects.filter(
-                    class_roster__class_assigned_id=class_id,
-                    date=hist_date
-                ).select_related('class_roster__student')
-                
-                # Build list of records for this date
-                date_records = []
-                for record in records:
-                    date_records.append({
-                        'class_roster': record.class_roster_id,
-                        'student_id': record.class_roster.student.id,
-                        'status': record.status,
-                        'notes': record.notes
-                    })
-                
+                date_str = str(hist_date)
                 attendance_history.append({
-                    'date': str(hist_date),
-                    'records': date_records
+                    'date': date_str,
+                    'records': records_by_date.get(date_str, [])
                 })
             
             # Build response
