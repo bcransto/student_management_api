@@ -4,8 +4,12 @@
 const StudentEditor = ({ studentId, navigateTo, apiModule }) => {
   // Use NavigationService if available, fallback to navigateTo prop
   const nav = window.NavigationService || null;
+
+  // Determine if we're in create mode (studentId is "new" or not provided)
+  const isCreateMode = !studentId || studentId === "new";
+
   const [student, setStudent] = React.useState(null);
-  const [loading, setLoading] = React.useState(true);
+  const [loading, setLoading] = React.useState(!isCreateMode);
   const [saving, setSaving] = React.useState(false);
   const [errors, setErrors] = React.useState({});
   const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
@@ -17,16 +21,16 @@ const StudentEditor = ({ studentId, navigateTo, apiModule }) => {
     email: "",
     gender: "",
     is_active: true,
-    enrollment_date: "",
+    enrollment_date: new Date().toISOString().split("T")[0],
   });
   const [enrolledClasses, setEnrolledClasses] = React.useState([]);
 
-  // Fetch student data on mount
+  // Fetch student data on mount (only in edit mode)
   React.useEffect(() => {
-    if (studentId) {
+    if (studentId && !isCreateMode) {
       fetchStudentData();
     }
-  }, [studentId]);
+  }, [studentId, isCreateMode]);
 
   const fetchStudentData = async () => {
     try {
@@ -118,7 +122,7 @@ const StudentEditor = ({ studentId, navigateTo, apiModule }) => {
     try {
       setSaving(true);
 
-      const updateData = {
+      const studentData = {
         student_id: formData.student_id,
         first_name: formData.first_name,
         last_name: formData.last_name,
@@ -129,16 +133,27 @@ const StudentEditor = ({ studentId, navigateTo, apiModule }) => {
         enrollment_date: formData.enrollment_date,
       };
 
-      // apiModule.request will throw on error or return the data
-      const updatedStudent = await apiModule.request(`/students/${studentId}/`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(updateData),
-      });
-
-      console.log("Student updated successfully:", updatedStudent);
+      if (isCreateMode) {
+        // Create new student with POST
+        const newStudent = await apiModule.request("/students/", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(studentData),
+        });
+        console.log("Student created successfully:", newStudent);
+      } else {
+        // Update existing student with PUT
+        const updatedStudent = await apiModule.request(`/students/${studentId}/`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(studentData),
+        });
+        console.log("Student updated successfully:", updatedStudent);
+      }
 
       // Success - navigate back to students list
       nav?.toStudents ? nav.toStudents() : navigateTo("students");
@@ -241,11 +256,13 @@ const StudentEditor = ({ studentId, navigateTo, apiModule }) => {
       React.createElement(
         "div",
         { className: "page-header-content" },
-        React.createElement("h1", { className: "page-title" }, "Edit Student"),
+        React.createElement("h1", { className: "page-title" }, isCreateMode ? "Add New Student" : "Edit Student"),
         React.createElement(
           "p",
           { className: "page-subtitle" },
-          `Editing: ${formData.first_name} ${formData.last_name} (${formData.student_id})`
+          isCreateMode
+            ? "Enter the student's information below"
+            : `Editing: ${formData.first_name} ${formData.last_name} (${formData.student_id})`
         )
       ),
       React.createElement(
@@ -431,7 +448,7 @@ const StudentEditor = ({ studentId, navigateTo, apiModule }) => {
               disabled: saving,
             },
             React.createElement("i", { className: "fas fa-save" }),
-            saving ? " Saving..." : " Save Changes"
+            saving ? " Saving..." : (isCreateMode ? " Create Student" : " Save Changes")
           ),
           React.createElement(
             "button",
@@ -442,7 +459,8 @@ const StudentEditor = ({ studentId, navigateTo, apiModule }) => {
             },
             "Cancel"
           ),
-          React.createElement(
+          // Only show delete button in edit mode
+          !isCreateMode && React.createElement(
             "button",
             {
               className: "btn btn-danger",
@@ -455,8 +473,8 @@ const StudentEditor = ({ studentId, navigateTo, apiModule }) => {
         )
       ),
 
-      // Enrolled Classes section
-      React.createElement(
+      // Enrolled Classes section (only show in edit mode)
+      !isCreateMode && React.createElement(
         "div",
         { className: "enrolled-classes-panel" },
         React.createElement("h2", null, "Enrolled Classes"),

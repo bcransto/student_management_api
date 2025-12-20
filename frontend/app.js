@@ -35,6 +35,11 @@ const App = () => {
       return "password-reset";
     }
 
+    // Check for student new pattern
+    if (hash === "students/new") {
+      return "student-edit";
+    }
+
     // Check for student edit pattern
     if (hash.startsWith("students/edit/")) {
       return "student-edit";
@@ -135,7 +140,9 @@ const App = () => {
   // Parse student ID from hash on initial load
   useEffect(() => {
     const hash = window.location.hash.slice(1);
-    if (hash.startsWith("students/edit/")) {
+    if (hash === "students/new") {
+      setEditingStudentId("new");
+    } else if (hash.startsWith("students/edit/")) {
       const id = hash.replace("students/edit/", "");
       setEditingStudentId(id);
     }
@@ -149,6 +156,13 @@ const App = () => {
       // Check for password reset pattern
       if (hash.startsWith("password-reset/")) {
         setCurrentView("password-reset");
+        return;
+      }
+
+      // Check for student new pattern
+      if (hash === "students/new") {
+        setEditingStudentId("new");
+        setCurrentView("student-edit");
         return;
       }
 

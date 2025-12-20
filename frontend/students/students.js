@@ -18,6 +18,12 @@ const Students = ({ data, navigateTo, apiModule }) => {
     }
   };
 
+  // Handle add student button click
+  const handleAddStudent = () => {
+    console.log("Navigating to add new student");
+    window.location.hash = "#students/new";
+  };
+
   // Filter students based on search term
   const filteredStudents = React.useMemo(() => {
     if (!students || !searchTerm) return students || [];
@@ -59,14 +65,18 @@ const Students = ({ data, navigateTo, apiModule }) => {
       )
     ),
 
-    // Search Bar
+    // Search Bar and Add Button
     React.createElement(
       "div",
-      { 
+      {
         className: "students-search-container",
-        style: { 
+        style: {
           marginBottom: "20px",
-          padding: "0 20px"
+          padding: "0 20px",
+          display: "flex",
+          alignItems: "center",
+          gap: "12px",
+          flexWrap: "wrap"
         }
       },
       React.createElement("input", {
@@ -75,18 +85,42 @@ const Students = ({ data, navigateTo, apiModule }) => {
         placeholder: "Search by name, nickname, student ID, or email...",
         value: searchTerm,
         onChange: (e) => setSearchTerm(e.target.value),
-        style: { 
+        style: {
           width: "100%",
           maxWidth: "400px",
           padding: "8px 12px",
           fontSize: "14px"
         }
       }),
+      React.createElement(
+        "button",
+        {
+          onClick: handleAddStudent,
+          style: {
+            padding: "8px 16px",
+            backgroundColor: "#667eea",
+            color: "white",
+            border: "none",
+            borderRadius: "6px",
+            cursor: "pointer",
+            fontSize: "14px",
+            fontWeight: "500",
+            display: "flex",
+            alignItems: "center",
+            gap: "6px",
+            transition: "background-color 0.2s ease"
+          },
+          onMouseOver: (e) => e.target.style.backgroundColor = "#5a6fd6",
+          onMouseOut: (e) => e.target.style.backgroundColor = "#667eea"
+        },
+        React.createElement("i", { className: "fas fa-plus" }),
+        "Add Student"
+      ),
       searchTerm && React.createElement(
         "span",
-        { 
-          style: { 
-            marginLeft: "10px",
+        {
+          style: {
+            marginLeft: "auto",
             color: "#666",
             fontSize: "14px"
           }

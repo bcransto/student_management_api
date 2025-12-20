@@ -14,6 +14,7 @@ const ClassStudentManager = ({ classId, navigateTo }) => {
   const [batchMode, setBatchMode] = React.useState(false);
   const [parsedStudentIds, setParsedStudentIds] = React.useState([]);
   const [notFoundIds, setNotFoundIds] = React.useState([]);
+  const [isEmailInput, setIsEmailInput] = React.useState(false);
   
   // Get current user info
   const currentUser = window.AuthModule?.getUserInfo();
@@ -38,26 +39,32 @@ const ClassStudentManager = ({ classId, navigateTo }) => {
     if (batchMode && searchQuery) {
       const parsedIds = parseStudentIds(searchQuery);
       setParsedStudentIds(parsedIds);
-      
-      // Find matching students
-      const matchingStudents = allStudents.filter(s => 
-        parsedIds.includes(s.student_id) && !s.isEnrolled
-      );
-      
+
+      // Detect if input contains email addresses (has @ symbol)
+      const emailMode = parsedIds.some(id => id.includes('@'));
+      setIsEmailInput(emailMode);
+
+      // Find matching students - check email field if emails, student_id otherwise
+      const matchingStudents = allStudents.filter(s => {
+        const matchField = emailMode ? s.email : s.student_id;
+        return parsedIds.includes(matchField) && !s.isEnrolled;
+      });
+
       // Auto-select all found students that aren't already enrolled
       setSelectedStudents(new Set(matchingStudents.map(s => s.id)));
-      
-      // Find which IDs don't match any students
+
+      // Find which IDs/emails don't match any students
       const foundIds = new Set(
         allStudents
-          .filter(s => parsedIds.includes(s.student_id))
-          .map(s => s.student_id)
+          .filter(s => parsedIds.includes(emailMode ? s.email : s.student_id))
+          .map(s => emailMode ? s.email : s.student_id)
       );
       const notFound = parsedIds.filter(id => !foundIds.has(id));
       setNotFoundIds(notFound);
     } else {
       setParsedStudentIds([]);
       setNotFoundIds([]);
+      setIsEmailInput(false);
       if (batchMode === false) {
         // Clear selections when leaving batch mode
         setSelectedStudents(new Set());
@@ -423,7 +430,7 @@ const ClassStudentManager = ({ classId, navigateTo }) => {
             className: "fas fa-exclamation-triangle",
             style: { marginRight: "0.5rem" }
           }),
-          `Student IDs not found: ${notFoundIds.join(", ")}`
+          `${isEmailInput ? 'Emails' : 'Student IDs'} not found: ${notFoundIds.join(", ")}`
         ),
         
         React.createElement(
