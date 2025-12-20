@@ -394,7 +394,15 @@ class ClassViewSet(viewsets.ModelViewSet):
         
         # Build partnership data structure
         partnership_data = {}
-        
+
+        # Pre-fetch active student IDs (fixes N+1 query)
+        active_student_ids = set(
+            ClassRoster.objects.filter(
+                class_assigned=class_obj,
+                is_active=True
+            ).values_list('student_id', flat=True)
+        )
+
         # Process each completed period
         for period in completed_periods:
             period_end_date = period.end_date.strftime("%Y-%m-%d")
@@ -424,23 +432,15 @@ class ClassViewSet(viewsets.ModelViewSet):
                         if str(student1.id) not in partnership_data:
                             partnership_data[str(student1.id)] = {
                                 "name": f"{student1.first_name} {student1.last_name}",
-                                "is_active": ClassRoster.objects.filter(
-                                    class_assigned=class_obj,
-                                    student=student1,
-                                    is_active=True
-                                ).exists(),
+                                "is_active": student1.id in active_student_ids,
                                 "partnerships": {}
                             }
-                        
+
                         # Initialize student2 data if not exists
                         if str(student2.id) not in partnership_data:
                             partnership_data[str(student2.id)] = {
                                 "name": f"{student2.first_name} {student2.last_name}",
-                                "is_active": ClassRoster.objects.filter(
-                                    class_assigned=class_obj,
-                                    student=student2,
-                                    is_active=True
-                                ).exists(),
+                                "is_active": student2.id in active_student_ids,
                                 "partnerships": {}
                             }
                         
@@ -510,7 +510,13 @@ class ClassViewSet(viewsets.ModelViewSet):
                 student1__in=student_ids,
                 student2__in=student_ids
             )
-            
+
+            # Build lookup dict from fetched ratings (fixes N+1 query)
+            ratings_lookup = {}
+            for r in ratings:
+                key = (min(r.student1_id, r.student2_id), max(r.student1_id, r.student2_id))
+                ratings_lookup[key] = r.rating
+
             # Build grid data structure
             grid_data = {}
             for s1 in students:
@@ -520,8 +526,9 @@ class ClassViewSet(viewsets.ModelViewSet):
                 }
                 for s2 in students:
                     if s1.id != s2.id:
-                        # Get rating (order doesn't matter due to model's save method)
-                        rating_value = PartnershipRating.get_rating(class_obj, s1, s2)
+                        # Get rating from lookup (order-independent key)
+                        key = (min(s1.id, s2.id), max(s1.id, s2.id))
+                        rating_value = ratings_lookup.get(key, 0)
                         grid_data[s1.id]['ratings'][s2.id] = rating_value
             
             return Response({
@@ -1492,24 +1499,30 @@ class AttendanceViewSet(viewsets.ModelViewSet):
                 class_assigned_id=class_id,
                 is_active=True
             ).select_related('student')
-            
-            # Calculate totals for each student
+
+            # Get all attendance stats in one query (fixes N+1)
+            attendance_stats = AttendanceRecord.objects.filter(
+                class_roster__class_assigned_id=class_id,
+                class_roster__is_active=True
+            ).values('class_roster_id').annotate(
+                absent_count=models.Count('id', filter=models.Q(status='absent')),
+                tardy_count=models.Count('id', filter=models.Q(status='tardy')),
+                early_dismissal_count=models.Count('id', filter=models.Q(status='early_dismissal'))
+            )
+
+            # Build lookup dict
+            stats_by_roster = {s['class_roster_id']: s for s in attendance_stats}
+
+            # Build response using lookup
             totals = []
             for roster_entry in roster_entries:
-                student_totals = AttendanceRecord.objects.filter(
-                    class_roster=roster_entry
-                ).aggregate(
-                    absent_count=models.Count('id', filter=models.Q(status='absent')),
-                    tardy_count=models.Count('id', filter=models.Q(status='tardy')),
-                    early_dismissal_count=models.Count('id', filter=models.Q(status='early_dismissal'))
-                )
-                
+                stats = stats_by_roster.get(roster_entry.id, {})
                 totals.append({
                     'student_id': roster_entry.student.id,
                     'student_name': roster_entry.student.get_full_name(),
-                    'absent': student_totals['absent_count'] or 0,
-                    'tardy': student_totals['tardy_count'] or 0,
-                    'early_dismissal': student_totals['early_dismissal_count'] or 0
+                    'absent': stats.get('absent_count', 0),
+                    'tardy': stats.get('tardy_count', 0),
+                    'early_dismissal': stats.get('early_dismissal_count', 0)
                 })
             
             return Response({
