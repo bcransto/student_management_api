@@ -28,7 +28,6 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
   const [showLayoutSelector, setShowLayoutSelector] = useState(false);
   const [availableLayouts, setAvailableLayouts] = useState([]);
   const [showAutofillDropdown, setShowAutofillDropdown] = useState(false);
-  const [showViewDropdown, setShowViewDropdown] = useState(false);
   const [studentSortBy, setStudentSortBy] = useState("name"); // "name" or "gender"
   const [deactivatedSeats, setDeactivatedSeats] = useState(new Set()); // Track deactivated seats
   const [isViewingCurrentPeriod, setIsViewingCurrentPeriod] = useState(true); // Track if viewing the actual current period
@@ -60,7 +59,6 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
       // Check if click is outside dropdown
       if (!event.target.closest('.dropdown') && !event.target.closest('[data-dropdown]')) {
         setShowAutofillDropdown(false);
-        setShowViewDropdown(false);
       }
     };
 
@@ -2438,89 +2436,7 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
             gap: "0.75rem"
           }
         },
-        
-        // View mode dropdown
-        React.createElement(
-          "div",
-          {
-            style: { position: "relative" },
-            "data-dropdown": "view"
-          },
-          React.createElement(
-            "button",
-            {
-              className: "btn btn-sm btn-secondary",
-              onClick: () => setShowViewDropdown(!showViewDropdown),
-              style: { 
-                display: "flex",
-                alignItems: "center",
-                gap: "0.25rem",
-                padding: "0.375rem 0.75rem",
-                fontSize: "0.875rem",
-                fontWeight: "500",
-                border: "1px solid #6b7280",
-                borderRadius: "0.375rem",
-                backgroundColor: "#6b7280",
-                color: "white",
-                cursor: "pointer"
-              }
-            },
-            "View",
-            React.createElement("i", { 
-              className: showViewDropdown ? "fas fa-chevron-up" : "fas fa-chevron-down",
-              style: { fontSize: "0.75rem", marginLeft: "0.25rem" }
-            })
-          ),
-          // Dropdown menu
-          showViewDropdown && React.createElement(
-            "div",
-            {
-              style: {
-                position: "absolute",
-                top: "100%",
-                left: 0,
-                marginTop: "0.25rem",
-                backgroundColor: "white",
-                border: "1px solid #e5e7eb",
-                borderRadius: "0.375rem",
-                boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-                zIndex: 1000,
-                minWidth: "140px"
-              }
-            },
-            // View options would go here if needed
-            React.createElement(
-              "button",
-              {
-                onClick: () => {
-                  setShowViewDropdown(false);
-                },
-                style: {
-                  display: "block",
-                  width: "100%",
-                  padding: "0.5rem 1rem",
-                  textAlign: "left",
-                  border: "none",
-                  backgroundColor: "transparent",
-                  cursor: "pointer",
-                  fontSize: "0.875rem"
-                }
-              },
-              "Editor View"
-            )
-          )
-        ),
-        
-        // Divider
-        React.createElement("div", { 
-          style: { 
-            width: "1px", 
-            height: "24px", 
-            backgroundColor: "#e5e7eb",
-            margin: "0 0.25rem"
-          } 
-        }),
-        
+
         // Navigation arrows group
         React.createElement(
           "div",
