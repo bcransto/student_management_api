@@ -216,12 +216,13 @@ const ClassStudentManager = ({ classId, navigateTo }) => {
   const getFilteredStudents = () => {
     let filtered = allStudents;
     
-    // Filter by batch IDs or search query
+    // Filter by batch IDs/emails or search query
     if (batchMode && parsedStudentIds.length > 0) {
-      // In batch mode, filter by exact ID match
-      filtered = filtered.filter(student => 
-        parsedStudentIds.includes(student.student_id)
-      );
+      // In batch mode, filter by exact ID or email match
+      filtered = filtered.filter(student => {
+        const matchField = isEmailInput ? student.email : student.student_id;
+        return parsedStudentIds.includes(matchField);
+      });
     } else if (searchQuery && !batchMode) {
       // Normal search mode
       const query = searchQuery.toLowerCase();
