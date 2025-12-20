@@ -341,8 +341,17 @@ class ClassRosterSerializer(serializers.ModelSerializer):
         return None
 
     def get_current_seating_assignment(self, obj):
-        """Get current seating assignment for this student"""
-        assignment = obj.current_seating_assignment
+        """Get current seating assignment for this student (uses prefetched data)"""
+        # Use prefetched seating_assignments if available (from ClassSerializer.get_roster)
+        # This avoids N+1 queries when serializing roster entries
+        assignments = getattr(obj, '_prefetched_objects_cache', {}).get('seating_assignments')
+        if assignments is not None:
+            # Use prefetched data - already filtered to current period
+            assignment = assignments[0] if assignments else None
+        else:
+            # Fallback to model property (for cases where prefetch wasn't done)
+            assignment = obj.current_seating_assignment
+
         if assignment:
             return {
                 "seat_id": assignment.seat_id,
@@ -391,9 +400,34 @@ class ClassSerializer(serializers.ModelSerializer):
     seating_periods = SeatingPeriodSerializer(many=True, read_only=True)
 
     def get_roster(self, obj):
-        """Only return active roster entries"""
-        active_roster = obj.roster.filter(is_active=True)
-        return ClassRosterSerializer(active_roster, many=True).data
+        """Only return active roster entries with prefetched seating data"""
+        from django.db.models import Prefetch
+
+        # Get current seating period once (avoids N queries)
+        current_period = obj.current_seating_period
+
+        # Build prefetch for seating assignments
+        if current_period:
+            seating_prefetch = Prefetch(
+                'seating_assignments',
+                queryset=SeatingAssignment.objects.filter(
+                    seating_period=current_period
+                ).select_related('seating_period')
+            )
+        else:
+            seating_prefetch = Prefetch(
+                'seating_assignments',
+                queryset=SeatingAssignment.objects.none()
+            )
+
+        active_roster = obj.roster.filter(is_active=True).select_related(
+            'student', 'class_assigned', 'class_assigned__teacher'
+        ).prefetch_related(seating_prefetch)
+
+        return ClassRosterSerializer(
+            active_roster, many=True,
+            context={'current_period': current_period}
+        ).data
 
     class Meta:
         model = Class
