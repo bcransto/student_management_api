@@ -6,6 +6,14 @@ django-filter==25.1
 python-dotenv==1.1.0
 PyJWT==2.9.0
 
+# Google Classroom Integration
+google-auth==2.40.3
+google-auth-oauthlib==1.2.2
+google-auth-httplib2==0.2.0
+google-api-python-client==2.183.0
+django-encrypted-model-fields==0.6.5
+cryptography==45.0.5
+
 # Production dependencies (install on PythonAnywhere)
 whitenoise==6.7.0
 mysqlclient==2.2.4
