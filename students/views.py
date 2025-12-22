@@ -1108,7 +1108,17 @@ class SeatingPeriodViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """Filter periods to only show those for user's classes"""
         # All users (including superusers) only see seating periods for their own classes
-        queryset = SeatingPeriod.objects.filter(class_assigned__teacher=self.request.user)
+        queryset = SeatingPeriod.objects.filter(
+            class_assigned__teacher=self.request.user
+        ).select_related(
+            'class_assigned',
+            'layout',
+            'layout__created_by',
+        ).prefetch_related(
+            'seating_assignments__roster_entry__student',
+            'layout__tables__seats',
+            'layout__obstacles',
+        )
 
         # Filter by class_assigned if provided in query params
         class_assigned = self.request.query_params.get("class_assigned", None)
