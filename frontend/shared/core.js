@@ -298,38 +298,27 @@ const ApiModule = {
     }
   },
 
-  // Fetch all data needed for the application
+  // Fetch minimal data needed for app shell
+  // Individual pages fetch their own data as needed (lazy loading)
   async fetchAllData() {
-    console.log("=== Fetching all application data ===");
+    console.log("=== Fetching minimal application data ===");
 
     try {
-      // Fetch core data (classes and students are required)
-      const [classes, students] = await Promise.all([this.getClasses(), this.getStudents()]);
-
-      // Fetch optional data (don't fail if these don't exist)
-      const [layouts, periods, assignments, roster] = await Promise.all([
-        this.getLayouts(),
-        this.getSeatingPeriods(),
-        this.getSeatingAssignments(),
-        this.getRoster(),
-      ]);
+      // Only fetch lightweight class list for navigation
+      // Other data (students, roster, periods, assignments) loaded by pages as needed
+      const classes = await this.getClasses();
 
       const data = {
         classes,
-        students,
-        layouts,
-        periods,
-        assignments,
-        roster,
+        students: [],  // Loaded by Students page
+        layouts: [],   // Loaded by Layouts/Seating pages
+        periods: [],   // Loaded by Seating pages
+        assignments: [], // Loaded by Seating pages
+        roster: [],    // Loaded by Class pages
       };
 
-      console.log("Fetched application data:", {
+      console.log("Fetched minimal data:", {
         classes: Array.isArray(classes) ? classes.length : "not array",
-        students: Array.isArray(students) ? students.length : "not array",
-        layouts: Array.isArray(layouts) ? layouts.length : "not array",
-        periods: Array.isArray(periods) ? periods.length : "not array",
-        assignments: Array.isArray(assignments) ? assignments.length : "not array",
-        roster: Array.isArray(roster) ? roster.length : "not array",
       });
 
       return data;
