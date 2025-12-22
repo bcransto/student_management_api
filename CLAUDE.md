@@ -158,7 +158,13 @@ React.createElement("div", { className: "example" }, children)
    - Soft delete for layouts (is_active field)
 
 5. **Classes Components**
-   - ClassView shows individual class with roster management
+   - **ClassView**: Simple table-based roster view (redesigned)
+     - Clean page-header with class name as title
+     - Subtitle shows: Subject • Grade Level • X students
+     - Toolbar with small inline-styled buttons (Back, Edit, Add Students)
+     - Table format matching students list (Name, Student ID, Email, Status, Actions)
+     - Clickable rows navigate to student edit
+     - Unenroll button in Actions column (teacher only)
    - ClassEditor: Edit name, subject (required), grade_level, description
    - Soft delete for roster entries (is_active field) preserves history
    - ClassStudentManager handles bulk enrollment with search/filter
@@ -569,6 +575,10 @@ Frontend auto-detects production environment via hostname.
 - Student cards: 65x45px in pool, matching seat dimensions
 - Navigation arrows grouped together with vertical divider separating sections
 - Attendance class cards display three action buttons: List, Visual, Report
+- **Small toolbar buttons**: Use inline styles to avoid CSS conflicts:
+  - padding: 6px 12px, fontSize: 14px, fontWeight: 500, borderRadius: 6px
+  - Colors: gray (#6b7280), purple (#667eea), green (#10b981), red for danger
+  - display: inline-flex with alignItems: center and gap: 6px for icon+text
 
 ## Seating Optimizer (Phase 1 Complete - Paused)
 
