@@ -7,6 +7,15 @@ from django.http import Http404, HttpResponse
 from django.urls import include, path
 
 from students.views import frontend_view, test_view
+# Google Classroom OAuth endpoints
+from students.google_classroom_service import (
+    google_auth_start,
+    google_auth_callback,
+    google_test_connection,
+    google_disconnect,
+    create_test_assignment,
+    test_fetch_assignment_details,
+)
 
 def test_optimizer_view(request):
     """Serve the test optimizer page"""
@@ -68,6 +77,17 @@ def serve_frontend_file(request, file_path):
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/", include("students.urls")),
+
+    # ============================================================================
+    # Google Classroom OAuth endpoints
+    # ============================================================================
+    path("api/auth/google/start/", google_auth_start, name="google_auth_start"),
+    path("api/auth/google/callback/", google_auth_callback, name="google_auth_callback"),
+    path("api/google/test/", google_test_connection, name="google_test_connection"),
+    path("api/google/create-test-assignment/", create_test_assignment, name="create_test_assignment"),
+    path("api/google/test-assignment-details/", test_fetch_assignment_details, name="test_assignment_details"),
+    path("api/google/disconnect/", google_disconnect, name="google_disconnect"),
+
     # Single layout editor route - serves the frontend editor
     path("layout-editor/", lambda request: serve_frontend_file(request, "layouts/editor/index.html"), name="layout_editor"),
     # Test optimizer page

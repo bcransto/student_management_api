@@ -67,6 +67,11 @@ Pipfile.lock
 secrets.json
 settings_local.py
 
+# Google OAuth files (NEVER commit these!)
+token.json
+credentials.json
+.env.production
+
 # Testing
 .coverage
 htmlcov/
