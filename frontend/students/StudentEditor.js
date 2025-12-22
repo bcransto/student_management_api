@@ -422,13 +422,8 @@ const StudentEditor = ({ studentId, navigateTo, apiModule }) => {
                 className: "form-check-input",
                 checked: formData.preferential_seating,
                 onChange: (e) => handleInputChange("preferential_seating", e.target.checked),
-                style: { width: "18px", height: "18px", marginRight: "8px" }
-              }),
-              React.createElement(
-                "label",
-                { className: "form-check-label", htmlFor: "preferential_seating", style: { fontSize: "14px", color: "#666" } },
-                "Requires front seating or accommodation"
-              )
+                style: { width: "18px", height: "18px" }
+              })
             )
           ),
           React.createElement(
