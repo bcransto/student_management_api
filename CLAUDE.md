@@ -28,7 +28,6 @@ python manage.py test attendance.tests  # Attendance app tests
 python test_nickname_functionality.py   # Nickname handling tests
 python test_seating_api.py             # Seating API tests
 python test_chart_naming.py            # Chart auto-naming tests
-python test_attendance_api.py          # Attendance API tests
 python test_partnership_endpoint.py    # Partnership rating tests
 python test_recent_attendance.py       # Recent attendance history
 
@@ -55,6 +54,8 @@ Frontend is pure React served directly through Django - no webpack/babel:
 - **Database**: SQLite local, MySQL on PythonAnywhere
 - **Auth**: JWT with email-based login (uses email field, not username)
 - **Settings Module**: `student_project.settings`
+- **Google Integration**: OAuth 2.0 for Classroom API access
+- **Token Storage**: Encrypted fields using django-encrypted-model-fields
 
 ### Critical Model Relationships
 
@@ -83,6 +84,13 @@ AttendanceRecord → date, status, notes
 Class.name        # CharField, required
 Class.subject     # CharField, required
 Class.teacher     # ForeignKey to User, required
+
+# Google Classroom OAuth storage
+GoogleClassroomCredentials → user (OneToOne)
+GoogleClassroomCredentials.access_token  # Encrypted
+GoogleClassroomCredentials.refresh_token # Encrypted
+GoogleClassroomCredentials.token_expiry
+GoogleClassroomCredentials.scopes
 ```
 
 ### Frontend Component Architecture
@@ -154,17 +162,33 @@ React.createElement("div", { className: "example" }, children)
    - ClassEditor: Edit name, subject (required), grade_level, description
    - Soft delete for roster entries (is_active field) preserves history
    - ClassStudentManager handles bulk enrollment with search/filter
+   - Batch mode supports pasting student IDs or email addresses
    - Re-enrollment capability for previously enrolled students
    - Permission-based UI - only class teacher sees management controls
 
 6. **Attendance Components**
-   - AttendanceEditor.js: Core attendance taking interface
-   - Status options: present, absent, tardy, early_dismissal
-   - Date navigation with Previous/Next buttons (view-only)
-   - Unsaved changes warning before navigation
-   - Bulk save for all students at once
-   - Student list sorted alphabetically by last name, then first name
-   - Responsive design with mobile-friendly layout
+   - **AttendanceEditor.js**: List-based attendance taking interface
+     - Status options: present, absent, tardy, early_dismissal
+     - Date navigation with Previous/Next buttons (view-only)
+     - Unsaved changes warning before navigation
+     - Bulk save for all students at once
+     - Student list sorted alphabetically by last name, then first name
+   - **AttendanceVisual.js**: Visual attendance using seating chart
+     - Click seats to toggle attendance status
+     - Color-coded status indicators on seats
+     - Save button activation on changes
+     - Class dropdown selector in toolbar
+     - Navigating with dropdown loads today's date (not preserved date)
+   - **AttendanceReport.js**: Analytics and reporting dashboard
+     - Summary cards: Total Days, Attendance Rate, Students, Absences, Tardies
+     - Perfect attendance recognition section
+     - Students needing attention (>10% absence rate) 
+     - Detailed table with color-coded absence rates
+     - CSV export functionality
+   - **attendance.js**: Class card list with three action buttons per class
+     - List Mode button (blue) - traditional attendance list
+     - Visual Mode button (green) - seating chart attendance
+     - Report button (orange) - analytics dashboard
 
 ### API Patterns
 
@@ -229,6 +253,10 @@ await ApiModule.request('/api/endpoint/')   // ❌ Double /api/ prefix
 # Returns list of dates with attendance for a class
 # Response: {dates: ["2024-01-15", "2024-01-16"...]}
 
+# GET /api/attendance/totals/{class_id}/
+# Returns attendance totals for all students in a class
+# Response: {totals: [{student_id, student_name, absent, tardy, early_dismissal}...]}
+
 # POST /api/attendance/bulk-save/
 # Save or update attendance for multiple students
 # Body: {
@@ -239,6 +267,26 @@ await ApiModule.request('/api/endpoint/')   // ❌ Double /api/ prefix
 #   ]
 # }
 # CRITICAL: Use class_roster_id, not roster_entry or student_id
+```
+
+**Google Classroom OAuth Endpoints**:
+```python
+# GET /api/auth/google/start/
+# Initiates OAuth flow - redirects to Google consent screen
+# No authentication required (for POC)
+
+# GET /api/auth/google/callback/
+# Handles OAuth callback with authorization code
+# Stores encrypted tokens in GoogleClassroomCredentials
+# Currently uses first user for POC (needs proper auth)
+
+# GET /api/google/test/
+# Tests connection by listing user's Google Classroom courses
+# Returns: {status, message, courses: [{id, name, section, ...}], user}
+
+# GET /api/google/disconnect/
+# Removes stored Google Classroom credentials
+# Requires authentication in production
 ```
 
 **Smart Pair Algorithm**:
@@ -384,7 +432,6 @@ python test_nickname_functionality.py  # Comprehensive nickname tests
 python test_seating_api.py            # Seating API tests
 python test_save.py                   # Save functionality tests
 python test_chart_naming.py           # Chart auto-naming tests
-python test_attendance_api.py         # Attendance API tests
 
 # Frontend testing
 open test_nickname_frontend.html      # Interactive browser tests
@@ -395,6 +442,20 @@ python manage.py test attendance.tests # Attendance app tests
 python manage.py test students.tests   # Students app tests
 ```
 
+## Environment Variables
+
+Required in `.env` for development:
+```bash
+DEBUG=True
+SECRET_KEY=your-secret-key
+DJANGO_ENV=development
+
+# Google Classroom OAuth (optional)
+GOOGLE_CLIENT_ID=your-client-id
+GOOGLE_CLIENT_SECRET=your-client-secret
+FIELD_ENCRYPTION_KEY=your-encryption-key  # Generate with Fernet
+```
+
 ## Deployment to PythonAnywhere
 
 1. Push to GitHub main branch
@@ -402,7 +463,8 @@ python manage.py test students.tests   # Students app tests
 3. Navigate to `/home/bcranston/student_management_api/`
 4. Pull latest: `git pull origin main`
 5. Run migrations if needed: `python manage.py migrate`
-6. Reload web app from dashboard
+6. Set production environment variables in PythonAnywhere dashboard
+7. Reload web app from dashboard
 
 Frontend auto-detects production environment via hostname.
 
@@ -415,10 +477,15 @@ Frontend auto-detects production environment via hostname.
 - `/layout-editor/` - Standalone layout editor (opens in same window)
 - `/test_optimizer.html` - Seating optimizer test suite
 - `/frontend/<path>` - Static files served via Django
+- `/api/auth/google/start/` - Start Google Classroom OAuth flow
+- `/api/auth/google/callback/` - OAuth callback handler
+- `/api/google/test/` - Test Google Classroom connection
+- `/api/google/disconnect/` - Remove Google credentials
 
 **Frontend Hash Routes**:
 - `#dashboard` - Main view
 - `#students` - Student list with search
+- `#students/new` - Create new student
 - `#students/edit/{id}` - Edit student
 - `#classes` - Class list
 - `#classes/view/{id}` - View class details
@@ -433,9 +500,12 @@ Frontend auto-detects production environment via hostname.
 - `#users` - User management (superusers only)
 - `#users/edit/{id}` - Edit specific user
 - `#profile` - Edit current user's profile
-- `#attendance` - Attendance class list
-- `#attendance/{classId}` - Take/edit attendance for today
+- `#attendance` - Attendance class list with three modes per class
+- `#attendance/{classId}` - Take/edit attendance for today (list mode)
 - `#attendance/{classId}/{date}` - Take/edit attendance for specific date
+- `#attendance/visual/{classId}` - Visual attendance using seating chart
+- `#attendance/visual/{classId}/{date}` - Visual attendance for specific date
+- `#attendance/report/{classId}` - Attendance analytics and reporting
 
 **Navigation & Routing**:
 - Router utility at `frontend/shared/router.js` provides consistent URL generation
@@ -454,11 +524,14 @@ Frontend auto-detects production environment via hostname.
 8. `frontend/shared/layoutStyles.js` - formatSeatName() for canvas rendering
 9. `frontend/seating/PartnershipHistoryModal.js` - Partnership visualization with rating badges
 10. `frontend/seating/PartnershipRatingGrid.js` - Teacher rating preferences grid (-2 to +2)
-11. `frontend/classes/ClassStudentManager.js` - Bulk enrollment with batch ID pasting mode
+11. `frontend/classes/ClassStudentManager.js` - Bulk enrollment with batch mode (supports student IDs and emails)
 12. `frontend/classes/ClassEditor.js` - Edit class details with required field validation
 13. `students/serializers.py` - Custom roster filtering and JWT claims
-14. `frontend/attendance/AttendanceEditor.js` - Attendance taking with status management
-15. `attendance/views.py` - Bulk save and attendance record management
+14. `frontend/attendance/AttendanceEditor.js` - List-based attendance taking
+15. `frontend/attendance/AttendanceVisual.js` - Visual seating chart attendance
+16. `frontend/attendance/AttendanceReport.js` - Attendance analytics dashboard
+17. `students/views.py` - AttendanceViewSet with totals and dates endpoints
+18. `students/google_classroom_service.py` - OAuth flow and Google Classroom API integration
 
 ## Important Behavioral Notes
 
@@ -479,6 +552,7 @@ Frontend auto-detects production environment via hostname.
 - **Text Rotation**: Counter-rotates in student view to keep readable
 - **No Canvas Badge**: Removed view indicator for cleaner UI
 - **Toolbar Buttons**: Fixed 100px width for consistency
+- **Make Active**: Inactive periods can be reactivated via "Make Active" button
 
 ### Ownership & Permissions
 - All users (including superusers) only see their own:
@@ -491,9 +565,10 @@ Frontend auto-detects production environment via hostname.
 - Two-line text format for students: nickname/first name on top, truncated last name below
 - Fixed sidebar widths: 250px each in seating editor
 - Dynamic grid scaling to fit viewport while maintaining aspect ratio
-- Toolbar height: 60px with two-line title display
+- Toolbar height: 60px with icon-only buttons (36x36px) in seating views
 - Student cards: 65x45px in pool, matching seat dimensions
-- Toolbar button width: 100px with 10px spacing between buttons
+- Navigation arrows grouped together with vertical divider separating sections
+- Attendance class cards display three action buttons: List, Visual, Report
 
 ## Seating Optimizer (Phase 1 Complete - Paused)
 
@@ -597,3 +672,26 @@ python -m venv myenv
 source myenv/bin/activate
 pip install -r requirements.txt
 ```
+
+**Server hanging or multiple instances**:
+```bash
+# Kill all Django server processes
+pkill -f "manage.py runserver"
+# Start fresh
+source myenv/bin/activate
+python manage.py runserver
+```
+
+## Google Classroom Integration (POC)
+
+**Current Status**: OAuth flow implemented as proof of concept
+- Tokens stored encrypted in database
+- Uses first user for testing (needs proper auth integration)
+- Successfully connects and lists courses
+
+**Next Steps for Production**:
+1. Integrate with JWT authentication system
+2. Add token refresh logic in `get_google_service()`
+3. Implement grade posting functions
+4. Add frontend UI for connection management
+5. Handle expired tokens gracefully
