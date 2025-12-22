@@ -3,13 +3,38 @@
 const Dashboard = ({ data, navigateTo }) => {
   // Use NavigationService if available, fallback to navigateTo prop
   const nav = window.NavigationService || null;
-  
+
   // Get formatDateLong from shared utils for dashboard date display
   const formatDate = window.SharedUtils.formatDateLong;
 
+  // Local state for data that needs to be fetched
+  const [students, setStudents] = React.useState(data?.students || []);
+  const [layouts, setLayouts] = React.useState(data?.layouts || []);
+  const [loading, setLoading] = React.useState(true);
+
+  // Fetch students and layouts for dashboard stats
+  React.useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        const [studentsRes, layoutsRes] = await Promise.all([
+          window.ApiModule.request('/students/'),
+          window.ApiModule.request('/layouts/')
+        ]);
+        setStudents(studentsRes.results || studentsRes || []);
+        setLayouts(layoutsRes.results || layoutsRes || []);
+      } catch (error) {
+        console.error("Error fetching dashboard data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
+
   console.log("Dashboard rendering with data:", data);
 
-  const { classes, students, layouts } = data;
+  const { classes } = data;
 
   // Add null checks and default to empty arrays
   const classesArray = Array.isArray(classes) ? classes : [];
