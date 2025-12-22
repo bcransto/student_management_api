@@ -293,7 +293,16 @@ class ClassViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """Filter to show only classes where the user is the teacher"""
         # All users (including superusers) only see their own classes
-        return Class.objects.filter(teacher=self.request.user)
+        return Class.objects.filter(
+            teacher=self.request.user
+        ).select_related(
+            'teacher',
+            'classroom_layout',
+        ).prefetch_related(
+            'roster__student',
+            'seating_periods__layout',
+            'seating_periods__seating_assignments__roster_entry__student',
+        )
     
     def perform_create(self, serializer):
         """Auto-set the teacher to the current user when creating a class"""
