@@ -20,6 +20,8 @@ const StudentEditor = ({ studentId, navigateTo, apiModule }) => {
     nickname: "",
     email: "",
     gender: "",
+    preferential_seating: false,
+    google_user_id: "",
     is_active: true,
     enrollment_date: new Date().toISOString().split("T")[0],
   });
@@ -53,6 +55,8 @@ const StudentEditor = ({ studentId, navigateTo, apiModule }) => {
         nickname: studentData.nickname || "",
         email: studentData.email || "",
         gender: studentData.gender || "",
+        preferential_seating: studentData.preferential_seating || false,
+        google_user_id: studentData.google_user_id || "",
         is_active: studentData.is_active !== undefined ? studentData.is_active : true,
         enrollment_date: studentData.enrollment_date || "",
       });
@@ -129,6 +133,8 @@ const StudentEditor = ({ studentId, navigateTo, apiModule }) => {
         nickname: formData.nickname || formData.first_name,
         email: formData.email || null,
         gender: formData.gender || null,
+        preferential_seating: formData.preferential_seating,
+        google_user_id: formData.google_user_id || null,
         is_active: formData.is_active,
         enrollment_date: formData.enrollment_date,
       };
@@ -397,6 +403,47 @@ const StudentEditor = ({ studentId, navigateTo, apiModule }) => {
             onChange: (e) => handleInputChange("email", e.target.value),
           }),
           errors.email && React.createElement("span", { className: "error-message" }, errors.email)
+        ),
+
+        // Preferential Seating and Google User ID (side by side)
+        React.createElement(
+          "div",
+          { className: "form-row" },
+          React.createElement(
+            "div",
+            { className: "form-group col" },
+            React.createElement("label", { htmlFor: "preferential_seating" }, "Preferential Seating"),
+            React.createElement(
+              "div",
+              { className: "form-check", style: { marginTop: "8px" } },
+              React.createElement("input", {
+                type: "checkbox",
+                id: "preferential_seating",
+                className: "form-check-input",
+                checked: formData.preferential_seating,
+                onChange: (e) => handleInputChange("preferential_seating", e.target.checked),
+                style: { width: "18px", height: "18px", marginRight: "8px" }
+              }),
+              React.createElement(
+                "label",
+                { className: "form-check-label", htmlFor: "preferential_seating", style: { fontSize: "14px", color: "#666" } },
+                "Requires front seating or accommodation"
+              )
+            )
+          ),
+          React.createElement(
+            "div",
+            { className: "form-group col" },
+            React.createElement("label", { htmlFor: "google_user_id" }, "Google User ID"),
+            React.createElement("input", {
+              type: "text",
+              id: "google_user_id",
+              className: "form-control",
+              value: formData.google_user_id,
+              onChange: (e) => handleInputChange("google_user_id", e.target.value),
+              placeholder: "For Google Classroom integration",
+            })
+          )
         ),
 
         // Status and Enrollment Date (side by side)

@@ -302,6 +302,7 @@ class ClassRosterSerializer(serializers.ModelSerializer):
     student_nickname = serializers.CharField(source="student.nickname", read_only=True)
     student_email = serializers.CharField(source="student.email", read_only=True)
     student_gender = serializers.CharField(source="student.gender", read_only=True)
+    student_preferential_seating = serializers.BooleanField(source="student.preferential_seating", read_only=True)
     current_seating_assignment = serializers.SerializerMethodField()
     class_assigned_details = serializers.SerializerMethodField()
 
@@ -317,6 +318,7 @@ class ClassRosterSerializer(serializers.ModelSerializer):
             "student_nickname",
             "student_email",
             "student_gender",
+            "student_preferential_seating",
             "class_assigned",
             "class_assigned_details",
             "is_active",
@@ -377,6 +379,8 @@ class StudentSerializer(serializers.ModelSerializer):
             "nickname",
             "email",
             "gender",
+            "preferential_seating",
+            "google_user_id",
             "date_of_birth",
             "enrollment_date",
             "is_active",

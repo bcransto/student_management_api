@@ -238,14 +238,21 @@ class ClassAdmin(admin.ModelAdmin):
 
 @admin.register(Student)
 class StudentAdmin(admin.ModelAdmin):
-    list_display = ["student_id", "first_name", "last_name", "nickname", "email", "gender", "is_active", "enrollment_date", "class_count"]
-    list_filter = ["is_active", "gender", "enrollment_date"]
-    search_fields = ["student_id", "first_name", "last_name", "nickname", "email"]
+    list_display = ["student_id", "first_name", "last_name", "nickname", "email", "gender", "preferential_seating", "is_active", "enrollment_date", "class_count"]
+    list_filter = ["is_active", "gender", "preferential_seating", "enrollment_date"]
+    search_fields = ["student_id", "first_name", "last_name", "nickname", "email", "google_user_id"]
     readonly_fields = ["enrollment_date", "class_count"]
-    
+
     fieldsets = (
         ("Personal Information", {
             "fields": ("student_id", "first_name", "last_name", "nickname", "email", "gender", "date_of_birth")
+        }),
+        ("Seating & Accommodations", {
+            "fields": ("preferential_seating",)
+        }),
+        ("Google Integration", {
+            "fields": ("google_user_id",),
+            "classes": ("collapse",)
         }),
         ("Status", {
             "fields": ("is_active", "enrollment_date", "class_count")

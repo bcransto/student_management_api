@@ -5,6 +5,7 @@ from datetime import date
 from django.contrib.auth.models import AbstractUser
 from django.core.exceptions import ValidationError
 from django.db import models
+from encrypted_model_fields.fields import EncryptedCharField  # For Google OAuth token encryption
 
 
 class User(AbstractUser):
@@ -368,6 +369,16 @@ class Student(models.Model):
         blank=True,
         null=True
     )
+    preferential_seating = models.BooleanField(
+        default=False,
+        help_text="Student requires preferential seating (e.g., front of room, near teacher)"
+    )
+    google_user_id = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        help_text="Google Workspace User ID for Classroom integration"
+    )
     date_of_birth = models.DateField(blank=True, null=True)
     enrollment_date = models.DateField(auto_now_add=True)
     is_active = models.BooleanField(default=True)
@@ -376,6 +387,7 @@ class Student(models.Model):
         indexes = [
             models.Index(fields=["is_active"]),  # Fast lookup for active students
             models.Index(fields=["student_id"]),  # Fast lookup by student ID
+            models.Index(fields=["preferential_seating"]),  # Fast lookup for highlighting
         ]
 
     def __str__(self):
@@ -835,3 +847,42 @@ class AttendanceRecord(models.Model):
     def class_assigned(self):
         """Convenience property to access class directly"""
         return self.class_roster.class_assigned
+
+
+# ============================================================================
+# Google Classroom Integration Models
+# ============================================================================
+
+class GoogleClassroomCredentials(models.Model):
+    """
+    Stores encrypted OAuth tokens for Google Classroom integration.
+    Each teacher can connect their Google account to sync with Google Classroom.
+    """
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='google_credentials')
+
+    # Encrypted OAuth tokens (using max_length for tokens)
+    access_token = EncryptedCharField(max_length=2048, help_text="Google OAuth access token (encrypted)")
+    refresh_token = EncryptedCharField(max_length=512, help_text="Google OAuth refresh token (encrypted)")
+
+    # Token metadata
+    token_expiry = models.DateTimeField(help_text="When the access token expires")
+    scopes = models.JSONField(default=list, help_text="OAuth scopes granted")
+
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Google Classroom Credentials"
+        verbose_name_plural = "Google Classroom Credentials"
+        indexes = [
+            models.Index(fields=['user', 'token_expiry']),
+        ]
+
+    def __str__(self):
+        return f"Google Credentials for {self.user.email}"
+
+    def is_token_expired(self):
+        """Check if the access token has expired"""
+        from django.utils import timezone
+        return timezone.now() >= self.token_expiry

@@ -23,7 +23,7 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
 
   // UI state
   const [selectedStudent, setSelectedStudent] = useState(null);
-  const [highlightMode, setHighlightMode] = useState("none"); // none, gender, previous
+  const [highlightMode, setHighlightMode] = useState("none"); // none, gender, previous, preferential
   const [draggedStudent, setDraggedStudent] = useState(null);
   const [showLayoutSelector, setShowLayoutSelector] = useState(false);
   const [availableLayouts, setAvailableLayouts] = useState([]);
@@ -2860,8 +2860,8 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
                 "button",
                 {
                   className: "btn btn-sm btn-secondary",
-                  style: { 
-                    fontSize: "12px", 
+                  style: {
+                    fontSize: "12px",
                     gridColumn: "span 2",
                     ...(highlightMode === "previous" ? { backgroundColor: "#3b82f6", borderColor: "#3b82f6", color: "white" } : {})
                   },
@@ -2869,10 +2869,24 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
                 },
                 React.createElement("i", { className: "fas fa-history", style: { fontSize: "10px" } }),
                 " Repeat Pairings"
+              ),
+              React.createElement(
+                "button",
+                {
+                  className: "btn btn-sm btn-secondary",
+                  style: {
+                    fontSize: "12px",
+                    gridColumn: "span 2",
+                    ...(highlightMode === "preferential" ? { backgroundColor: "#a855f7", borderColor: "#7e22ce", color: "white" } : {})
+                  },
+                  onClick: () => setHighlightMode("preferential"),
+                },
+                React.createElement("i", { className: "fas fa-star", style: { fontSize: "10px" } }),
+                " Preferential"
               )
             )
           ),
-          
+
           // Partnership section
           React.createElement(
             "div",
@@ -3407,13 +3421,29 @@ const SeatingCanvas = ({
       setTimeout(() => {
         // Find all seats with the previous-tablemate class
         const previousSeats = document.querySelectorAll('.seat.previous-tablemate');
-        
+
         console.log(`Found ${previousSeats.length} seats with previous tablemates`);
-        
+
         previousSeats.forEach(el => {
           console.log("Setting previous period style directly on element");
           el.style.setProperty('background-color', '#f59e0b', 'important');  // Darker amber/orange
           el.style.setProperty('border', '2px solid #d97706', 'important');  // Darker amber border
+          el.style.setProperty('color', 'white', 'important');  // White text for readability
+        });
+      }, 100);
+    } else if (highlightMode === "preferential") {
+      console.log("Applying preferential seating styles via DOM manipulation");
+      // Wait for next tick to ensure DOM is updated
+      setTimeout(() => {
+        // Find all seats with the preferential-student class
+        const preferentialSeats = document.querySelectorAll('.seat.preferential-student');
+
+        console.log(`Found ${preferentialSeats.length} preferential seating students`);
+
+        preferentialSeats.forEach(el => {
+          console.log("Setting preferential seating style directly on element");
+          el.style.setProperty('background-color', '#a855f7', 'important');  // Purple
+          el.style.setProperty('border', '2px solid #7e22ce', 'important');  // Dark purple border
           el.style.setProperty('color', 'white', 'important');  // White text for readability
         });
       }, 100);
@@ -3630,9 +3660,19 @@ const SeatingCanvas = ({
             }
           }
 
+          // Apply preferential seating highlighting
+          let preferentialClass = "";
+          if (assignedStudent && highlightMode === "preferential") {
+            if (assignedStudent.preferential_seating) {
+              console.log(`Student ${assignedStudent.first_name} has preferential seating`);
+              preferentialClass = "preferential-student";
+              // Note: We don't set styles here - the useEffect will handle it
+            }
+          }
+
           const finalClassName = `seat ${assignedStudent ? "occupied" : "empty"} ${
             seat.is_accessible ? "accessible" : ""
-          } ${genderClass} ${previousClass} ${!assignedStudent && !isDeactivated ? "fillable" : ""}`.trim();
+          } ${genderClass} ${previousClass} ${preferentialClass} ${!assignedStudent && !isDeactivated ? "fillable" : ""}`.trim();
           
           if (genderClass) {
             console.log(`Seat ${table.id}-${seat.seat_number} final className: "${finalClassName}"`);
