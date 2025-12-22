@@ -106,95 +106,8 @@ const Seating = ({ data, navigateTo, initialView, classId, periodId }) => {
     }
   };
 
-  const handleClassCardClick = async (classItem) => {
-    console.log("Class card clicked:", classItem);
-    console.log("Layouts loaded:", !layoutsLoading, "Layouts count:", userLayouts.length);
-    
-    // Don't proceed if layouts are still loading
-    if (layoutsLoading) {
-      console.log("Layouts still loading, please wait...");
-      return;
-    }
-    
-    // Check if class has students enrolled
-    const studentCount = classItem.roster?.length || 0;
-    if (studentCount === 0) {
-      alert("No students enrolled in this class yet.\n\nPlease add students to the class roster before creating seating arrangements.");
-      return;
-    }
-    
-    // Check if user has any layouts
-    if (userLayouts.length === 0) {
-      // Show modal to create a layout first
-      setShowNoLayoutModal(true);
-      return;
-    }
-    
-    // Check if class has a current seating period
-    if (!classItem.current_seating_period) {
-      console.log("No current period exists, creating one...");
-      
-      try {
-        // Get all periods for this class to determine the chart number
-        let chartNumber = 1;
-        try {
-          const allPeriods = await window.ApiModule.request(`/seating-periods/?class_assigned=${classItem.id}`);
-          console.log("All periods for numbering:", allPeriods);
-          
-          // Handle both array and object responses
-          if (Array.isArray(allPeriods)) {
-            chartNumber = allPeriods.length + 1;
-          } else if (allPeriods && typeof allPeriods === 'object') {
-            if (allPeriods.results && Array.isArray(allPeriods.results)) {
-              chartNumber = allPeriods.results.length + 1;
-            } else if (allPeriods.count !== undefined) {
-              chartNumber = allPeriods.count + 1;
-            }
-          }
-        } catch (error) {
-          console.error("Error fetching periods for chart numbering:", error);
-          chartNumber = 1;
-        }
-        
-        // Auto-generate period name as "Chart N"
-        const periodName = `Chart ${chartNumber}`;
-        
-        // Use the most recent layout
-        const layoutId = userLayouts[0].id;
-        
-        // Calculate start date
-        const today = new Date();
-        const startDate = today.toISOString().split("T")[0];
-        
-        // Create new period
-        const newPeriod = await window.ApiModule.request("/seating-periods/", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            class_assigned: classItem.id,
-            layout: layoutId,
-            name: periodName,
-            start_date: startDate,
-            end_date: null,
-          }),
-        });
-        
-        console.log("New period created:", newPeriod);
-        
-        // Go straight to editor with the new period
-        handleEditChart(classItem.id, classItem.name);
-      } catch (error) {
-        console.error("Error creating seating period:", error);
-        alert("Failed to create seating period. Please try again.");
-      }
-    } else {
-      // Period exists, go to viewer
-      handleViewChart(classItem.id, classItem.name);
-    }
-  };
-
-  const handleViewChart = (classId, className) => {
-    console.log("View chart for class:", classId, className);
+  const handleViewChart = (classId) => {
+    console.log("View chart for class:", classId);
     // Update URL when viewing chart
     if (nav?.toSeatingView) {
       nav.toSeatingView(classId);
@@ -207,8 +120,8 @@ const Seating = ({ data, navigateTo, initialView, classId, periodId }) => {
     }
   };
 
-  const handleEditChart = (classId, className) => {
-    console.log("Edit chart for class:", classId, className);
+  const handleEditChart = (classId) => {
+    console.log("Edit chart for class:", classId);
     // Update URL when editing chart
     if (nav?.toSeatingEdit) {
       nav.toSeatingEdit(classId);
@@ -221,17 +134,63 @@ const Seating = ({ data, navigateTo, initialView, classId, periodId }) => {
     }
   };
 
-  const handleNewChart = (classId, className) => {
-    console.log("Create new chart for class:", classId, className);
-    // Update URL when creating new chart
-    if (nav?.toSeatingEdit) {
-      nav.toSeatingEdit(classId);
-    } else if (navigateTo) {
-      navigateTo(`seating/edit/${classId}`);
-    } else {
-      // Fallback to internal state change
-      setSelectedClassId(classId);
-      setCurrentView("editor");
+  const handleNewChart = async (classId) => {
+    console.log("Create new chart for class:", classId);
+
+    // Check if user has any layouts
+    if (userLayouts.length === 0) {
+      setShowNoLayoutModal(true);
+      return;
+    }
+
+    try {
+      // Get all periods for this class to determine the chart number
+      let chartNumber = 1;
+      try {
+        const allPeriods = await window.ApiModule.request(`/seating-periods/?class_assigned=${classId}`);
+        console.log("All periods for numbering:", allPeriods);
+
+        if (Array.isArray(allPeriods)) {
+          chartNumber = allPeriods.length + 1;
+        } else if (allPeriods?.results && Array.isArray(allPeriods.results)) {
+          chartNumber = allPeriods.results.length + 1;
+        } else if (allPeriods?.count !== undefined) {
+          chartNumber = allPeriods.count + 1;
+        }
+      } catch (error) {
+        console.error("Error fetching periods for chart numbering:", error);
+        chartNumber = 1;
+      }
+
+      // Auto-generate period name as "Chart N"
+      const periodName = `Chart ${chartNumber}`;
+
+      // Use the most recent layout
+      const layoutId = userLayouts[0].id;
+
+      // Create new period (backend auto-ends current period)
+      const today = new Date();
+      const startDate = today.toISOString().split("T")[0];
+
+      const newPeriod = await window.ApiModule.request("/seating-periods/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          class_assigned: classId,
+          layout: layoutId,
+          name: periodName,
+          start_date: startDate,
+          end_date: null,
+        }),
+      });
+
+      console.log("New period created:", newPeriod);
+
+      // Navigate to editor with new period
+      handleEditChart(classId);
+    } catch (error) {
+      console.error("Error creating seating period:", error);
+      alert("Failed to create seating period. Please try again.");
     }
   };
 
@@ -400,12 +359,6 @@ const Seating = ({ data, navigateTo, initialView, classId, periodId }) => {
               {
                 key: classItem.id,
                 className: "seating-class-card floating-card",
-                onClick: () => handleClassCardClick(classItem),
-                style: { 
-                  cursor: layoutsLoading ? "wait" : "pointer",
-                  opacity: layoutsLoading ? 0.7 : 1
-                },
-                title: layoutsLoading ? "Loading layouts..." : null,
               },
 
               // Class info
@@ -422,47 +375,37 @@ const Seating = ({ data, navigateTo, initialView, classId, periodId }) => {
                 )
               ),
 
-              // Stats
+              // Action buttons
               React.createElement(
                 "div",
-                { className: "seating-class-card-stats" },
+                {
+                  className: "seating-class-card-actions",
+                  style: { display: "flex", gap: "0.5rem", marginTop: "0.75rem" }
+                },
                 React.createElement(
-                  "div",
-                  { className: "stat" },
-                  React.createElement("i", { className: "fas fa-users" }),
-                  React.createElement("span", null, `${classItem.roster?.length || 0} students`)
+                  "button",
+                  {
+                    className: "btn btn-sm btn-outline-primary",
+                    onClick: (e) => { e.stopPropagation(); handleViewChart(classItem.id); }
+                  },
+                  "View"
                 ),
                 React.createElement(
-                  "div",
-                  { className: "stat" },
-                  React.createElement("i", { className: "fas fa-th" }),
-                  React.createElement(
-                    "span",
-                    null,
-                    classItem.current_seating_period ? "Active period" : "No current period"
-                  )
+                  "button",
+                  {
+                    className: "btn btn-sm btn-outline-secondary",
+                    onClick: (e) => { e.stopPropagation(); handleEditChart(classItem.id); }
+                  },
+                  "Edit"
+                ),
+                React.createElement(
+                  "button",
+                  {
+                    className: "btn btn-sm btn-outline-success",
+                    onClick: (e) => { e.stopPropagation(); handleNewChart(classItem.id); }
+                  },
+                  "New"
                 )
-              ),
-
-              // Status
-              React.createElement(
-                "div",
-                { className: "seating-class-card-status" },
-                classItem.current_seating_period
-                  ? React.createElement(
-                      "span",
-                      { className: "status-badge active" },
-                      React.createElement("i", { className: "fas fa-check-circle" }),
-                      classItem.current_seating_period.seating_assignments?.length > 0
-                        ? ` ${classItem.current_seating_period.seating_assignments.length} Seated`
-                        : " Empty Period"
-                    )
-                  : React.createElement(
-                      "span",
-                      { className: "status-badge inactive" },
-                      React.createElement("i", { className: "fas fa-calendar-times" }),
-                      " No Current Period"
-                    )
               )
             )
           )

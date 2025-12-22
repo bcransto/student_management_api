@@ -33,6 +33,7 @@ from .serializers import (
     ChangePasswordSerializer,
     ClassroomLayoutSerializer,
     ClassroomTableSerializer,
+    ClassListSerializer,
     ClassRosterSerializer,
     ClassSerializer,
     LayoutObstacleSerializer,
@@ -290,12 +291,23 @@ class ClassViewSet(viewsets.ModelViewSet):
     serializer_class = ClassSerializer
     permission_classes = [IsAuthenticated]
 
+    def get_serializer_class(self):
+        """Use lightweight serializer for list view"""
+        if self.action == 'list':
+            return ClassListSerializer
+        return ClassSerializer
+
     def get_queryset(self):
         """Filter to show only classes where the user is the teacher"""
         # All users (including superusers) only see their own classes
-        return Class.objects.filter(
-            teacher=self.request.user
-        ).select_related(
+        base_qs = Class.objects.filter(teacher=self.request.user)
+
+        # For list action, no need for heavy prefetching
+        if self.action == 'list':
+            return base_qs
+
+        # For detail/other actions, prefetch related data
+        return base_qs.select_related(
             'teacher',
             'classroom_layout',
         ).prefetch_related(

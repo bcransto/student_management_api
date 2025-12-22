@@ -394,6 +394,13 @@ class StudentSerializer(serializers.ModelSerializer):
         return [{"id": cls.id, "name": cls.name} for cls in active_classes]
 
 
+class ClassListSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for class list view - no roster, periods, or assignments"""
+    class Meta:
+        model = Class
+        fields = ["id", "name", "subject", "grade_level", "description"]
+
+
 class ClassSerializer(serializers.ModelSerializer):
     teacher = serializers.PrimaryKeyRelatedField(read_only=True)
     teacher_name = serializers.CharField(source="teacher.get_full_name", read_only=True)
