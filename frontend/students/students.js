@@ -4,9 +4,30 @@
 const Students = ({ data, navigateTo, apiModule }) => {
   // Use NavigationService if available, fallback to navigateTo prop
   const nav = window.NavigationService || null;
-  
-  const { students } = data;
+
+  const [students, setStudents] = React.useState(data?.students || []);
+  const [loading, setLoading] = React.useState(!data?.students?.length);
   const [searchTerm, setSearchTerm] = React.useState("");
+
+  // Fetch students if not provided
+  React.useEffect(() => {
+    const fetchStudents = async () => {
+      if (students.length > 0) return; // Already have data
+
+      try {
+        setLoading(true);
+        const response = await window.ApiModule.request('/students/');
+        const studentData = response.results || response;
+        setStudents(studentData);
+      } catch (error) {
+        console.error("Error fetching students:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStudents();
+  }, []);
 
   // Handle student row click - navigate to edit view
   const handleStudentClick = (studentId) => {
@@ -41,7 +62,7 @@ const Students = ({ data, navigateTo, apiModule }) => {
     });
   }, [students, searchTerm]);
 
-  if (!students) {
+  if (loading) {
     return React.createElement(
       "div",
       { className: "students-loading" },
