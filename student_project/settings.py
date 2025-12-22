@@ -227,6 +227,59 @@ if PRODUCTION:
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+# Login URL for @login_required decorator
+LOGIN_URL = '/api/auth/login/'  # Redirect to your API login endpoint
+
+# ============================================================================
+# Google Classroom OAuth Integration Settings
+# ============================================================================
+
+# Load Google OAuth credentials from credentials.json file
+import json
+try:
+    with open(BASE_DIR / 'credentials.json', 'r') as f:
+        google_creds = json.load(f)
+        _google_web = google_creds.get('web', {})
+        _default_client_id = _google_web.get('client_id', '')
+        _default_client_secret = _google_web.get('client_secret', '')
+        _google_project_id = _google_web.get('project_id', '')
+except FileNotFoundError:
+    print("WARNING: credentials.json not found, using environment variables only")
+    _default_client_id = ''
+    _default_client_secret = ''
+    _google_project_id = ''
+
+# Google OAuth credentials (from credentials.json or environment)
+GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID', _default_client_id)
+GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET', _default_client_secret)
+
+# Encryption key for django-encrypted-model-fields
+# Generate with: from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())
+FIELD_ENCRYPTION_KEY = os.environ.get(
+    'FIELD_ENCRYPTION_KEY',
+    'PunE3BZJDZMcW7uz64rMdj-hkjOsPvxjB7luKLiTTJs='  # Generated encryption key
+)
+
+# Google Classroom API scopes
+GOOGLE_SCOPES = [
+    'https://www.googleapis.com/auth/classroom.courses.readonly',      # Read course information
+    'https://www.googleapis.com/auth/classroom.coursework.students',   # Create/manage assignments
+    'https://www.googleapis.com/auth/classroom.rosters.readonly',      # Read class rosters
+    'https://www.googleapis.com/auth/classroom.profile.emails',
+]
+
+# Google OAuth configuration for the Flow
+GOOGLE_OAUTH_CONFIG = {
+    "web": {
+        "client_id": GOOGLE_CLIENT_ID,
+        "client_secret": GOOGLE_CLIENT_SECRET,
+        "project_id": _google_project_id or "cranston-474016",
+        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+        "token_uri": "https://oauth2.googleapis.com/token",
+        "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+    }
+}
+
 # Email configuration
 if PRODUCTION:
     # Production email settings (configure with actual SMTP server)
