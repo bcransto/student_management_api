@@ -23,7 +23,7 @@ def is_pythonanywhere():
 
 def is_production():
     """Check if this is a production environment"""
-    return is_pythonanywhere() or os.environ.get("DJANGO_ENV") == "production"
+    return is_pythonanywhere() or os.environ.get("DJANGO_ENV") in ("production", "pi")
 
 
 # Environment detection
@@ -43,6 +43,8 @@ DEBUG = not PRODUCTION
 if PRODUCTION:
     ALLOWED_HOSTS = [
         "bcranston.pythonanywhere.com",
+        "pinto.local",
+        "pinto",
         "localhost",
         "127.0.0.1",
     ]
