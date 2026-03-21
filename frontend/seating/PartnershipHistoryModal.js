@@ -274,15 +274,80 @@ const PartnershipHistoryModal = ({ student, partnershipData, partnershipRatings,
           }
         },
         
+        // Not Yet Paired With Section
+        processedData.unpaired.length > 0 && React.createElement(
+          "div",
+          { style: { marginBottom: '2rem' } },
+          React.createElement(
+            "h3",
+            {
+              style: {
+                fontSize: '0.875rem',
+                fontWeight: '500',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+                color: '#6b7280',
+                marginBottom: '1rem'
+              }
+            },
+            "Not Yet Paired With"
+          ),
+          React.createElement(
+            "div",
+            {
+              style: {
+                fontSize: '0.875rem',
+                lineHeight: '1.75',
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: '0.5rem'
+              }
+            },
+            processedData.unpaired.map((student, index) =>
+              React.createElement(
+                React.Fragment,
+                { key: student.id },
+                React.createElement(
+                  "span",
+                  {
+                    style: {
+                      backgroundColor: getGenderBackgroundColor(student.gender),
+                      color: getGenderColor(student.gender),
+                      fontWeight: '500',
+                      padding: '0.25rem 0.625rem',
+                      borderRadius: '0.375rem',
+                      border: `1px solid ${getGenderColor(student.gender)}20`,
+                      display: 'inline-block'
+                    }
+                  },
+                  student.name
+                )
+              )
+            )
+          )
+        ),
+
+        // Divider
+        (processedData.partnered.length > 0 && processedData.unpaired.length > 0) &&
+          React.createElement(
+            "div",
+            {
+              style: {
+                borderTop: '1px solid #e5e7eb',
+                margin: '2rem 0'
+              }
+            }
+          ),
+
         // Partnership Chart Section
         processedData.partnered.length > 0 && React.createElement(
           "div",
-          { style: { marginBottom: '2rem' } },
-          
+          null,
+
           // Chart Header
           React.createElement(
             "div",
-            { 
+            {
               style: {
                 display: 'flex',
                 justifyContent: 'space-between',
@@ -293,37 +358,37 @@ const PartnershipHistoryModal = ({ student, partnershipData, partnershipRatings,
             },
             React.createElement(
               "span",
-              { 
-                style: { 
+              {
+                style: {
                   fontSize: '0.875rem',
                   fontWeight: '500',
                   textTransform: 'uppercase',
                   letterSpacing: '0.05em',
                   color: '#6b7280'
-                } 
+                }
               },
               "Partner"
             ),
             React.createElement(
               "span",
-              { 
-                style: { 
+              {
+                style: {
                   fontSize: '0.875rem',
                   fontWeight: '500',
                   textTransform: 'uppercase',
                   letterSpacing: '0.05em',
                   color: '#6b7280'
-                } 
+                }
               },
               "Times Together"
             )
           ),
-          
+
           // Bar Chart
-          processedData.partnered.map((partnership) => 
+          processedData.partnered.map((partnership) =>
             React.createElement(
               "div",
-              { 
+              {
                 key: partnership.partnerId,
                 style: {
                   display: 'flex',
@@ -332,11 +397,11 @@ const PartnershipHistoryModal = ({ student, partnershipData, partnershipRatings,
                   gap: '1rem'
                 }
               },
-              
+
               // Partner name with rating badge (left aligned, fixed width)
               React.createElement(
                 "div",
-                { 
+                {
                   style: {
                     width: '200px',
                     fontSize: '0.875rem',
@@ -349,11 +414,11 @@ const PartnershipHistoryModal = ({ student, partnershipData, partnershipRatings,
                 React.createElement("span", null, partnership.partnerName),
                 getRatingBadge(getPartnerRating(student.id, partnership.partnerId))
               ),
-              
+
               // Bar and number container
               React.createElement(
                 "div",
-                { 
+                {
                   style: {
                     flex: 1,
                     display: 'flex',
@@ -361,11 +426,11 @@ const PartnershipHistoryModal = ({ student, partnershipData, partnershipRatings,
                     gap: '0.75rem'
                   }
                 },
-                
+
                 // Bar
                 React.createElement(
                   "div",
-                  { 
+                  {
                     style: {
                       flex: 1,
                       height: '24px',
@@ -378,7 +443,7 @@ const PartnershipHistoryModal = ({ student, partnershipData, partnershipRatings,
                   },
                   React.createElement(
                     "div",
-                    { 
+                    {
                       style: {
                         position: 'absolute',
                         left: 0,
@@ -396,7 +461,7 @@ const PartnershipHistoryModal = ({ student, partnershipData, partnershipRatings,
                     },
                     React.createElement(
                       "span",
-                      { 
+                      {
                         style: {
                           color: 'white',
                           fontSize: '0.75rem',
@@ -407,11 +472,11 @@ const PartnershipHistoryModal = ({ student, partnershipData, partnershipRatings,
                     )
                   )
                 ),
-                
+
                 // Frequency number (outside bar)
                 React.createElement(
                   "span",
-                  { 
+                  {
                     style: {
                       fontSize: '0.875rem',
                       fontWeight: '600',
@@ -421,71 +486,6 @@ const PartnershipHistoryModal = ({ student, partnershipData, partnershipRatings,
                     }
                   },
                   partnership.frequency
-                )
-              )
-            )
-          )
-        ),
-        
-        // Divider
-        (processedData.partnered.length > 0 && processedData.unpaired.length > 0) && 
-          React.createElement(
-            "div",
-            { 
-              style: {
-                borderTop: '1px solid #e5e7eb',
-                margin: '2rem 0'
-              }
-            }
-          ),
-        
-        // Not Yet Paired With Section
-        processedData.unpaired.length > 0 && React.createElement(
-          "div",
-          null,
-          React.createElement(
-            "h3",
-            { 
-              style: {
-                fontSize: '0.875rem',
-                fontWeight: '500',
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-                color: '#6b7280',
-                marginBottom: '1rem'
-              }
-            },
-            "Not Yet Paired With"
-          ),
-          React.createElement(
-            "div",
-            { 
-              style: {
-                fontSize: '0.875rem',
-                lineHeight: '1.75',
-                display: 'flex',
-                flexWrap: 'wrap',
-                gap: '0.5rem'
-              }
-            },
-            processedData.unpaired.map((student, index) => 
-              React.createElement(
-                React.Fragment,
-                { key: student.id },
-                React.createElement(
-                  "span",
-                  { 
-                    style: { 
-                      backgroundColor: getGenderBackgroundColor(student.gender),
-                      color: getGenderColor(student.gender),
-                      fontWeight: '500',
-                      padding: '0.25rem 0.625rem',
-                      borderRadius: '0.375rem',
-                      border: `1px solid ${getGenderColor(student.gender)}20`,
-                      display: 'inline-block'
-                    } 
-                  },
-                  student.name
                 )
               )
             )
