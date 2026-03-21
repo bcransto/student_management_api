@@ -12,6 +12,8 @@ const SeatingViewer = ({ classId, periodId, onEdit, onBack, navigateTo }) => {
   const [students, setStudents] = React.useState([]);
   const [assignments, setAssignments] = React.useState({});
   const [isCreatingPeriod, setIsCreatingPeriod] = React.useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
+  const [isDeleting, setIsDeleting] = React.useState(false);
   const [viewMode, setViewMode] = React.useState("teacher"); // "teacher", "student", or "print"
   const [showViewDropdown, setShowViewDropdown] = React.useState(false);
   const dropdownRef = React.useRef(null);
@@ -341,6 +343,28 @@ const SeatingViewer = ({ classId, periodId, onEdit, onBack, navigateTo }) => {
       alert(`Failed to activate period: ${error.message || "Unknown error"}`);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Handle deleting a seating period
+  const handleDeletePeriod = async () => {
+    if (!viewedPeriod) return;
+    try {
+      setIsDeleting(true);
+      await window.ApiModule.request(`/seating-periods/${viewedPeriod.id}/`, {
+        method: 'DELETE'
+      });
+      setShowDeleteConfirm(false);
+      if (nav?.toSeating) {
+        nav.toSeating();
+      } else if (navigateTo) {
+        navigateTo("seating");
+      }
+    } catch (error) {
+      console.error("Error deleting period:", error);
+      alert(`Failed to delete period: ${error.message || "Unknown error"}`);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -839,7 +863,32 @@ const SeatingViewer = ({ classId, periodId, onEdit, onBack, navigateTo }) => {
           },
           React.createElement("i", { className: "fas fa-calendar-plus", style: { fontSize: "14px", color: "white" } })
         ),
-        
+
+        // Delete Period button
+        viewedPeriod && React.createElement(
+          "button",
+          {
+            className: "btn-icon",
+            onClick: () => setShowDeleteConfirm(true),
+            disabled: loading || isDeleting,
+            title: "Delete this seating period",
+            style: {
+              width: "36px",
+              height: "36px",
+              border: "1px solid #dc2626",
+              borderRadius: "0.375rem",
+              backgroundColor: "#dc2626",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: loading || isDeleting ? "not-allowed" : "pointer",
+              opacity: loading || isDeleting ? 0.5 : 1,
+              transition: "all 0.15s"
+            }
+          },
+          React.createElement("i", { className: "fas fa-trash", style: { fontSize: "14px", color: "white" } })
+        ),
+
         // Make Active button - only show when viewing an inactive period
         viewedPeriod && viewedPeriod.end_date !== null &&
           React.createElement(
@@ -909,6 +958,86 @@ const SeatingViewer = ({ classId, periodId, onEdit, onBack, navigateTo }) => {
         onDragStart: () => {}, // No-op for viewer
         onDragEnd: () => {}, // No-op for viewer
       })
+      )
+    ),
+
+    // Delete confirmation modal
+    showDeleteConfirm && React.createElement(
+      "div",
+      {
+        onClick: (e) => { if (e.target === e.currentTarget) setShowDeleteConfirm(false); },
+        style: {
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: "rgba(0, 0, 0, 0.5)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 10000
+        }
+      },
+      React.createElement(
+        "div",
+        {
+          style: {
+            backgroundColor: "white",
+            borderRadius: "12px",
+            padding: "2rem",
+            maxWidth: "400px",
+            width: "90%",
+            boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)"
+          }
+        },
+        React.createElement("h3", {
+          style: { margin: "0 0 1rem 0", fontSize: "1.125rem", fontWeight: "600", color: "#111827" }
+        }, "Delete Seating Period"),
+        React.createElement("p", {
+          style: { margin: "0 0 1.5rem 0", fontSize: "0.875rem", color: "#6b7280", lineHeight: "1.5" }
+        }, `Are you sure you want to delete "${viewedPeriod?.name || "this period"}"? This will permanently remove all seat assignments. This cannot be undone.`),
+        React.createElement(
+          "div",
+          { style: { display: "flex", justifyContent: "flex-end", gap: "0.75rem" } },
+          React.createElement(
+            "button",
+            {
+              onClick: () => setShowDeleteConfirm(false),
+              disabled: isDeleting,
+              style: {
+                padding: "0.5rem 1.25rem",
+                backgroundColor: "#6b7280",
+                color: "white",
+                border: "none",
+                borderRadius: "0.375rem",
+                cursor: "pointer",
+                fontSize: "0.875rem",
+                fontWeight: "500"
+              }
+            },
+            "Cancel"
+          ),
+          React.createElement(
+            "button",
+            {
+              onClick: handleDeletePeriod,
+              disabled: isDeleting,
+              style: {
+                padding: "0.5rem 1.25rem",
+                backgroundColor: "#dc2626",
+                color: "white",
+                border: "none",
+                borderRadius: "0.375rem",
+                cursor: isDeleting ? "not-allowed" : "pointer",
+                fontSize: "0.875rem",
+                fontWeight: "500",
+                opacity: isDeleting ? 0.7 : 1
+              }
+            },
+            isDeleting ? "Deleting..." : "Delete"
+          )
+        )
       )
     )
   ); // Close main div
