@@ -8,9 +8,13 @@ const AuthModule = {
   // Get API base URL based on environment
   getApiBaseUrl() {
     const hostname = window.location.hostname;
-    return hostname === "localhost" || hostname === "127.0.0.1"
-      ? "http://127.0.0.1:8000/api"
-      : "https://bcranston.pythonanywhere.com/api";
+    if (hostname === "localhost" || hostname === "127.0.0.1") {
+      return "http://127.0.0.1:8000/api";
+    } else if (hostname.includes("pythonanywhere.com")) {
+      return "https://bcranston.pythonanywhere.com/api";
+    }
+    // Local network (e.g. pinto.local) - use current origin
+    return `${window.location.origin}/api`;
   },
 
   // Token management
