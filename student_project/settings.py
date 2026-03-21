@@ -45,6 +45,7 @@ if PRODUCTION:
         "bcranston.pythonanywhere.com",
         "pinto.local",
         "pinto",
+        "100.75.94.59",
         "localhost",
         "127.0.0.1",
     ]
