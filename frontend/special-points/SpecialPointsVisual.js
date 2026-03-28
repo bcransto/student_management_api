@@ -312,8 +312,12 @@ const SpecialPointsVisual = ({ classId, onBack, navigateTo }) => {
     }
   };
 
-  // Cancel press on pointer leave
+  // Cancel press on pointer leave or touch move (prevents accidental triggers while scrolling)
   const handleSeatPointerLeave = () => {
+    clearTimeout(pressTimerRef.current);
+  };
+
+  const handleSeatTouchMove = () => {
     clearTimeout(pressTimerRef.current);
   };
 
@@ -889,6 +893,7 @@ const SpecialPointsVisual = ({ classId, onBack, navigateTo }) => {
                         handleSeatPointerDown(e, student, rosterId),
                       onTouchEnd: (e) =>
                         handleSeatPointerUp(e, student, rosterId),
+                      onTouchMove: handleSeatTouchMove,
                       onContextMenu: (e) => e.preventDefault(),
                       title: student
                         ? `${student.first_name} ${student.last_name}${
