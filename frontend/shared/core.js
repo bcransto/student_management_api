@@ -211,7 +211,22 @@ const ApiModule = {
           });
 
           if (!retryResponse.ok) {
-            throw new Error(`API request failed: ${retryResponse.status}`);
+            let errorDetail = '';
+            try {
+              const errorData = await retryResponse.json();
+              console.error("API error response:", errorData);
+              if (typeof errorData === 'object') {
+                const messages = [];
+                for (const [field, errors] of Object.entries(errorData)) {
+                  const errorText = Array.isArray(errors) ? errors.join(', ') : errors;
+                  messages.push(`${field}: ${errorText}`);
+                }
+                errorDetail = messages.join('; ');
+              } else {
+                errorDetail = String(errorData);
+              }
+            } catch (e) {}
+            throw new Error(errorDetail || `API request failed: ${retryResponse.status}`);
           }
 
           // Handle empty response for retried request
@@ -233,7 +248,25 @@ const ApiModule = {
       }
 
       if (!response.ok) {
-        throw new Error(`API request failed: ${response.status}`);
+        let errorDetail = '';
+        try {
+          const errorData = await response.json();
+          console.error("API error response:", errorData);
+          // Format DRF validation errors into readable message
+          if (typeof errorData === 'object') {
+            const messages = [];
+            for (const [field, errors] of Object.entries(errorData)) {
+              const errorText = Array.isArray(errors) ? errors.join(', ') : errors;
+              messages.push(`${field}: ${errorText}`);
+            }
+            errorDetail = messages.join('; ');
+          } else {
+            errorDetail = String(errorData);
+          }
+        } catch (e) {
+          // Response wasn't JSON
+        }
+        throw new Error(errorDetail || `API request failed: ${response.status}`);
       }
 
       // Handle empty responses (like DELETE requests)
