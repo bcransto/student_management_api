@@ -357,3 +357,9 @@ LOGGING = {
         },
     },
 }
+
+# Cranston Commons API (Special Points)
+CRANSTON_COMMONS_BASE_URL = os.environ.get(
+    "CRANSTON_COMMONS_BASE_URL", "http://localhost:8002"
+)
+CRANSTON_COMMONS_API_KEY = os.environ.get("CRANSTON_COMMONS_API_KEY", "")

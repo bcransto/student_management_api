@@ -81,7 +81,12 @@ const App = () => {
       return "attendance";
     }
 
-    const validViews = ["dashboard", "students", "classes", "seating", "attendance", "layouts", "users"];
+    // Check for special-points patterns
+    if (hash === "special-points" || hash.startsWith("special-points/")) {
+      return "special-points";
+    }
+
+    const validViews = ["dashboard", "students", "classes", "seating", "attendance", "special-points", "layouts", "users"];
     return validViews.includes(hash) ? hash : "dashboard";
   };
 
@@ -223,10 +228,16 @@ const App = () => {
         return;
       }
 
+      // Check for special-points patterns
+      if (hash === "special-points" || hash.startsWith("special-points/")) {
+        setCurrentView("special-points");
+        return;
+      }
+
       // Clear editing state if navigating away
       setEditingStudentId(null);
 
-      const validViews = ["dashboard", "students", "classes", "seating", "attendance", "layouts", "users"];
+      const validViews = ["dashboard", "students", "classes", "seating", "attendance", "special-points", "layouts", "users"];
       if (validViews.includes(hash)) {
         setCurrentView(hash);
       } else {
@@ -368,6 +379,15 @@ const App = () => {
         console.log("Timeout check - currentView should be 'seating', hash:", window.location.hash);
       }, 0);
       
+      return;
+    }
+
+    // Handle special-points navigation
+    if (view === "special-points") {
+      window.location.hash = "special-points";
+      setCurrentView("special-points");
+      setEditingStudentId(null);
+      forceUpdate();
       return;
     }
 
@@ -549,6 +569,36 @@ const App = () => {
           navigateTo: handleNavigate,
           currentParams: null,
         });
+      case "special-points":
+        const spHash = window.location.hash.slice(1);
+
+        // Visual mode
+        if (spHash.startsWith("special-points/visual/")) {
+          const spVisualClassId = spHash.replace("special-points/visual/", "").split("/")[0];
+          return React.createElement(window.SpecialPointsVisual, {
+            classId: spVisualClassId,
+            navigateTo: handleNavigate,
+            onBack: () => handleNavigate("special-points")
+          });
+        }
+
+        // List mode (editor)
+        if (spHash.startsWith("special-points/") && spHash.split("/").length >= 2) {
+          const spClassId = spHash.split("/")[1];
+          return React.createElement(window.SpecialPointsEditor, {
+            classId: spClassId,
+            navigateTo: handleNavigate,
+            onBack: () => handleNavigate("special-points")
+          });
+        }
+
+        // Overview
+        return React.createElement(window.SpecialPoints, {
+          data: appData,
+          refreshData: fetchData,
+          navigateTo: handleNavigate,
+        });
+
       case "layouts":
         return React.createElement(Components.Layouts, {
           data: appData,
@@ -616,7 +666,7 @@ const App = () => {
   console.log("App render - currentView:", currentView, "hash:", window.location.hash);
   
   // Check if we're in visual attendance mode (fullscreen, no sidebar/header)
-  const isVisualAttendanceMode = window.location.hash.includes("attendance/visual/");
+  const isVisualAttendanceMode = window.location.hash.includes("attendance/visual/") || window.location.hash.includes("special-points/visual/");
   
   // For visual attendance mode, render only the component (fullscreen)
   if (isVisualAttendanceMode) {

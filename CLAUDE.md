@@ -51,7 +51,7 @@ Frontend is pure React served directly through Django - no webpack/babel:
 ### Tech Stack
 - **Backend**: Django 5.2.3 + Django REST Framework
 - **Frontend**: React 18 via CDN (no JSX, uses React.createElement)
-- **Database**: SQLite local, MySQL on PythonAnywhere
+- **Database**: SQLite (local and production on pinto)
 - **Auth**: JWT with email-based login (uses email field, not username)
 - **Settings Module**: `student_project.settings`
 - **Google Integration**: OAuth 2.0 for Classroom API access
@@ -196,6 +196,26 @@ React.createElement("div", { className: "example" }, children)
      - Visual Mode button (green) - seating chart attendance
      - Report button (orange) - analytics dashboard
 
+7. **Special Points Components** (proxies to external Cranston Commons API)
+   - **special-points.js**: Class card list with two buttons: List Mode, Visual Mode (no Report)
+   - **SpecialPointsEditor.js**: List-based point awarding
+     - Table columns: Student | Total Points (from Cranston Commons) | Award (number input)
+     - Loading spinner while fetching point totals
+     - Handles students without email: shows "No email", disables input
+     - Shows "Not registered" for emails not found in Cranston Commons
+     - Shows "Connection error" banner if Cranston Commons is unreachable
+     - No date navigation (points are not date-based)
+   - **SpecialPointsVisual.js**: Visual points using seating chart
+     - Two badges per seat: total points (purple, top-left), pending award (green/red, top-right)
+     - Single tap = +1, long press (~500ms) = -1
+     - Floating announcements on each action (e.g., "Izzy +1")
+     - Save sends batch to Cranston Commons, updates totals from response
+   - **Backend**: `SpecialPointsProxyViewSet` in `students/views.py`
+     - `POST /api/special-points/fetch/` — batch get point totals by email
+     - `POST /api/special-points/award/batch/` — award/deduct points for multiple students
+     - Proxies to Cranston Commons with `X-API-Key` header (key stored in Django settings)
+     - Returns 502 with error message if Cranston Commons is unreachable
+
 ### API Patterns
 
 **ApiModule.request() - MUST use options object**:
@@ -273,6 +293,19 @@ await ApiModule.request('/api/endpoint/')   // ❌ Double /api/ prefix
 #   ]
 # }
 # CRITICAL: Use class_roster_id, not roster_entry or student_id
+```
+
+**Special Points API Endpoints** (proxy to Cranston Commons):
+```python
+# POST /api/special-points/fetch/
+# Get current point totals for students by email
+# Body: {"emails": ["s1@school.edu", "s2@school.edu"]}
+# Response: {"students": {"s1@school.edu": {"points": 50}}, "not_found": []}
+
+# POST /api/special-points/award/batch/
+# Award/deduct points for multiple students
+# Body: {"awards": [{"email": "s1@school.edu", "points": 5, "reason": ""}]}
+# Response: {"results": [{"email": "...", "points_awarded": 5, "new_total": 55}]}
 ```
 
 **Google Classroom OAuth Endpoints**:
@@ -460,19 +493,38 @@ DJANGO_ENV=development
 GOOGLE_CLIENT_ID=your-client-id
 GOOGLE_CLIENT_SECRET=your-client-secret
 FIELD_ENCRYPTION_KEY=your-encryption-key  # Generate with Fernet
+
+# Cranston Commons (Special Points) — local dev setup:
+# Student Management runs on port 8000, Cranston Commons on port 8002
+CRANSTON_COMMONS_BASE_URL=http://localhost:8002
+CRANSTON_COMMONS_API_KEY=your-api-key-here
 ```
 
-## Deployment to PythonAnywhere
+## Deployment to pinto (Production)
 
+Production runs on **pinto** (10.0.0.200), a local server accessible externally via Tailscale.
+
+**Server setup:**
+- Gunicorn bound to `0.0.0.0:1081` with 2 workers
+- Managed by systemd: `student-management.service`
+- Env file: `/home/bcransto/student_management_api/.env` (`DJANGO_ENV=pi`)
+- Static files served via `staticfiles/` (run `collectstatic` when static files change)
+
+**Deploy steps:**
 1. Push to GitHub main branch
-2. SSH to PythonAnywhere console
-3. Navigate to `/home/bcranston/student_management_api/`
-4. Pull latest: `git pull origin main`
-5. Run migrations if needed: `python manage.py migrate`
-6. Set production environment variables in PythonAnywhere dashboard
-7. Reload web app from dashboard
+2. SSH to pinto: `ssh bcransto@pinto`
+3. Pull latest:
+   ```bash
+   cd ~/student_management_api
+   git pull origin main
+   source myenv/bin/activate
+   pip install -r requirements.txt  # if dependencies changed
+   python manage.py migrate          # if migrations changed
+   python manage.py collectstatic --noinput  # if static files changed
+   ```
+4. Restart: `sudo systemctl restart student-management`
 
-Frontend auto-detects production environment via hostname.
+Frontend auto-detects environment via hostname (pinto.local uses current origin for API).
 
 ## URL Structure
 
@@ -487,6 +539,8 @@ Frontend auto-detects production environment via hostname.
 - `/api/auth/google/callback/` - OAuth callback handler
 - `/api/google/test/` - Test Google Classroom connection
 - `/api/google/disconnect/` - Remove Google credentials
+- `/api/special-points/fetch/` - Proxy: get point totals from Cranston Commons
+- `/api/special-points/award/batch/` - Proxy: award/deduct points via Cranston Commons
 
 **Frontend Hash Routes**:
 - `#dashboard` - Main view
@@ -512,6 +566,9 @@ Frontend auto-detects production environment via hostname.
 - `#attendance/visual/{classId}` - Visual attendance using seating chart
 - `#attendance/visual/{classId}/{date}` - Visual attendance for specific date
 - `#attendance/report/{classId}` - Attendance analytics and reporting
+- `#special-points` - Special points class list with two modes per class
+- `#special-points/{classId}` - Award points (list mode)
+- `#special-points/visual/{classId}` - Award points (visual seating chart mode)
 
 **Navigation & Routing**:
 - Router utility at `frontend/shared/router.js` provides consistent URL generation
@@ -538,6 +595,8 @@ Frontend auto-detects production environment via hostname.
 16. `frontend/attendance/AttendanceReport.js` - Attendance analytics dashboard
 17. `students/views.py` - AttendanceViewSet with totals and dates endpoints
 18. `students/google_classroom_service.py` - OAuth flow and Google Classroom API integration
+19. `frontend/special-points/SpecialPointsEditor.js` - List-based point awarding
+20. `frontend/special-points/SpecialPointsVisual.js` - Visual seating chart point awarding
 
 ## Important Behavioral Notes
 

@@ -1,0 +1,204 @@
+/* SpecialPointsVisual.css - Styles for visual special points editor */
+
+.spv-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: #f5f5f5;
+  overflow: hidden;
+}
+
+/* Header */
+.spv-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 50px;
+  padding: 0 10px;
+  background: white;
+  border-bottom: 1px solid #e0e0e0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Back button */
+.spv-btn-back {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 36px;
+  background: #f5f5f5;
+  border: 1px solid #d0d0d0;
+  border-radius: 4px;
+  color: #555;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.spv-btn-back:hover {
+  background: #e8e8e8;
+  transform: translateX(-1px);
+}
+
+/* Header info */
+.spv-header-info {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
+  font-size: 16px;
+}
+
+/* Save button */
+.spv-btn-save {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 16px;
+  background: #6366f1;
+  border: none;
+  border-radius: 4px;
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.spv-btn-save:hover:not(:disabled) {
+  background: #4f46e5;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+}
+
+.spv-btn-save:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.spv-btn-save.has-changes {
+  animation: spv-pulse-save 2s infinite;
+}
+
+@keyframes spv-pulse-save {
+  0% {
+    box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(99, 102, 241, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(99, 102, 241, 0);
+  }
+}
+
+/* Canvas container */
+.spv-canvas-container {
+  flex: 1;
+  position: relative;
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+}
+
+/* Seating grid */
+.spv-grid {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  user-select: none;
+}
+
+/* Tables */
+.spv-table {
+  position: relative;
+  transition: all 0.2s;
+}
+
+/* Seats */
+.spv-seat {
+  user-select: none;
+  transition: all 0.2s;
+  -webkit-touch-callout: none; /* Disable long-press context menu on iOS */
+}
+
+.spv-seat:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  z-index: 10;
+}
+
+/* Loading state */
+.spv-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  color: #666;
+}
+
+.spv-loading i {
+  color: #6366f1;
+  margin-bottom: 15px;
+}
+
+.spv-loading p {
+  font-size: 16px;
+  margin: 0;
+}
+
+/* No layout message */
+.spv-no-layout {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  color: #999;
+}
+
+.spv-no-layout i {
+  color: #d0d0d0;
+  margin-bottom: 15px;
+}
+
+.spv-no-layout h3 {
+  color: #666;
+  font-size: 20px;
+  margin: 0 0 10px 0;
+}
+
+.spv-no-layout p {
+  color: #999;
+  margin: 5px 0;
+  font-size: 14px;
+}
+
+/* Floating announcement animation - reuse from attendance */
+.spv-announcement {
+  animation: floatUp 1.5s ease-out forwards;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .spv-header {
+    height: 44px;
+    padding: 0 8px;
+  }
+
+  .spv-header-info {
+    font-size: 14px;
+    gap: 10px;
+  }
+
+  .spv-btn-save {
+    padding: 6px 12px;
+    font-size: 13px;
+  }
+
+  .spv-canvas-container {
+    padding: 8px;
+  }
+}

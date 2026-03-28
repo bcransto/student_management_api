@@ -25,6 +25,7 @@ const Sidebar = ({ currentView, onNavigate }) => {
     { id: "students", label: "Students", icon: "fas fa-users" },
     { id: "seating", label: "Seating Charts", icon: "fas fa-chair" },
     { id: "attendance", label: "Attendance", icon: "fas fa-clipboard-check" },
+    { id: "special-points", label: "Special Points", icon: "fas fa-star" },
     { id: "layouts", label: "Layouts", icon: "fas fa-th" },
   ];
 

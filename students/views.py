@@ -1,6 +1,7 @@
 # students/views.py - Minimal working version
 import os
 
+import requests as http_requests
 from django.conf import settings
 from django.core.mail import send_mail
 from django.db import models
@@ -1662,6 +1663,56 @@ class AttendanceViewSet(viewsets.ModelViewSet):
             return Response(
                 {"error": str(e)},
                 status=status.HTTP_400_BAD_REQUEST
+            )
+
+
+class SpecialPointsProxyViewSet(viewsets.ViewSet):
+    """Proxy to Cranston Commons API for special points."""
+
+    permission_classes = [IsAuthenticated]
+
+    @action(detail=False, methods=["POST"], url_path="fetch")
+    def fetch_points(self, request):
+        """Fetch current point totals for a list of student emails."""
+        emails = request.data.get("emails", [])
+        if not emails:
+            return Response(
+                {"students": {}, "not_found": []}, status=status.HTTP_200_OK
+            )
+
+        url = f"{settings.CRANSTON_COMMONS_BASE_URL}/api/seating/points/"
+        headers = {"X-API-Key": settings.CRANSTON_COMMONS_API_KEY}
+
+        try:
+            resp = http_requests.post(
+                url, json={"emails": emails}, headers=headers, timeout=10
+            )
+            return Response(resp.json(), status=resp.status_code)
+        except (http_requests.ConnectionError, http_requests.Timeout):
+            return Response(
+                {"error": "Unable to connect to Cranston Commons"},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+    @action(detail=False, methods=["POST"], url_path="award/batch")
+    def award_batch(self, request):
+        """Award/deduct points for multiple students."""
+        awards = request.data.get("awards", [])
+        if not awards:
+            return Response({"results": []}, status=status.HTTP_200_OK)
+
+        url = f"{settings.CRANSTON_COMMONS_BASE_URL}/api/seating/award/batch/"
+        headers = {"X-API-Key": settings.CRANSTON_COMMONS_API_KEY}
+
+        try:
+            resp = http_requests.post(
+                url, json={"awards": awards}, headers=headers, timeout=10
+            )
+            return Response(resp.json(), status=resp.status_code)
+        except (http_requests.ConnectionError, http_requests.Timeout):
+            return Response(
+                {"error": "Unable to connect to Cranston Commons"},
+                status=status.HTTP_502_BAD_GATEWAY,
             )
 
 

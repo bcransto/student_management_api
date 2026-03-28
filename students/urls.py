@@ -36,6 +36,9 @@ router.register(r"seating-assignments", views.SeatingAssignmentViewSet)
 # Attendance
 router.register(r"attendance", views.AttendanceViewSet, basename="attendance")
 
+# Special Points (proxy to Cranston Commons)
+router.register(r"special-points", views.SpecialPointsProxyViewSet, basename="special-points")
+
 # Add snake_case aliases for consistency (both hyphenated and snake_case work)
 router.register(r"seating_periods", views.SeatingPeriodViewSet, basename="seating_periods")
 router.register(r"seating_assignments", views.SeatingAssignmentViewSet, basename="seating_assignments")

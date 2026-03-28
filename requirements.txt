@@ -13,6 +13,7 @@ google-auth-httplib2==0.2.0
 google-api-python-client==2.183.0
 django-encrypted-model-fields==0.6.5
 cryptography==45.0.5
+requests==2.32.3
 
 # Production dependencies (install on PythonAnywhere)
 whitenoise==6.7.0
