@@ -33,6 +33,7 @@ if PRODUCTION:
     ALLOWED_HOSTS = [
         "pinto.local",
         "pinto",
+        "10.0.0.200",
         "100.75.94.59",
         "localhost",
         "127.0.0.1",
