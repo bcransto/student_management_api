@@ -1,5 +1,4 @@
 import os
-import socket
 from datetime import timedelta
 from pathlib import Path
 
@@ -12,26 +11,16 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 # Auto-detect environment
-def is_pythonanywhere():
-    """Detect if running on PythonAnywhere"""
-    return (
-        "PYTHONANYWHERE_DOMAIN" in os.environ
-        or "PYTHONANYWHERE_SITE" in os.environ
-        or os.environ.get("DJANGO_ENV") == "production"
-    )
-
-
 def is_production():
     """Check if this is a production environment"""
-    return is_pythonanywhere() or os.environ.get("DJANGO_ENV") in ("production", "pi")
+    return os.environ.get("DJANGO_ENV") in ("production", "pi")
 
 
 # Environment detection
 PRODUCTION = is_production()
-ON_PYTHONANYWHERE = is_pythonanywhere()
 
 print(f"Environment: {'Production' if PRODUCTION else 'Development'}")
-print(f"Platform: {'PythonAnywhere' if ON_PYTHONANYWHERE else 'Local'}")
+print(f"Platform: {'Pi (pinto)' if PRODUCTION else 'Local'}")
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.environ.get("SECRET_KEY", "django-insecure-change-this-in-production")
@@ -42,7 +31,6 @@ DEBUG = not PRODUCTION
 # Dynamic ALLOWED_HOSTS based on environment
 if PRODUCTION:
     ALLOWED_HOSTS = [
-        "bcranston.pythonanywhere.com",
         "pinto.local",
         "pinto",
         "100.75.94.59",
@@ -107,30 +95,13 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "student_project.wsgi.application"
 
-# Database configuration based on environment
-if ON_PYTHONANYWHERE:
-    # PythonAnywhere MySQL database
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.mysql",
-            "NAME": os.environ.get("DB_NAME", "yourusername$studentmanagement"),
-            "USER": os.environ.get("DB_USER", "yourusername"),
-            "PASSWORD": os.environ.get("DB_PASSWORD", ""),
-            "HOST": os.environ.get("DB_HOST", "yourusername.mysql.pythonanywhere-services.com"),
-            "PORT": "3306",
-            "OPTIONS": {
-                "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
-            },
-        }
+# Database configuration (SQLite for all environments)
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": BASE_DIR / "db.sqlite3",
     }
-else:
-    # Local SQLite database
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "db.sqlite3",
-        }
-    }
+}
 
 # Custom User Model
 AUTH_USER_MODEL = "students.User"
@@ -173,13 +144,8 @@ SIMPLE_JWT = {
 
 # CORS settings based on environment
 if PRODUCTION:
-    # Production CORS settings
-    CORS_ALLOWED_ORIGINS = [
-        f"https://{'bcranston.pythonanywhere.com'}",
-        "http://localhost:3000",  # Still allow local development
-        "http://127.0.0.1:3000",
-    ]
-    CORS_ALLOW_ALL_ORIGINS = False
+    # Production CORS settings (pinto serves frontend and API from same origin)
+    CORS_ALLOW_ALL_ORIGINS = True
 else:
     # Development CORS settings
     CORS_ALLOW_ALL_ORIGINS = True
@@ -307,12 +273,6 @@ if PRODUCTION:
     SECURE_CONTENT_TYPE_NOSNIFF = True
     X_FRAME_OPTIONS = "DENY"
 
-# SSL settings only for PythonAnywhere (has HTTPS)
-if ON_PYTHONANYWHERE:
-    SECURE_SSL_REDIRECT = True
-    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-    SESSION_COOKIE_SECURE = True
-    CSRF_COOKIE_SECURE = True
 
 # Logging configuration
 LOGGING = {
