@@ -280,26 +280,40 @@ const SpecialPointsVisual = ({ classId, onBack, navigateTo }) => {
     return roster.find((r) => r.student === studentId) || null;
   };
 
+  // Track whether current interaction started from touch (to ignore emulated mouse events)
+  const isTouchRef = useRef(false);
+  // Store the seat element for long-press animation (e.currentTarget is stale in setTimeout)
+  const seatElementRef = useRef(null);
+
   // Handle seat mouse/touch down (start press timer)
-  const handleSeatPointerDown = (e, student, rosterId) => {
+  const handleSeatPointerDown = (e, student, rosterId, source) => {
     if (!student || !rosterId) return;
+
+    // If this is a mouse event but we already handled touch, skip (emulated event)
+    if (source === "mouse" && isTouchRef.current) return;
+    if (source === "touch") isTouchRef.current = true;
 
     const rosterEntry = getRosterForStudent(student.id);
     if (!rosterEntry || !rosterEntry.student_email) return;
 
     e.preventDefault();
     isLongPressRef.current = false;
+    // Capture the element now since e.currentTarget will be null in setTimeout
+    seatElementRef.current = e.currentTarget;
 
     pressTimerRef.current = setTimeout(() => {
       isLongPressRef.current = true;
-      // Long press = -1
-      updatePendingAward(rosterId, -1, student, e);
+      // Long press = -1 (use stored element for animation)
+      updatePendingAward(rosterId, -1, student, seatElementRef.current);
     }, 500);
   };
 
   // Handle seat mouse/touch up (short tap = +1)
-  const handleSeatPointerUp = (e, student, rosterId) => {
+  const handleSeatPointerUp = (e, student, rosterId, source) => {
     if (!student || !rosterId) return;
+
+    // If this is a mouse event but we already handled touch, skip (emulated event)
+    if (source === "mouse" && isTouchRef.current) return;
 
     clearTimeout(pressTimerRef.current);
 
@@ -308,7 +322,12 @@ const SpecialPointsVisual = ({ classId, onBack, navigateTo }) => {
       if (!rosterEntry || !rosterEntry.student_email) return;
 
       // Short tap = +1
-      updatePendingAward(rosterId, 1, student, e);
+      updatePendingAward(rosterId, 1, student, e.currentTarget);
+    }
+
+    // Reset touch flag after a brief delay (after emulated mouse events have fired)
+    if (source === "touch") {
+      setTimeout(() => { isTouchRef.current = false; }, 300);
     }
   };
 
@@ -322,7 +341,8 @@ const SpecialPointsVisual = ({ classId, onBack, navigateTo }) => {
   };
 
   // Update pending award and show announcement
-  const updatePendingAward = (rosterId, delta, student, e) => {
+  // seatEl is the DOM element (passed directly, not from event)
+  const updatePendingAward = (rosterId, delta, student, seatEl) => {
     setPendingAwards((prev) => {
       const newAwards = {
         ...prev,
@@ -337,17 +357,16 @@ const SpecialPointsVisual = ({ classId, onBack, navigateTo }) => {
     });
 
     // Visual feedback
-    const seatElement = e?.currentTarget;
-    if (seatElement) {
-      seatElement.style.transform = "scale(1.15)";
+    if (seatEl) {
+      seatEl.style.transform = "scale(1.15)";
       setTimeout(() => {
-        seatElement.style.transform = "";
+        seatEl.style.transform = "";
       }, 200);
     }
 
     // Show floating announcement
-    if (seatElement) {
-      const rect = seatElement.getBoundingClientRect();
+    if (seatEl) {
+      const rect = seatEl.getBoundingClientRect();
       const announcementId = `${rosterId}-${Date.now()}`;
       const sign = delta > 0 ? "+" : "";
       const text = `${student.nickname} ${sign}${delta}`;
@@ -885,14 +904,14 @@ const SpecialPointsVisual = ({ classId, onBack, navigateTo }) => {
                       className: "spv-seat",
                       style: finalSeatStyle,
                       onMouseDown: (e) =>
-                        handleSeatPointerDown(e, student, rosterId),
+                        handleSeatPointerDown(e, student, rosterId, "mouse"),
                       onMouseUp: (e) =>
-                        handleSeatPointerUp(e, student, rosterId),
+                        handleSeatPointerUp(e, student, rosterId, "mouse"),
                       onMouseLeave: handleSeatPointerLeave,
                       onTouchStart: (e) =>
-                        handleSeatPointerDown(e, student, rosterId),
+                        handleSeatPointerDown(e, student, rosterId, "touch"),
                       onTouchEnd: (e) =>
-                        handleSeatPointerUp(e, student, rosterId),
+                        handleSeatPointerUp(e, student, rosterId, "touch"),
                       onTouchMove: handleSeatTouchMove,
                       onContextMenu: (e) => e.preventDefault(),
                       title: student
