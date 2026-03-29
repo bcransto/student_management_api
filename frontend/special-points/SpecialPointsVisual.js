@@ -48,10 +48,7 @@ const SpecialPointsVisual = ({ classId, onBack, navigateTo }) => {
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (
-        showClassDropdown &&
-        !event.target.closest(".spv-class-dropdown-btn")
-      ) {
+      if (showClassDropdown && !event.target.closest(".spv-class-dropdown-btn")) {
         setShowClassDropdown(false);
       }
     };
@@ -86,8 +83,7 @@ const SpecialPointsVisual = ({ classId, onBack, navigateTo }) => {
     const handleBeforeUnload = (e) => {
       if (hasUnsavedChanges) {
         e.preventDefault();
-        e.returnValue =
-          "You have unsaved point changes. Are you sure you want to leave?";
+        e.returnValue = "You have unsaved point changes. Are you sure you want to leave?";
         return "You have unsaved point changes. Are you sure you want to leave?";
       }
     };
@@ -102,98 +98,114 @@ const SpecialPointsVisual = ({ classId, onBack, navigateTo }) => {
       setLoading(true);
       setConnectionError(false);
 
-      // Load class info with roster
-      const classData = await window.ApiModule.request(`/classes/${classId}/`);
-      setClassInfo(classData);
-      setRoster(classData.roster || []);
+      // Check cache for shared data (layout, students, assignments)
+      if (!window._visualDataCache) window._visualDataCache = {};
+      const cached = window._visualDataCache[classId];
+      let classData;
 
-      // Extract students from roster
-      if (classData.roster && Array.isArray(classData.roster)) {
-        const studentList = classData.roster.map((r) => ({
-          id: r.student,
-          rosterId: r.id,
-          first_name: r.student_first_name,
-          last_name: r.student_last_name,
-          nickname: r.student_nickname || r.student_first_name,
-          student_id: r.student_id,
-          email: r.student_email,
-        }));
-        setStudents(studentList);
-      }
+      if (cached) {
+        console.log("Using cached visual data for class:", classId);
+        classData = { ...cached.classInfo, roster: cached.roster };
+        setClassInfo(cached.classInfo);
+        setRoster(cached.roster || []);
+        setStudents(cached.students);
+        setLayout(cached.layout);
+        setAssignments(cached.assignments);
+      } else {
+        // Load class info with roster
+        classData = await window.ApiModule.request(`/classes/${classId}/`);
+        setClassInfo(classData);
+        setRoster(classData.roster || []);
 
-      // Load seating period and layout
-      let layoutData = null;
-      let currentPeriod = null;
+        // Extract students from roster
+        let studentList = [];
+        if (classData.roster && Array.isArray(classData.roster)) {
+          studentList = classData.roster.map((r) => ({
+            id: r.student,
+            rosterId: r.id,
+            first_name: r.student_first_name,
+            last_name: r.student_last_name,
+            nickname: r.student_nickname || r.student_first_name,
+            student_id: r.student_id,
+            email: r.student_email,
+          }));
+          setStudents(studentList);
+        }
 
-      try {
-        const periodsResponse = await window.ApiModule.request(
-          `/seating-periods/?class_assigned=${classId}`
-        );
-        const periods = periodsResponse.results || [];
+        // Load seating period and layout
+        let layoutData = null;
+        let currentPeriod = null;
+        let assignmentMap = {};
 
-        currentPeriod = periods.find((p) => p.end_date === null);
-        if (!currentPeriod && periods.length > 0) {
-          periods.sort(
-            (a, b) => new Date(b.start_date) - new Date(a.start_date)
+        try {
+          const periodsResponse = await window.ApiModule.request(
+            `/seating-periods/?class_assigned=${classId}`
           );
-          currentPeriod = periods[0];
-        }
+          const periods = periodsResponse.results || [];
 
-        if (currentPeriod) {
-          const fullPeriod = await window.ApiModule.request(
-            `/seating-periods/${currentPeriod.id}/`
-          );
-          currentPeriod = fullPeriod;
-
-          if (fullPeriod.layout_details) {
-            layoutData = fullPeriod.layout_details;
-            setLayout(layoutData);
+          currentPeriod = periods.find((p) => p.end_date === null);
+          if (!currentPeriod && periods.length > 0) {
+            periods.sort((a, b) => new Date(b.start_date) - new Date(a.start_date));
+            currentPeriod = periods[0];
           }
-        }
 
-        // Fallback to user's most recent layout
-        if (!layoutData) {
-          const layoutsResponse = await window.ApiModule.request("/layouts/");
-          const userLayouts = layoutsResponse.results || layoutsResponse;
-
-          if (userLayouts.length > 0) {
-            layoutData = await window.ApiModule.request(
-              `/layouts/${userLayouts[0].id}/`
+          if (currentPeriod) {
+            const fullPeriod = await window.ApiModule.request(
+              `/seating-periods/${currentPeriod.id}/`
             );
-            setLayout(layoutData);
-          }
-        }
+            currentPeriod = fullPeriod;
 
-        // Load seating assignments
-        if (
-          currentPeriod &&
-          currentPeriod.seating_assignments &&
-          layoutData
-        ) {
-          const assignmentMap = {};
-          currentPeriod.seating_assignments.forEach((assignment) => {
-            const table = layoutData.tables?.find(
-              (t) => t.table_number === assignment.table_number
-            );
-            if (table) {
-              const tableId = String(table.id);
-              const seatNumber = String(assignment.seat_number);
-              const rosterEntry = classData.roster.find(
-                (r) => r.id === assignment.roster_entry
-              );
-
-              if (rosterEntry) {
-                if (!assignmentMap[tableId]) {
-                  assignmentMap[tableId] = {};
-                }
-                assignmentMap[tableId][seatNumber] = rosterEntry.student;
-              }
+            if (fullPeriod.layout_details) {
+              layoutData = fullPeriod.layout_details;
+              setLayout(layoutData);
             }
-          });
-          setAssignments(assignmentMap);
+          }
+
+          // Fallback to user's most recent layout
+          if (!layoutData) {
+            const layoutsResponse = await window.ApiModule.request("/layouts/");
+            const userLayouts = layoutsResponse.results || layoutsResponse;
+
+            if (userLayouts.length > 0) {
+              layoutData = await window.ApiModule.request(`/layouts/${userLayouts[0].id}/`);
+              setLayout(layoutData);
+            }
+          }
+
+          // Load seating assignments
+          if (currentPeriod && currentPeriod.seating_assignments && layoutData) {
+            currentPeriod.seating_assignments.forEach((assignment) => {
+              const table = layoutData.tables?.find(
+                (t) => t.table_number === assignment.table_number
+              );
+              if (table) {
+                const tableId = String(table.id);
+                const seatNumber = String(assignment.seat_number);
+                const rosterEntry = classData.roster.find((r) => r.id === assignment.roster_entry);
+
+                if (rosterEntry) {
+                  if (!assignmentMap[tableId]) {
+                    assignmentMap[tableId] = {};
+                  }
+                  assignmentMap[tableId][seatNumber] = rosterEntry.student;
+                }
+              }
+            });
+            setAssignments(assignmentMap);
+          }
+        } catch (error) {
+          console.log("Error loading seating data:", error);
         }
-      } catch (error) {
-        console.log("Error loading seating data:", error);
+
+        // Cache shared data for fast mode switching
+        window._visualDataCache[classId] = {
+          classInfo: classData,
+          layout: layoutData,
+          assignments: assignmentMap,
+          students: studentList,
+          roster: classData.roster,
+          timestamp: Date.now(),
+        };
       }
 
       // Fetch point totals
@@ -208,9 +220,7 @@ const SpecialPointsVisual = ({ classId, onBack, navigateTo }) => {
 
   // Fetch point totals from Cranston Commons
   const fetchPointTotals = async (rosterList) => {
-    const emails = rosterList
-      .map((r) => r.student_email)
-      .filter((email) => email && email.trim());
+    const emails = rosterList.map((r) => r.student_email).filter((email) => email && email.trim());
 
     if (emails.length === 0) {
       setPointTotals({});
@@ -221,14 +231,11 @@ const SpecialPointsVisual = ({ classId, onBack, navigateTo }) => {
       setPointsLoading(true);
       setConnectionError(null);
 
-      const response = await window.ApiModule.request(
-        "/special-points/fetch/",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ emails }),
-        }
-      );
+      const response = await window.ApiModule.request("/special-points/fetch/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ emails }),
+      });
 
       if (response.error) {
         setConnectionError(response.error);
@@ -327,7 +334,9 @@ const SpecialPointsVisual = ({ classId, onBack, navigateTo }) => {
 
     // Reset touch flag after a brief delay (after emulated mouse events have fired)
     if (source === "touch") {
-      setTimeout(() => { isTouchRef.current = false; }, 300);
+      setTimeout(() => {
+        isTouchRef.current = false;
+      }, 300);
     }
   };
 
@@ -384,9 +393,7 @@ const SpecialPointsVisual = ({ classId, onBack, navigateTo }) => {
       ]);
 
       setTimeout(() => {
-        setPointAnnouncements((prev) =>
-          prev.filter((a) => a.id !== announcementId)
-        );
+        setPointAnnouncements((prev) => prev.filter((a) => a.id !== announcementId));
       }, 1500);
     }
   };
@@ -420,14 +427,11 @@ const SpecialPointsVisual = ({ classId, onBack, navigateTo }) => {
         return;
       }
 
-      const response = await window.ApiModule.request(
-        "/special-points/award/batch/",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ awards }),
-        }
-      );
+      const response = await window.ApiModule.request("/special-points/award/batch/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ awards }),
+      });
 
       if (response.error) {
         alert("Failed to save: " + response.error);
@@ -471,11 +475,7 @@ const SpecialPointsVisual = ({ classId, onBack, navigateTo }) => {
   // Handle back navigation
   const handleBack = () => {
     if (hasUnsavedChanges) {
-      if (
-        !confirm(
-          "You have unsaved changes. Do you want to leave without saving?"
-        )
-      ) {
+      if (!confirm("You have unsaved changes. Do you want to leave without saving?")) {
         return;
       }
     }
@@ -552,15 +552,9 @@ const SpecialPointsVisual = ({ classId, onBack, navigateTo }) => {
                 color: "#374151",
               },
             },
-            React.createElement(
-              "span",
-              null,
-              classInfo?.name || "Class"
-            ),
+            React.createElement("span", null, classInfo?.name || "Class"),
             React.createElement("i", {
-              className: `fas fa-chevron-${
-                showClassDropdown ? "up" : "down"
-              }`,
+              className: `fas fa-chevron-${showClassDropdown ? "up" : "down"}`,
               style: { fontSize: "12px" },
             })
           ),
@@ -597,31 +591,21 @@ const SpecialPointsVisual = ({ classId, onBack, navigateTo }) => {
                           padding: "8px 12px",
                           textAlign: "left",
                           border: "none",
-                          background:
-                            cls.id === parseInt(classId)
-                              ? "#f3f4f6"
-                              : "transparent",
+                          background: cls.id === parseInt(classId) ? "#f3f4f6" : "transparent",
                           cursor: "pointer",
                           fontSize: "14px",
                           color: "#374151",
                           borderBottom: "1px solid #f3f4f6",
                         },
-                        onMouseEnter: (e) =>
-                          (e.target.style.background = "#f9fafb"),
+                        onMouseEnter: (e) => (e.target.style.background = "#f9fafb"),
                         onMouseLeave: (e) =>
                           (e.target.style.background =
-                            cls.id === parseInt(classId)
-                              ? "#f3f4f6"
-                              : "transparent"),
+                            cls.id === parseInt(classId) ? "#f3f4f6" : "transparent"),
                       },
                       React.createElement(
                         "div",
                         null,
-                        React.createElement(
-                          "div",
-                          { style: { fontWeight: "600" } },
-                          cls.name
-                        ),
+                        React.createElement("div", { style: { fontWeight: "600" } }, cls.name),
                         React.createElement(
                           "div",
                           {
@@ -660,6 +644,39 @@ const SpecialPointsVisual = ({ classId, onBack, navigateTo }) => {
         )
       ),
 
+      // Mode toggle button (only for authorized user)
+      window.AuthModule.getUserInfo()?.email === "bcranston@carlisle.k12.ma.us" &&
+        React.createElement(
+          "button",
+          {
+            onClick: () => {
+              if (
+                hasUnsavedChanges &&
+                !confirm("You have unsaved point changes. Switch to Attendance mode?")
+              )
+                return;
+              window.location.hash = "attendance/visual/" + classId;
+            },
+            style: {
+              background: "#10b981",
+              color: "white",
+              border: "none",
+              borderRadius: "6px",
+              padding: "6px 12px",
+              cursor: "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              fontSize: "14px",
+              fontWeight: "500",
+              marginLeft: "auto",
+            },
+            title: "Switch to Attendance mode",
+          },
+          React.createElement("i", { className: "fas fa-clipboard-check" }),
+          "Attendance"
+        ),
+
       // Save button
       React.createElement(
         "button",
@@ -667,9 +684,7 @@ const SpecialPointsVisual = ({ classId, onBack, navigateTo }) => {
           className: `spv-btn-save ${hasUnsavedChanges ? "has-changes" : ""}`,
           onClick: handleSave,
           disabled: saving || !hasUnsavedChanges,
-          title: hasUnsavedChanges
-            ? "Save changes"
-            : "No changes to save",
+          title: hasUnsavedChanges ? "Save changes" : "No changes to save",
         },
         saving
           ? React.createElement("i", {
@@ -789,8 +804,7 @@ const SpecialPointsVisual = ({ classId, onBack, navigateTo }) => {
                     height: `${table.height * gridSize}px`,
                     backgroundColor: "#e8f4f8",
                     border: "2px solid #9ca3af",
-                    borderRadius:
-                      table.table_shape === "round" ? "50%" : "6px",
+                    borderRadius: table.table_shape === "round" ? "50%" : "6px",
                   },
                 },
 
@@ -818,22 +832,15 @@ const SpecialPointsVisual = ({ classId, onBack, navigateTo }) => {
                 table.seats?.map((seat) => {
                   const seatKey = String(seat.seat_number);
                   const tableKey = String(table.id);
-                  const studentId =
-                    assignments[tableKey]?.[seatKey];
-                  const student = studentId
-                    ? students.find((s) => s.id === studentId)
-                    : null;
+                  const studentId = assignments[tableKey]?.[seatKey];
+                  const student = studentId ? students.find((s) => s.id === studentId) : null;
                   const rosterId = student ? student.rosterId : null;
                   const hasEmail = student && student.email;
 
                   // Get point totals for this student
                   const studentPoints =
-                    student && student.email
-                      ? pointTotals[student.email]
-                      : null;
-                  const pending = rosterId
-                    ? pendingAwards[rosterId] || 0
-                    : 0;
+                    student && student.email ? pointTotals[student.email] : null;
+                  const pending = rosterId ? pendingAwards[rosterId] || 0 : 0;
 
                   // Seat styling
                   const seatStyle = window.LayoutStyles?.getSeatStyle
@@ -848,24 +855,16 @@ const SpecialPointsVisual = ({ classId, onBack, navigateTo }) => {
                         position: "absolute",
                         left:
                           seat.relative_x !== undefined
-                            ? `calc(${seat.relative_x * 100}% - ${
-                                gridSize * 0.4
-                              }px)`
+                            ? `calc(${seat.relative_x * 100}% - ${gridSize * 0.4}px)`
                             : `${seat.x_position * gridSize}px`,
                         top:
                           seat.relative_y !== undefined
-                            ? `calc(${seat.relative_y * 100}% - ${
-                                gridSize * 0.4
-                              }px)`
+                            ? `calc(${seat.relative_y * 100}% - ${gridSize * 0.4}px)`
                             : `${seat.y_position * gridSize}px`,
                         width: `${gridSize * 0.8}px`,
                         height: `${gridSize * 0.8}px`,
-                        backgroundColor: student
-                          ? "#d4f4dd"
-                          : "#f3f4f6",
-                        border: student
-                          ? "2px solid #10b981"
-                          : "2px solid #d1d5db",
+                        backgroundColor: student ? "#d4f4dd" : "#f3f4f6",
+                        border: student ? "2px solid #10b981" : "2px solid #d1d5db",
                         borderRadius: "50%",
                         display: "flex",
                         flexDirection: "column",
@@ -891,8 +890,7 @@ const SpecialPointsVisual = ({ classId, onBack, navigateTo }) => {
 
                   const finalSeatStyle = {
                     ...seatStyle,
-                    position:
-                      seatStyle.position || "absolute",
+                    position: seatStyle.position || "absolute",
                     overflow: "visible",
                     zIndex: 1,
                   };
@@ -903,22 +901,16 @@ const SpecialPointsVisual = ({ classId, onBack, navigateTo }) => {
                       key: seat.seat_number,
                       className: "spv-seat",
                       style: finalSeatStyle,
-                      onMouseDown: (e) =>
-                        handleSeatPointerDown(e, student, rosterId, "mouse"),
-                      onMouseUp: (e) =>
-                        handleSeatPointerUp(e, student, rosterId, "mouse"),
+                      onMouseDown: (e) => handleSeatPointerDown(e, student, rosterId, "mouse"),
+                      onMouseUp: (e) => handleSeatPointerUp(e, student, rosterId, "mouse"),
                       onMouseLeave: handleSeatPointerLeave,
-                      onTouchStart: (e) =>
-                        handleSeatPointerDown(e, student, rosterId, "touch"),
-                      onTouchEnd: (e) =>
-                        handleSeatPointerUp(e, student, rosterId, "touch"),
+                      onTouchStart: (e) => handleSeatPointerDown(e, student, rosterId, "touch"),
+                      onTouchEnd: (e) => handleSeatPointerUp(e, student, rosterId, "touch"),
                       onTouchMove: handleSeatTouchMove,
                       onContextMenu: (e) => e.preventDefault(),
                       title: student
                         ? `${student.first_name} ${student.last_name}${
-                            studentPoints
-                              ? ` - ${studentPoints.points} pts`
-                              : ""
+                            studentPoints ? ` - ${studentPoints.points} pts` : ""
                           }`
                         : `Seat ${seat.seat_number}`,
                     },
@@ -960,8 +952,7 @@ const SpecialPointsVisual = ({ classId, onBack, navigateTo }) => {
                                 fontWeight: "bold",
                                 zIndex: 10,
                                 border: "1px solid white",
-                                boxShadow:
-                                  "0 1px 2px rgba(0,0,0,0.2)",
+                                boxShadow: "0 1px 2px rgba(0,0,0,0.2)",
                                 padding: "0 3px",
                               },
                               title: studentPoints
@@ -971,8 +962,8 @@ const SpecialPointsVisual = ({ classId, onBack, navigateTo }) => {
                             pointsLoading
                               ? "..."
                               : studentPoints
-                              ? String(studentPoints.points)
-                              : "?"
+                                ? String(studentPoints.points)
+                                : "?"
                           )
                         : null,
 
@@ -987,10 +978,7 @@ const SpecialPointsVisual = ({ classId, onBack, navigateTo }) => {
                                 right: "-6px",
                                 minWidth: `${gridSize * 0.25}px`,
                                 height: `${gridSize * 0.25}px`,
-                                backgroundColor:
-                                  pending > 0
-                                    ? "#10b981"
-                                    : "#ef4444",
+                                backgroundColor: pending > 0 ? "#10b981" : "#ef4444",
                                 color: "white",
                                 borderRadius: `${gridSize * 0.125}px`,
                                 display: "flex",
@@ -1000,13 +988,10 @@ const SpecialPointsVisual = ({ classId, onBack, navigateTo }) => {
                                 fontWeight: "bold",
                                 zIndex: 10,
                                 border: "1px solid white",
-                                boxShadow:
-                                  "0 1px 2px rgba(0,0,0,0.2)",
+                                boxShadow: "0 1px 2px rgba(0,0,0,0.2)",
                                 padding: "0 3px",
                               },
-                              title: `Pending: ${
-                                pending > 0 ? "+" : ""
-                              }${pending}`,
+                              title: `Pending: ${pending > 0 ? "+" : ""}${pending}`,
                             },
                             `${pending > 0 ? "+" : ""}${pending}`
                           )
@@ -1074,11 +1059,7 @@ const SpecialPointsVisual = ({ classId, onBack, navigateTo }) => {
               className: "fas fa-th fa-3x",
             }),
             React.createElement("h3", null, "No Seating Layout"),
-            React.createElement(
-              "p",
-              null,
-              "This class needs a seating layout for visual points."
-            )
+            React.createElement("p", null, "This class needs a seating layout for visual points.")
           )
     ),
 
@@ -1114,6 +1095,4 @@ const SpecialPointsVisual = ({ classId, onBack, navigateTo }) => {
 };
 
 window.SpecialPointsVisual = SpecialPointsVisual;
-console.log(
-  "SpecialPointsVisual component loaded and exported to window.SpecialPointsVisual"
-);
+console.log("SpecialPointsVisual component loaded and exported to window.SpecialPointsVisual");

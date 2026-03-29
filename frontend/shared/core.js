@@ -75,7 +75,6 @@ const AuthModule = {
     if (!token) return null;
 
     const decoded = this.decodeToken(token);
-    console.log("Decoded token:", decoded); // Debug logging
     if (!decoded) return null;
 
     // Return user info with all available fields
@@ -211,17 +210,17 @@ const ApiModule = {
           });
 
           if (!retryResponse.ok) {
-            let errorDetail = '';
+            let errorDetail = "";
             try {
               const errorData = await retryResponse.json();
               console.error("API error response:", errorData);
-              if (typeof errorData === 'object') {
+              if (typeof errorData === "object") {
                 const messages = [];
                 for (const [field, errors] of Object.entries(errorData)) {
-                  const errorText = Array.isArray(errors) ? errors.join(', ') : errors;
+                  const errorText = Array.isArray(errors) ? errors.join(", ") : errors;
                   messages.push(`${field}: ${errorText}`);
                 }
-                errorDetail = messages.join('; ');
+                errorDetail = messages.join("; ");
               } else {
                 errorDetail = String(errorData);
               }
@@ -248,18 +247,18 @@ const ApiModule = {
       }
 
       if (!response.ok) {
-        let errorDetail = '';
+        let errorDetail = "";
         try {
           const errorData = await response.json();
           console.error("API error response:", errorData);
           // Format DRF validation errors into readable message
-          if (typeof errorData === 'object') {
+          if (typeof errorData === "object") {
             const messages = [];
             for (const [field, errors] of Object.entries(errorData)) {
-              const errorText = Array.isArray(errors) ? errors.join(', ') : errors;
+              const errorText = Array.isArray(errors) ? errors.join(", ") : errors;
               messages.push(`${field}: ${errorText}`);
             }
-            errorDetail = messages.join('; ');
+            errorDetail = messages.join("; ");
           } else {
             errorDetail = String(errorData);
           }
@@ -347,11 +346,11 @@ const ApiModule = {
 
       const data = {
         classes,
-        students: [],  // Loaded by Students page
-        layouts: [],   // Loaded by Layouts/Seating pages
-        periods: [],   // Loaded by Seating pages
+        students: [], // Loaded by Students page
+        layouts: [], // Loaded by Layouts/Seating pages
+        periods: [], // Loaded by Seating pages
         assignments: [], // Loaded by Seating pages
-        roster: [],    // Loaded by Class pages
+        roster: [], // Loaded by Class pages
       };
 
       console.log("Fetched minimal data:", {
@@ -438,9 +437,11 @@ const LoginComponent = ({ onLogin }) => {
       });
 
       const data = await response.json();
-      
+
       if (response.ok) {
-        setResetMessage("If an account exists with this email, a password reset link has been sent. Please check your email.");
+        setResetMessage(
+          "If an account exists with this email, a password reset link has been sent. Please check your email."
+        );
         setResetEmail("");
       } else {
         setResetError(data.error || "Failed to send reset email. Please try again.");
@@ -540,16 +541,16 @@ const LoginComponent = ({ onLogin }) => {
                 " Sign In",
               ]
         ),
-        
+
         // Forgot Password link
         React.createElement(
           "div",
-          { 
-            style: { 
-              textAlign: "center", 
+          {
+            style: {
+              textAlign: "center",
               marginTop: "1rem",
-              fontSize: "0.9rem"
-            }
+              fontSize: "0.9rem",
+            },
           },
           React.createElement(
             "a",
@@ -563,196 +564,206 @@ const LoginComponent = ({ onLogin }) => {
               style: {
                 color: "#6366f1",
                 textDecoration: "none",
-                cursor: "pointer"
+                cursor: "pointer",
               },
-              onMouseEnter: (e) => e.target.style.textDecoration = "underline",
-              onMouseLeave: (e) => e.target.style.textDecoration = "none"
+              onMouseEnter: (e) => (e.target.style.textDecoration = "underline"),
+              onMouseLeave: (e) => (e.target.style.textDecoration = "none"),
             },
             "Forgot Password?"
           )
         )
       )
     ),
-    
+
     // Password Reset Modal
-    showResetModal && React.createElement(
-      "div",
-      {
-        className: "modal-overlay",
-        style: {
-          position: "fixed",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: "rgba(0, 0, 0, 0.5)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          zIndex: 10000,
-        },
-        onClick: (e) => {
-          if (e.target === e.currentTarget && !resetLoading) {
-            setShowResetModal(false);
-            setResetMessage("");
-            setResetError("");
-          }
-        }
-      },
+    showResetModal &&
       React.createElement(
         "div",
         {
-          className: "modal-content",
+          className: "modal-overlay",
           style: {
-            backgroundColor: "white",
-            borderRadius: "8px",
-            padding: "2rem",
-            width: "90%",
-            maxWidth: "400px",
-            boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)",
-          }
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 10000,
+          },
+          onClick: (e) => {
+            if (e.target === e.currentTarget && !resetLoading) {
+              setShowResetModal(false);
+              setResetMessage("");
+              setResetError("");
+            }
+          },
         },
         React.createElement(
-          "h2",
-          { style: { marginTop: 0, marginBottom: "1rem" } },
-          "Reset Password"
-        ),
-        
-        resetMessage ? (
-          // Success message
+          "div",
+          {
+            className: "modal-content",
+            style: {
+              backgroundColor: "white",
+              borderRadius: "8px",
+              padding: "2rem",
+              width: "90%",
+              maxWidth: "400px",
+              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)",
+            },
+          },
           React.createElement(
-            "div",
-            null,
-            React.createElement(
-              "div",
-              {
-                style: {
-                  padding: "1rem",
-                  backgroundColor: "#10b981",
-                  color: "white",
-                  borderRadius: "4px",
-                  marginBottom: "1rem",
-                  fontSize: "0.9rem"
-                }
-              },
-              React.createElement("i", { className: "fas fa-check-circle", style: { marginRight: "0.5rem" } }),
-              resetMessage
-            ),
-            React.createElement(
-              "button",
-              {
-                className: "btn btn-secondary",
-                onClick: () => {
-                  setShowResetModal(false);
-                  setResetMessage("");
-                  setResetError("");
-                },
-                style: { width: "100%" }
-              },
-              "Close"
-            )
-          )
-        ) : (
-          // Reset form
-          React.createElement(
-            "form",
-            { onSubmit: handlePasswordReset },
-            React.createElement(
-              "p",
-              { style: { marginBottom: "1rem", color: "#666", fontSize: "0.9rem" } },
-              "Enter your email address and we'll send you a link to reset your password."
-            ),
-            
-            resetError && React.createElement(
-              "div",
-              {
-                style: {
-                  padding: "0.75rem",
-                  backgroundColor: "#fee",
-                  color: "#dc2626",
-                  borderRadius: "4px",
-                  marginBottom: "1rem",
-                  fontSize: "0.9rem"
-                }
-              },
-              React.createElement("i", { className: "fas fa-exclamation-triangle", style: { marginRight: "0.5rem" } }),
-              resetError
-            ),
-            
-            React.createElement(
-              "div",
-              { className: "form-group" },
-              React.createElement("label", { htmlFor: "reset-email" }, "Email Address"),
-              React.createElement("input", {
-                type: "email",
-                id: "reset-email",
-                className: "form-input",
-                value: resetEmail,
-                onChange: (e) => setResetEmail(e.target.value),
-                required: true,
-                disabled: resetLoading,
-                placeholder: "Enter your email address",
-                style: { width: "100%" }
-              })
-            ),
-            
-            React.createElement(
-              "div",
-              { style: { display: "flex", gap: "0.5rem", marginTop: "1rem" } },
+            "h2",
+            { style: { marginTop: 0, marginBottom: "1rem" } },
+            "Reset Password"
+          ),
+
+          resetMessage
+            ? // Success message
               React.createElement(
-                "button",
-                {
-                  type: "submit",
-                  disabled: resetLoading,
-                  style: { 
-                    flex: 1,
-                    padding: "0.75rem 1rem",
-                    fontSize: "1rem",
-                    borderRadius: "0.375rem",
-                    border: "none",
-                    backgroundColor: "#6366f1",
-                    color: "white",
-                    cursor: resetLoading ? "not-allowed" : "pointer",
-                    opacity: resetLoading ? 0.6 : 1,
-                    transition: "all 0.2s ease"
+                "div",
+                null,
+                React.createElement(
+                  "div",
+                  {
+                    style: {
+                      padding: "1rem",
+                      backgroundColor: "#10b981",
+                      color: "white",
+                      borderRadius: "4px",
+                      marginBottom: "1rem",
+                      fontSize: "0.9rem",
+                    },
                   },
-                  onMouseEnter: (e) => !resetLoading && (e.target.style.backgroundColor = "#5558e3"),
-                  onMouseLeave: (e) => !resetLoading && (e.target.style.backgroundColor = "#6366f1")
-                },
-                resetLoading ? "Sending..." : "Send Reset Link"
-              ),
-              React.createElement(
-                "button",
-                {
-                  type: "button",
-                  onClick: () => {
-                    setShowResetModal(false);
-                    setResetMessage("");
-                    setResetError("");
+                  React.createElement("i", {
+                    className: "fas fa-check-circle",
+                    style: { marginRight: "0.5rem" },
+                  }),
+                  resetMessage
+                ),
+                React.createElement(
+                  "button",
+                  {
+                    className: "btn btn-secondary",
+                    onClick: () => {
+                      setShowResetModal(false);
+                      setResetMessage("");
+                      setResetError("");
+                    },
+                    style: { width: "100%" },
                   },
-                  disabled: resetLoading,
-                  style: { 
-                    flex: 1,
-                    padding: "0.75rem 1rem",
-                    fontSize: "1rem",
-                    borderRadius: "0.375rem",
-                    border: "none",
-                    backgroundColor: "#6b7280",
-                    color: "white",
-                    cursor: resetLoading ? "not-allowed" : "pointer",
-                    opacity: resetLoading ? 0.6 : 1,
-                    transition: "all 0.2s ease"
-                  },
-                  onMouseEnter: (e) => !resetLoading && (e.target.style.backgroundColor = "#5a5f6b"),
-                  onMouseLeave: (e) => !resetLoading && (e.target.style.backgroundColor = "#6b7280")
-                },
-                "Cancel"
+                  "Close"
+                )
               )
-            )
-          )
+            : // Reset form
+              React.createElement(
+                "form",
+                { onSubmit: handlePasswordReset },
+                React.createElement(
+                  "p",
+                  { style: { marginBottom: "1rem", color: "#666", fontSize: "0.9rem" } },
+                  "Enter your email address and we'll send you a link to reset your password."
+                ),
+
+                resetError &&
+                  React.createElement(
+                    "div",
+                    {
+                      style: {
+                        padding: "0.75rem",
+                        backgroundColor: "#fee",
+                        color: "#dc2626",
+                        borderRadius: "4px",
+                        marginBottom: "1rem",
+                        fontSize: "0.9rem",
+                      },
+                    },
+                    React.createElement("i", {
+                      className: "fas fa-exclamation-triangle",
+                      style: { marginRight: "0.5rem" },
+                    }),
+                    resetError
+                  ),
+
+                React.createElement(
+                  "div",
+                  { className: "form-group" },
+                  React.createElement("label", { htmlFor: "reset-email" }, "Email Address"),
+                  React.createElement("input", {
+                    type: "email",
+                    id: "reset-email",
+                    className: "form-input",
+                    value: resetEmail,
+                    onChange: (e) => setResetEmail(e.target.value),
+                    required: true,
+                    disabled: resetLoading,
+                    placeholder: "Enter your email address",
+                    style: { width: "100%" },
+                  })
+                ),
+
+                React.createElement(
+                  "div",
+                  { style: { display: "flex", gap: "0.5rem", marginTop: "1rem" } },
+                  React.createElement(
+                    "button",
+                    {
+                      type: "submit",
+                      disabled: resetLoading,
+                      style: {
+                        flex: 1,
+                        padding: "0.75rem 1rem",
+                        fontSize: "1rem",
+                        borderRadius: "0.375rem",
+                        border: "none",
+                        backgroundColor: "#6366f1",
+                        color: "white",
+                        cursor: resetLoading ? "not-allowed" : "pointer",
+                        opacity: resetLoading ? 0.6 : 1,
+                        transition: "all 0.2s ease",
+                      },
+                      onMouseEnter: (e) =>
+                        !resetLoading && (e.target.style.backgroundColor = "#5558e3"),
+                      onMouseLeave: (e) =>
+                        !resetLoading && (e.target.style.backgroundColor = "#6366f1"),
+                    },
+                    resetLoading ? "Sending..." : "Send Reset Link"
+                  ),
+                  React.createElement(
+                    "button",
+                    {
+                      type: "button",
+                      onClick: () => {
+                        setShowResetModal(false);
+                        setResetMessage("");
+                        setResetError("");
+                      },
+                      disabled: resetLoading,
+                      style: {
+                        flex: 1,
+                        padding: "0.75rem 1rem",
+                        fontSize: "1rem",
+                        borderRadius: "0.375rem",
+                        border: "none",
+                        backgroundColor: "#6b7280",
+                        color: "white",
+                        cursor: resetLoading ? "not-allowed" : "pointer",
+                        opacity: resetLoading ? 0.6 : 1,
+                        transition: "all 0.2s ease",
+                      },
+                      onMouseEnter: (e) =>
+                        !resetLoading && (e.target.style.backgroundColor = "#5a5f6b"),
+                      onMouseLeave: (e) =>
+                        !resetLoading && (e.target.style.backgroundColor = "#6b7280"),
+                    },
+                    "Cancel"
+                  )
+                )
+              )
         )
       )
-    )
   );
 };
 
