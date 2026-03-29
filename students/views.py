@@ -27,7 +27,7 @@ from .models import (
     TableSeat,
     User,
 )
-from .permissions import IsSuperuser, IsSuperuserOrOwner
+from .permissions import IsSpecialPointsUser, IsSuperuser, IsSuperuserOrOwner
 from .serializers import (
     AttendanceBulkSerializer,
     AttendanceRecordSerializer,
@@ -1669,7 +1669,7 @@ class AttendanceViewSet(viewsets.ModelViewSet):
 class SpecialPointsProxyViewSet(viewsets.ViewSet):
     """Proxy to Cranston Commons API for special points."""
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsSpecialPointsUser]
 
     @action(detail=False, methods=["POST"], url_path="fetch")
     def fetch_points(self, request):
@@ -1687,6 +1687,11 @@ class SpecialPointsProxyViewSet(viewsets.ViewSet):
             resp = http_requests.post(
                 url, json={"emails": emails}, headers=headers, timeout=10
             )
+            if resp.status_code in (401, 403):
+                return Response(
+                    {"error": "Cranston Commons rejected the API key"},
+                    status=status.HTTP_502_BAD_GATEWAY,
+                )
             return Response(resp.json(), status=resp.status_code)
         except (http_requests.ConnectionError, http_requests.Timeout):
             return Response(
@@ -1708,6 +1713,11 @@ class SpecialPointsProxyViewSet(viewsets.ViewSet):
             resp = http_requests.post(
                 url, json={"awards": awards}, headers=headers, timeout=10
             )
+            if resp.status_code in (401, 403):
+                return Response(
+                    {"error": "Cranston Commons rejected the API key"},
+                    status=status.HTTP_502_BAD_GATEWAY,
+                )
             return Response(resp.json(), status=resp.status_code)
         except (http_requests.ConnectionError, http_requests.Timeout):
             return Response(

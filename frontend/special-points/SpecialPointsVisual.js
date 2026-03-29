@@ -21,7 +21,7 @@ const SpecialPointsVisual = ({ classId, onBack, navigateTo }) => {
   const [pointTotals, setPointTotals] = useState({}); // email -> {points}
   const [pendingAwards, setPendingAwards] = useState({}); // rosterId -> number
   const [pointsLoading, setPointsLoading] = useState(false);
-  const [connectionError, setConnectionError] = useState(false);
+  const [connectionError, setConnectionError] = useState(null); // null or error message string
   const [pointAnnouncements, setPointAnnouncements] = useState([]);
 
   // Class dropdown state
@@ -219,7 +219,7 @@ const SpecialPointsVisual = ({ classId, onBack, navigateTo }) => {
 
     try {
       setPointsLoading(true);
-      setConnectionError(false);
+      setConnectionError(null);
 
       const response = await window.ApiModule.request(
         "/special-points/fetch/",
@@ -231,7 +231,7 @@ const SpecialPointsVisual = ({ classId, onBack, navigateTo }) => {
       );
 
       if (response.error) {
-        setConnectionError(true);
+        setConnectionError(response.error);
         setPointTotals({});
         return;
       }
@@ -239,7 +239,7 @@ const SpecialPointsVisual = ({ classId, onBack, navigateTo }) => {
       setPointTotals(response.students || {});
     } catch (error) {
       console.error("Failed to fetch point totals:", error);
-      setConnectionError(true);
+      setConnectionError("Unable to connect to Cranston Commons");
       setPointTotals({});
     } finally {
       setPointsLoading(false);
@@ -699,7 +699,7 @@ const SpecialPointsVisual = ({ classId, onBack, navigateTo }) => {
         React.createElement("i", {
           className: "fas fa-exclamation-triangle",
         }),
-        "Unable to connect to Cranston Commons"
+        connectionError
       ),
 
     // Legend

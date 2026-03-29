@@ -16,7 +16,7 @@ const SpecialPointsEditor = ({ classId, onBack, navigateTo }) => {
   const [pointsLoading, setPointsLoading] = useState(false);
   const [awardInputs, setAwardInputs] = useState({}); // rosterId -> number
   const [notFoundEmails, setNotFoundEmails] = useState([]); // emails not in Cranston Commons
-  const [connectionError, setConnectionError] = useState(false);
+  const [connectionError, setConnectionError] = useState(null); // null or error message string
 
   // Load initial data
   useEffect(() => {
@@ -93,7 +93,7 @@ const SpecialPointsEditor = ({ classId, onBack, navigateTo }) => {
 
     try {
       setPointsLoading(true);
-      setConnectionError(false);
+      setConnectionError(null);
 
       const response = await window.ApiModule.request(
         "/special-points/fetch/",
@@ -105,7 +105,7 @@ const SpecialPointsEditor = ({ classId, onBack, navigateTo }) => {
       );
 
       if (response.error) {
-        setConnectionError(true);
+        setConnectionError(response.error);
         setPointTotals({});
         return;
       }
@@ -114,7 +114,7 @@ const SpecialPointsEditor = ({ classId, onBack, navigateTo }) => {
       setNotFoundEmails(response.not_found || []);
     } catch (error) {
       console.error("Failed to fetch point totals:", error);
-      setConnectionError(true);
+      setConnectionError("Unable to connect to Cranston Commons");
       setPointTotals({});
     } finally {
       setPointsLoading(false);
@@ -374,7 +374,7 @@ const SpecialPointsEditor = ({ classId, onBack, navigateTo }) => {
           },
         },
         React.createElement("i", { className: "fas fa-exclamation-triangle" }),
-        "Unable to connect to Cranston Commons. Point totals are unavailable."
+        connectionError + ". Point totals are unavailable."
       ),
 
     // Table

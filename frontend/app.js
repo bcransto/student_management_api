@@ -81,12 +81,16 @@ const App = () => {
       return "attendance";
     }
 
-    // Check for special-points patterns
+    // Check for special-points patterns (only for authorized user)
     if (hash === "special-points" || hash.startsWith("special-points/")) {
-      return "special-points";
+      const userInfo = window.AuthModule && window.AuthModule.getUserInfo();
+      if (userInfo && userInfo.email === "bcranston@carlisle.k12.ma.us") {
+        return "special-points";
+      }
+      return "dashboard";
     }
 
-    const validViews = ["dashboard", "students", "classes", "seating", "attendance", "special-points", "layouts", "users"];
+    const validViews = ["dashboard", "students", "classes", "seating", "attendance", "layouts", "users"];
     return validViews.includes(hash) ? hash : "dashboard";
   };
 
@@ -228,16 +232,21 @@ const App = () => {
         return;
       }
 
-      // Check for special-points patterns
+      // Check for special-points patterns (only for authorized user)
       if (hash === "special-points" || hash.startsWith("special-points/")) {
-        setCurrentView("special-points");
+        const userInfo = window.AuthModule && window.AuthModule.getUserInfo();
+        if (userInfo && userInfo.email === "bcranston@carlisle.k12.ma.us") {
+          setCurrentView("special-points");
+        } else {
+          window.location.hash = "dashboard";
+        }
         return;
       }
 
       // Clear editing state if navigating away
       setEditingStudentId(null);
 
-      const validViews = ["dashboard", "students", "classes", "seating", "attendance", "special-points", "layouts", "users"];
+      const validViews = ["dashboard", "students", "classes", "seating", "attendance", "layouts", "users"];
       if (validViews.includes(hash)) {
         setCurrentView(hash);
       } else {

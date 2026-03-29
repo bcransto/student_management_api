@@ -26,6 +26,15 @@ class IsSuperuserOrOwner(permissions.BasePermission):
         return obj == request.user
 
 
+class IsSpecialPointsUser(permissions.BasePermission):
+    """Only allow the Cranston Commons user to access special points."""
+
+    ALLOWED_EMAIL = "bcranston@carlisle.k12.ma.us"
+
+    def has_permission(self, request, view):
+        return request.user.email == self.ALLOWED_EMAIL
+
+
 class IsSuperuserOrReadOwn(permissions.BasePermission):
     """
     Custom permission to allow superusers full access and users to read their own profile.

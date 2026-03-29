@@ -197,13 +197,17 @@ React.createElement("div", { className: "example" }, children)
      - Report button (orange) - analytics dashboard
 
 7. **Special Points Components** (proxies to external Cranston Commons API)
+   - **Access restricted** to `bcranston@carlisle.k12.ma.us` only:
+     - Sidebar nav item hidden for other users (`sidebar.js` checks JWT email)
+     - Frontend routes redirect unauthorized users to `#dashboard` (`app.js`)
+     - Backend enforces `IsSpecialPointsUser` permission (`students/permissions.py`)
    - **special-points.js**: Class card list with two buttons: List Mode, Visual Mode (no Report)
    - **SpecialPointsEditor.js**: List-based point awarding
      - Table columns: Student | Total Points (from Cranston Commons) | Award (number input)
      - Loading spinner while fetching point totals
      - Handles students without email: shows "No email", disables input
      - Shows "Not registered" for emails not found in Cranston Commons
-     - Shows "Connection error" banner if Cranston Commons is unreachable
+     - Error banner shows specific message (bad API key vs connection failure)
      - No date navigation (points are not date-based)
    - **SpecialPointsVisual.js**: Visual points using seating chart
      - Two badges per seat: total points (purple, top-left), pending award (green/red, top-right)
@@ -214,7 +218,8 @@ React.createElement("div", { className: "example" }, children)
      - `POST /api/special-points/fetch/` — batch get point totals by email
      - `POST /api/special-points/award/batch/` — award/deduct points for multiple students
      - Proxies to Cranston Commons with `X-API-Key` header (key stored in Django settings)
-     - Returns 502 with error message if Cranston Commons is unreachable
+     - Upstream 401/403 converted to 502 (prevents frontend JWT refresh loop)
+     - Returns 502 with descriptive error message if Cranston Commons is unreachable or rejects key
 
 ### API Patterns
 

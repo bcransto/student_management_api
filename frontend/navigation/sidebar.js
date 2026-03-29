@@ -3,7 +3,8 @@ const Sidebar = ({ currentView, onNavigate }) => {
   // Parse token and check if user is superuser
   const token = localStorage.getItem("token");
   let isSuperuser = false;
-  
+  let userEmail = null;
+
   if (token) {
     try {
       let payload = token.split(".")[1];
@@ -14,6 +15,7 @@ const Sidebar = ({ currentView, onNavigate }) => {
       const decoded = JSON.parse(atob(payload));
       console.log("Sidebar token check - is_superuser:", decoded.is_superuser, "full token:", decoded);
       isSuperuser = decoded.is_superuser === true;
+      userEmail = decoded.email || null;
     } catch (e) {
       console.error("Error parsing token:", e);
     }
@@ -25,9 +27,13 @@ const Sidebar = ({ currentView, onNavigate }) => {
     { id: "students", label: "Students", icon: "fas fa-users" },
     { id: "seating", label: "Seating Charts", icon: "fas fa-chair" },
     { id: "attendance", label: "Attendance", icon: "fas fa-clipboard-check" },
-    { id: "special-points", label: "Special Points", icon: "fas fa-star" },
     { id: "layouts", label: "Layouts", icon: "fas fa-th" },
   ];
+
+  // Add Special Points only for the Cranston Commons user
+  if (userEmail === "bcranston@carlisle.k12.ma.us") {
+    navItems.push({ id: "special-points", label: "Special Points", icon: "fas fa-star" });
+  }
 
   // Add Users menu for superusers
   if (isSuperuser) {
