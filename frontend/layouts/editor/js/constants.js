@@ -4,10 +4,16 @@
 const GRID_SIZE = 50;
 
 // API configuration
-const API_BASE_URL =
-  window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
-    ? "http://127.0.0.1:8000/api"
-    : "https://bcranston.pythonanywhere.com/api";
+const API_BASE_URL = (() => {
+  const hostname = window.location.hostname;
+  if (hostname === "localhost" || hostname === "127.0.0.1") {
+    return "http://127.0.0.1:8000/api";
+  } else if (hostname.includes("pythonanywhere.com")) {
+    return "https://bcranston.pythonanywhere.com/api";
+  }
+  // Local network (e.g. pinto) - use current origin
+  return `${window.location.origin}/api`;
+})();
 
 // Table shape options
 const TABLE_SHAPES = [
