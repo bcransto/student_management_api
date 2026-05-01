@@ -27,7 +27,7 @@ from .models import (
     TableSeat,
     User,
 )
-from .permissions import IsSpecialPointsUser, IsSuperuser, IsSuperuserOrOwner
+from .permissions import HasExternalAPIKey, IsSpecialPointsUser, IsSuperuser, IsSuperuserOrOwner
 from .serializers import (
     AttendanceBulkSerializer,
     AttendanceRecordSerializer,
@@ -1664,6 +1664,105 @@ class AttendanceViewSet(viewsets.ModelViewSet):
                 {"error": str(e)},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+
+class ExternalReadViewSet(viewsets.ViewSet):
+    """Read-only endpoints for external apps. Auth: X-API-Key header."""
+
+    permission_classes = [HasExternalAPIKey]
+    authentication_classes = []
+
+    @action(detail=False, methods=["GET"], url_path="classes")
+    def list_classes(self, request):
+        classes = Class.objects.select_related("teacher").all()
+        return Response({
+            "classes": [
+                {
+                    "id": c.id,
+                    "name": c.name,
+                    "subject": c.subject,
+                    "grade_level": c.grade_level,
+                    "teacher_email": c.teacher.email if c.teacher else None,
+                }
+                for c in classes
+            ]
+        })
+
+    @action(detail=False, methods=["GET"], url_path=r"classes/(?P<class_id>\d+)/snapshot")
+    def class_snapshot(self, request, class_id=None):
+        try:
+            klass = Class.objects.select_related("teacher").get(pk=class_id)
+        except Class.DoesNotExist:
+            return Response({"error": "Class not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        roster = (
+            ClassRoster.objects.filter(class_assigned=klass, is_active=True)
+            .select_related("student")
+            .order_by("student__last_name", "student__first_name")
+        )
+        roster_data = [
+            {
+                "roster_id": r.id,
+                "student_id": r.student.id,
+                "student_number": r.student.student_id,
+                "first_name": r.student.first_name,
+                "last_name": r.student.last_name,
+                "nickname": r.student.nickname or r.student.first_name,
+                "email": r.student.email,
+                "gender": r.student.gender,
+            }
+            for r in roster
+        ]
+
+        current_period = SeatingPeriod.objects.filter(
+            class_assigned=klass, end_date__isnull=True
+        ).first()
+
+        grouping = None
+        if current_period:
+            assignments = (
+                current_period.seating_assignments
+                .select_related("roster_entry__student")
+                .all()
+            )
+            tables = {}
+            for a in assignments:
+                table_num = a.table_number
+                if table_num is None:
+                    continue
+                tables.setdefault(str(table_num), []).append({
+                    "roster_id": a.roster_entry.id,
+                    "student_id": a.roster_entry.student.id,
+                    "first_name": a.roster_entry.student.first_name,
+                    "last_name": a.roster_entry.student.last_name,
+                    "nickname": (
+                        a.roster_entry.student.nickname
+                        or a.roster_entry.student.first_name
+                    ),
+                    "seat_id": a.seat_id,
+                    "seat_number": a.seat_number,
+                })
+            for students_at_table in tables.values():
+                students_at_table.sort(key=lambda s: s["seat_number"] or 0)
+
+            grouping = {
+                "period_id": current_period.id,
+                "period_name": current_period.name,
+                "start_date": current_period.start_date,
+                "tables": tables,
+            }
+
+        return Response({
+            "class": {
+                "id": klass.id,
+                "name": klass.name,
+                "subject": klass.subject,
+                "grade_level": klass.grade_level,
+                "teacher_email": klass.teacher.email if klass.teacher else None,
+            },
+            "roster": roster_data,
+            "current_grouping": grouping,
+        })
 
 
 class SpecialPointsProxyViewSet(viewsets.ViewSet):

@@ -1,4 +1,5 @@
 # students/permissions.py
+from django.conf import settings
 from rest_framework import permissions
 
 
@@ -33,6 +34,17 @@ class IsSpecialPointsUser(permissions.BasePermission):
 
     def has_permission(self, request, view):
         return request.user.email == self.ALLOWED_EMAIL
+
+
+class HasExternalAPIKey(permissions.BasePermission):
+    """Allow access if the X-API-Key header matches settings.EXTERNAL_API_KEY."""
+
+    def has_permission(self, request, view):
+        expected = getattr(settings, "EXTERNAL_API_KEY", "")
+        if not expected:
+            return False
+        provided = request.META.get("HTTP_X_API_KEY", "")
+        return bool(provided) and provided == expected
 
 
 class IsSuperuserOrReadOwn(permissions.BasePermission):

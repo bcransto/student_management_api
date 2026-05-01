@@ -324,3 +324,6 @@ CRANSTON_COMMONS_BASE_URL = os.environ.get(
     "CRANSTON_COMMONS_BASE_URL", "http://localhost:8002"
 )
 CRANSTON_COMMONS_API_KEY = os.environ.get("CRANSTON_COMMONS_API_KEY", "")
+
+# External read-only API (X-API-Key auth for /api/external/* endpoints)
+EXTERNAL_API_KEY = os.environ.get("EXTERNAL_API_KEY", "")
