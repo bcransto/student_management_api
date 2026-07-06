@@ -104,10 +104,13 @@ def _build_oauth_authorization_url(request, user, next_hash="dashboard"):
         state=state,
     )
 
+    # NOTE: no include_granted_scopes - this OAuth client is shared with other
+    # tools (Drive scopes etc.), and asking Google to bundle prior grants makes
+    # the returned scope list differ from the requested one, which oauthlib
+    # rejects with "Scope has changed".
     auth_url, _ = flow.authorization_url(
         prompt='consent',  # Always show consent screen
         access_type='offline',  # Request refresh token
-        include_granted_scopes='true'
     )
     return auth_url
 
@@ -199,6 +202,10 @@ def google_auth_callback(request):
         # Set environment variable to use certifi's certificates
         os.environ['REQUESTS_CA_BUNDLE'] = certifi.where()
         os.environ['SSL_CERT_FILE'] = certifi.where()
+
+        # Tolerate Google returning extra scopes beyond the requested set
+        # (e.g. openid/userinfo, or grants this shared client already has)
+        os.environ['OAUTHLIB_RELAX_TOKEN_SCOPE'] = '1'
 
         # Create flow instance
         flow = Flow.from_client_config(
