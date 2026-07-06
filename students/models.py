@@ -178,6 +178,7 @@ class LayoutObstacle(models.Model):
         max_length=30,
         choices=[
             ("teacher_desk", "Teacher Desk"),
+            ("supply_table", "Supply Table"),
             ("cabinet", "Cabinet"),
             ("bookshelf", "Bookshelf"),
             ("door", "Door"),

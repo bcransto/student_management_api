@@ -126,6 +126,40 @@ const AuthModule = {
     }
   },
 
+  // Google Sign-In: exchange a Google ID token for JWT tokens
+  async googleSignIn(credential) {
+    try {
+      const response = await fetch(`${this.getApiBaseUrl()}/auth/google/signin/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ credential: credential }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (response.ok) {
+        this.setToken(data.access);
+        this.setRefreshToken(data.refresh);
+
+        const userInfo = this.getUserInfo();
+
+        return { success: true, data, userInfo };
+      } else {
+        return {
+          success: false,
+          error: data.detail || "Google sign-in failed",
+        };
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: "Network error. Please try again.",
+      };
+    }
+  },
+
   // Logout function
   logout() {
     this.clearTokens();
@@ -404,6 +438,57 @@ const LoginComponent = ({ onLogin }) => {
   const [resetLoading, setResetLoading] = React.useState(false);
   const [resetMessage, setResetMessage] = React.useState("");
   const [resetError, setResetError] = React.useState("");
+  const googleButtonRef = React.useRef(null);
+
+  // Render the Google Sign-In button once the GIS script has loaded
+  React.useEffect(() => {
+    let cancelled = false;
+    let attempts = 0;
+
+    const timer = setInterval(async () => {
+      attempts += 1;
+      if (attempts > 40) {
+        clearInterval(timer);
+        return;
+      }
+      if (!window.google?.accounts?.id || !googleButtonRef.current) return;
+      clearInterval(timer);
+
+      try {
+        const response = await fetch(`${AuthModule.getApiBaseUrl()}/auth/google/signin/`);
+        const data = await response.json();
+        if (cancelled || !data.client_id) return;
+
+        window.google.accounts.id.initialize({
+          client_id: data.client_id,
+          callback: async (gsiResponse) => {
+            setError("");
+            const result = await AuthModule.googleSignIn(gsiResponse.credential);
+            if (result.success) {
+              onLogin(result.data.access);
+            } else {
+              setError(result.error);
+            }
+          },
+        });
+
+        window.google.accounts.id.renderButton(googleButtonRef.current, {
+          theme: "outline",
+          size: "large",
+          width: 280,
+          text: "signin_with",
+        });
+      } catch (error) {
+        // Google sign-in unavailable - password login still works
+        console.error("Google sign-in setup failed:", error);
+      }
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -572,7 +657,37 @@ const LoginComponent = ({ onLogin }) => {
             "Forgot Password?"
           )
         )
-      )
+      ),
+
+      // Divider between password and Google sign-in
+      React.createElement(
+        "div",
+        {
+          style: {
+            display: "flex",
+            alignItems: "center",
+            gap: "12px",
+            margin: "1.25rem 0 1rem",
+          },
+        },
+        React.createElement("div", {
+          style: { flex: 1, height: "1px", backgroundColor: "#e5e7eb" },
+        }),
+        React.createElement(
+          "span",
+          { style: { fontSize: "0.85rem", color: "#9ca3af" } },
+          "or"
+        ),
+        React.createElement("div", {
+          style: { flex: 1, height: "1px", backgroundColor: "#e5e7eb" },
+        })
+      ),
+
+      // Google Sign-In button (rendered by Google Identity Services)
+      React.createElement("div", {
+        ref: googleButtonRef,
+        style: { display: "flex", justifyContent: "center" },
+      })
     ),
 
     // Password Reset Modal

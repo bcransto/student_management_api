@@ -372,6 +372,16 @@ const Sidebar = ({
         setSelectedItem: setSelectedItem,
       }),
 
+    // Obstacle Properties Panel (conditionally rendered)
+    selectedItem &&
+      selectedItem.type === "obstacle" &&
+      React.createElement(ObstaclePropertiesPanel, {
+        selectedItem: selectedItem,
+        layout: layout,
+        setLayout: setLayout,
+        setSelectedItem: setSelectedItem,
+      }),
+
     // Spacer to push save button to bottom
     React.createElement("div", { style: { flex: 1 } }),
 

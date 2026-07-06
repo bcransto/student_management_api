@@ -11,6 +11,11 @@ from students.views import frontend_view, test_view
 from students.google_classroom_service import (
     google_auth_start,
     google_auth_callback,
+    google_signin,
+    google_oauth_url,
+    google_courses,
+    google_course_students,
+    google_import_students,
     google_test_connection,
     google_disconnect,
     create_test_assignment,
@@ -83,6 +88,11 @@ urlpatterns = [
     # ============================================================================
     path("api/auth/google/start/", google_auth_start, name="google_auth_start"),
     path("api/auth/google/callback/", google_auth_callback, name="google_auth_callback"),
+    path("api/auth/google/signin/", google_signin, name="google_signin"),
+    path("api/google/oauth-url/", google_oauth_url, name="google_oauth_url"),
+    path("api/google/courses/", google_courses, name="google_courses"),
+    path("api/google/courses/<str:course_id>/students/", google_course_students, name="google_course_students"),
+    path("api/google/import-students/", google_import_students, name="google_import_students"),
     path("api/google/test/", google_test_connection, name="google_test_connection"),
     path("api/google/create-test-assignment/", create_test_assignment, name="create_test_assignment"),
     path("api/google/test-assignment-details/", test_fetch_assignment_details, name="test_assignment_details"),

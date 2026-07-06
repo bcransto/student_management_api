@@ -313,24 +313,43 @@ await ApiModule.request('/api/endpoint/')   // ❌ Double /api/ prefix
 # Response: {"results": [{"email": "...", "points_awarded": 5, "new_total": 55}]}
 ```
 
-**Google Classroom OAuth Endpoints**:
+**Google Sign-In & Classroom Endpoints**:
 ```python
-# GET /api/auth/google/start/
-# Initiates OAuth flow - redirects to Google consent screen
-# No authentication required (for POC)
+# GET /api/auth/google/signin/
+# Returns {"client_id": ...} so the login page can render the GIS button
+# POST /api/auth/google/signin/
+# Body: {"credential": "<Google ID token>"}
+# Verifies the token, matches an EXISTING user by email (no auto-creation),
+# returns {"access", "refresh"} JWTs with the same custom claims as /api/token/
+# NOTE: app origins must be listed under "Authorized JavaScript origins"
+# in the Google Cloud Console OAuth client for the button to work
+
+# GET /api/google/oauth-url/?next=<hash route>
+# JWT-authenticated. Returns {"auth_url": ...} for connecting Google Classroom.
+# The user id + return route travel in a SIGNED state param (10 min expiry);
+# the callback stores credentials for that user and redirects to /#<next>
 
 # GET /api/auth/google/callback/
-# Handles OAuth callback with authorization code
-# Stores encrypted tokens in GoogleClassroomCredentials
-# Currently uses first user for POC (needs proper auth)
+# Handles OAuth callback; verifies signed state, stores encrypted tokens
+# in GoogleClassroomCredentials for the user from the state
 
-# GET /api/google/test/
-# Tests connection by listing user's Google Classroom courses
-# Returns: {status, message, courses: [{id, name, section, ...}], user}
+# GET /api/google/courses/
+# JWT-authenticated. {"connected": bool, "courses": [{id, name, section}]}
+# connected=false means show a "Connect Google Classroom" button
+
+# GET /api/google/courses/{course_id}/students/
+# JWT-authenticated. {"students": [{google_user_id, first_name, last_name,
+#                                   full_name, email}]}
+
+# POST /api/google/import-students/
+# Body: {"course_id": "...", "class_id": 1}
+# Class must belong to request.user. Matches Students by google_user_id,
+# then email (iexact); creates missing Students (student_id from email
+# local part, suffixed on collision); enrolls/reactivates roster entries.
+# Returns {total, created, enrolled, reenrolled, already_enrolled, skipped}
 
 # GET /api/google/disconnect/
 # Removes stored Google Classroom credentials
-# Requires authentication in production
 ```
 
 **Smart Pair Algorithm**:
@@ -540,8 +559,13 @@ Frontend auto-detects environment via hostname (pinto.local uses current origin 
 - `/layout-editor/` - Standalone layout editor (opens in same window)
 - `/test_optimizer.html` - Seating optimizer test suite
 - `/frontend/<path>` - Static files served via Django
-- `/api/auth/google/start/` - Start Google Classroom OAuth flow
-- `/api/auth/google/callback/` - OAuth callback handler
+- `/api/auth/google/signin/` - Google Sign-In (GET client_id, POST credential → JWTs)
+- `/api/auth/google/start/` - Start Google Classroom OAuth flow (session auth; SPA uses oauth-url)
+- `/api/auth/google/callback/` - OAuth callback handler (signed state → per-user credentials)
+- `/api/google/oauth-url/` - Get Classroom connect URL for current JWT user
+- `/api/google/courses/` - List current user's Classroom courses
+- `/api/google/courses/{id}/students/` - List a course's roster
+- `/api/google/import-students/` - Import a Classroom roster into a class
 - `/api/google/test/` - Test Google Classroom connection
 - `/api/google/disconnect/` - Remove Google credentials
 - `/api/special-points/fetch/` - Proxy: get point totals from Cranston Commons
@@ -756,16 +780,24 @@ source myenv/bin/activate
 python manage.py runserver
 ```
 
-## Google Classroom Integration (POC)
+## Google Integration
 
-**Current Status**: OAuth flow implemented as proof of concept
-- Tokens stored encrypted in database
-- Uses first user for testing (needs proper auth integration)
-- Successfully connects and lists courses
+**Current Status**:
+- Google Sign-In on the login page (GIS button; existing users only, matched by email)
+- Per-user Classroom OAuth: user id travels in a signed `state` param, credentials
+  stored encrypted per user (no more "first user" POC wiring)
+- Roster import: "Import from Google Classroom" button in ClassStudentManager
+  (connect → pick course → preview roster → import); creates/matches Students
+  and enrolls them (see /api/google/import-students/)
+- Token refresh handled in `get_google_service()`
+- Tests: `python manage.py test students.tests` (mocked Google responses)
 
-**Next Steps for Production**:
-1. Integrate with JWT authentication system
-2. Add token refresh logic in `get_google_service()`
-3. Implement grade posting functions
-4. Add frontend UI for connection management
-5. Handle expired tokens gracefully
+**Google Cloud Console requirements**:
+- App origins (127.0.0.1:8000, localhost:8000, pinto origin) must be in
+  "Authorized JavaScript origins" for the sign-in button
+- The callback URL (`<origin>/api/auth/google/callback/`) must be in
+  "Authorized redirect URIs" for the Classroom connect flow
+
+**Next Steps**:
+1. Implement grade posting functions
+2. Frontend UI for disconnecting / viewing connection status (e.g. on #profile)

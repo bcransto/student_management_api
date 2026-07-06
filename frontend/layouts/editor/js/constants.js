@@ -26,6 +26,7 @@ const TABLE_SHAPES = [
 // Obstacle/object types
 const OBSTACLE_TYPES = [
   { id: "teacher_desk", name: "Teacher Desk", color: "#8B4513", icon: "🪑" },
+  { id: "supply_table", name: "Supply Table", color: "#B8860B", icon: "📦" },
   { id: "cabinet", name: "Cabinet", color: "#654321", icon: "🗄️" },
   { id: "bookshelf", name: "Bookshelf", color: "#A0522D", icon: "📚" },
   { id: "door", name: "Door", color: "#228B22", icon: "🚪" },
@@ -78,6 +79,14 @@ const DEFAULT_TABLE = {
   max_seats: 4,
   table_shape: "rectangular",
   rotation: 0,
+};
+
+// Obstacle constraints
+const OBSTACLE_CONSTRAINTS = {
+  MIN_WIDTH: 1,
+  MAX_WIDTH: 10,
+  MIN_HEIGHT: 1,
+  MAX_HEIGHT: 10,
 };
 
 // Default obstacle settings

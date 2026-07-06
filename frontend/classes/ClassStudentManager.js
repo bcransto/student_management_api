@@ -15,9 +15,96 @@ const ClassStudentManager = ({ classId, navigateTo }) => {
   const [parsedStudentIds, setParsedStudentIds] = React.useState([]);
   const [notFoundIds, setNotFoundIds] = React.useState([]);
   const [isEmailInput, setIsEmailInput] = React.useState(false);
-  
+
+  // Google Classroom import state
+  const [googleModalOpen, setGoogleModalOpen] = React.useState(false);
+  const [googleLoading, setGoogleLoading] = React.useState(false);
+  const [googleConnected, setGoogleConnected] = React.useState(false);
+  const [googleCourses, setGoogleCourses] = React.useState([]);
+  const [selectedCourse, setSelectedCourse] = React.useState(null);
+  const [googleStudents, setGoogleStudents] = React.useState(null);
+  const [importResult, setImportResult] = React.useState(null);
+  const [googleError, setGoogleError] = React.useState(null);
+
   // Get current user info
   const currentUser = window.AuthModule?.getUserInfo();
+
+  const openGoogleImport = async () => {
+    setGoogleModalOpen(true);
+    setGoogleLoading(true);
+    setGoogleError(null);
+    setSelectedCourse(null);
+    setGoogleStudents(null);
+    setImportResult(null);
+
+    try {
+      const response = await window.ApiModule.request('/google/courses/', { method: 'GET' });
+      setGoogleConnected(response.connected);
+      setGoogleCourses(response.courses || []);
+    } catch (err) {
+      console.error("Error fetching Google courses:", err);
+      setGoogleError("Failed to reach Google Classroom. Try again or reconnect.");
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
+  const connectGoogle = async () => {
+    try {
+      const response = await window.ApiModule.request(
+        `/google/oauth-url/?next=${encodeURIComponent(`classes/${classId}/add-students`)}`,
+        { method: 'GET' }
+      );
+      window.location.href = response.auth_url;
+    } catch (err) {
+      console.error("Error starting Google connection:", err);
+      setGoogleError("Failed to start Google connection.");
+    }
+  };
+
+  const selectGoogleCourse = async (course) => {
+    setSelectedCourse(course);
+    setGoogleStudents(null);
+    setGoogleLoading(true);
+    setGoogleError(null);
+
+    try {
+      const response = await window.ApiModule.request(
+        `/google/courses/${course.id}/students/`,
+        { method: 'GET' }
+      );
+      setGoogleStudents(response.students || []);
+    } catch (err) {
+      console.error("Error fetching course roster:", err);
+      setGoogleError("Failed to fetch the course roster from Google Classroom.");
+      setSelectedCourse(null);
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
+  const runGoogleImport = async () => {
+    if (!selectedCourse) return;
+    setGoogleLoading(true);
+    setGoogleError(null);
+
+    try {
+      const response = await window.ApiModule.request('/google/import-students/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          course_id: selectedCourse.id,
+          class_id: classId,
+        }),
+      });
+      setImportResult(response);
+    } catch (err) {
+      console.error("Error importing students:", err);
+      setGoogleError(`Import failed: ${err.message || 'Unknown error'}`);
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
   
   // Parse student IDs from batch input
   const parseStudentIds = (input) => {
@@ -362,6 +449,20 @@ const ClassStudentManager = ({ classId, navigateTo }) => {
           }),
           " Show previously enrolled"
         ),
+        React.createElement(
+          "button",
+          {
+            className: "btn btn-secondary",
+            onClick: openGoogleImport,
+            style: {
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px"
+            }
+          },
+          React.createElement("i", { className: "fab fa-google" }),
+          " Import from Google Classroom"
+        ),
         selectedStudents.size > 0 && React.createElement(
           "button",
           {
@@ -566,6 +667,287 @@ const ClassStudentManager = ({ classId, navigateTo }) => {
                 "Re-enroll"
               )
             )
+          )
+        )
+      )
+    ),
+
+    // Google Classroom import modal
+    googleModalOpen && React.createElement(
+      "div",
+      {
+        style: {
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: "rgba(0, 0, 0, 0.5)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 10000
+        },
+        onClick: (e) => {
+          if (e.target === e.currentTarget && !googleLoading) {
+            setGoogleModalOpen(false);
+            if (importResult) window.location.reload();
+          }
+        }
+      },
+      React.createElement(
+        "div",
+        {
+          style: {
+            backgroundColor: "white",
+            borderRadius: "8px",
+            padding: "1.5rem",
+            width: "90%",
+            maxWidth: "480px",
+            maxHeight: "80vh",
+            overflowY: "auto",
+            boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)"
+          }
+        },
+
+        // Modal header
+        React.createElement(
+          "div",
+          {
+            style: {
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: "1rem"
+            }
+          },
+          React.createElement(
+            "h2",
+            { style: { margin: 0, fontSize: "1.25rem" } },
+            React.createElement("i", { className: "fab fa-google", style: { marginRight: "8px" } }),
+            "Import from Google Classroom"
+          ),
+          React.createElement(
+            "button",
+            {
+              onClick: () => {
+                setGoogleModalOpen(false);
+                if (importResult) window.location.reload();
+              },
+              style: {
+                border: "none",
+                background: "none",
+                fontSize: "1.25rem",
+                cursor: "pointer",
+                color: "#6b7280"
+              }
+            },
+            "×"
+          )
+        ),
+
+        // Error banner
+        googleError && React.createElement(
+          "div",
+          {
+            style: {
+              padding: "0.75rem",
+              backgroundColor: "#fef2f2",
+              border: "1px solid #fca5a5",
+              borderRadius: "6px",
+              marginBottom: "1rem",
+              color: "#dc2626",
+              fontSize: "0.9rem"
+            }
+          },
+          googleError
+        ),
+
+        // Loading state
+        googleLoading && React.createElement(
+          "div",
+          { style: { textAlign: "center", padding: "1.5rem", color: "#6b7280" } },
+          React.createElement("div", { className: "spinner", style: { margin: "0 auto 0.75rem" } }),
+          "Talking to Google Classroom..."
+        ),
+
+        // Import result summary
+        !googleLoading && importResult && React.createElement(
+          "div",
+          null,
+          React.createElement(
+            "div",
+            {
+              style: {
+                padding: "0.75rem",
+                backgroundColor: "#d1fae5",
+                border: "1px solid #6ee7b7",
+                borderRadius: "6px",
+                marginBottom: "1rem",
+                color: "#065f46"
+              }
+            },
+            `Import complete: ${importResult.enrolled.length} enrolled` +
+              (importResult.created.length ? `, ${importResult.created.length} new students created` : "") +
+              (importResult.reenrolled.length ? `, ${importResult.reenrolled.length} re-enrolled` : "") +
+              (importResult.already_enrolled.length ? `, ${importResult.already_enrolled.length} already enrolled` : "") +
+              (importResult.skipped.length ? `, ${importResult.skipped.length} skipped` : "")
+          ),
+          importResult.created.length > 0 && React.createElement(
+            "div",
+            { style: { fontSize: "0.9rem", marginBottom: "0.75rem" } },
+            React.createElement("strong", null, "New students: "),
+            importResult.created.map((s) => s.name).join(", ")
+          ),
+          importResult.skipped.length > 0 && React.createElement(
+            "div",
+            { style: { fontSize: "0.9rem", marginBottom: "0.75rem", color: "#b45309" } },
+            React.createElement("strong", null, "Skipped: "),
+            importResult.skipped.map((s) => `${s.name} (${s.reason})`).join(", ")
+          ),
+          React.createElement(
+            "button",
+            {
+              className: "btn btn-primary",
+              style: { width: "100%" },
+              onClick: () => window.location.reload()
+            },
+            "Done"
+          )
+        ),
+
+        // Not connected: prompt to connect
+        !googleLoading && !importResult && !googleConnected && React.createElement(
+          "div",
+          { style: { textAlign: "center", padding: "0.5rem 0" } },
+          React.createElement(
+            "p",
+            { style: { color: "#6b7280", marginBottom: "1rem" } },
+            "Connect your Google account to import students from your Classroom rosters."
+          ),
+          React.createElement(
+            "button",
+            {
+              className: "btn btn-primary",
+              onClick: connectGoogle
+            },
+            React.createElement("i", { className: "fab fa-google" }),
+            " Connect Google Classroom"
+          )
+        ),
+
+        // Connected, no course selected: course list
+        !googleLoading && !importResult && googleConnected && !selectedCourse && React.createElement(
+          "div",
+          null,
+          React.createElement(
+            "p",
+            { style: { color: "#6b7280", marginBottom: "0.75rem", fontSize: "0.9rem" } },
+            "Choose a course to import students from:"
+          ),
+          googleCourses.length === 0
+            ? React.createElement(
+                "p",
+                { style: { color: "#6b7280", textAlign: "center" } },
+                "No active courses found."
+              )
+            : googleCourses.map((course) =>
+                React.createElement(
+                  "div",
+                  {
+                    key: course.id,
+                    onClick: () => selectGoogleCourse(course),
+                    style: {
+                      padding: "0.75rem",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: "6px",
+                      marginBottom: "0.5rem",
+                      cursor: "pointer"
+                    },
+                    onMouseEnter: (e) => (e.currentTarget.style.backgroundColor = "#f9fafb"),
+                    onMouseLeave: (e) => (e.currentTarget.style.backgroundColor = "white")
+                  },
+                  React.createElement("div", { style: { fontWeight: "500" } }, course.name),
+                  course.section && React.createElement(
+                    "div",
+                    { style: { fontSize: "0.85rem", color: "#6b7280" } },
+                    course.section
+                  )
+                )
+              )
+        ),
+
+        // Course selected: roster preview + import button
+        !googleLoading && !importResult && selectedCourse && googleStudents && React.createElement(
+          "div",
+          null,
+          React.createElement(
+            "button",
+            {
+              onClick: () => {
+                setSelectedCourse(null);
+                setGoogleStudents(null);
+              },
+              style: {
+                border: "none",
+                background: "none",
+                color: "#6366f1",
+                cursor: "pointer",
+                padding: 0,
+                marginBottom: "0.75rem",
+                fontSize: "0.9rem"
+              }
+            },
+            "← Back to courses"
+          ),
+          React.createElement(
+            "p",
+            { style: { fontWeight: "500", marginBottom: "0.5rem" } },
+            `${selectedCourse.name}: ${googleStudents.length} students`
+          ),
+          React.createElement(
+            "div",
+            {
+              style: {
+                maxHeight: "240px",
+                overflowY: "auto",
+                border: "1px solid #e5e7eb",
+                borderRadius: "6px",
+                padding: "0.5rem",
+                marginBottom: "1rem"
+              }
+            },
+            googleStudents.length === 0
+              ? React.createElement("p", { style: { color: "#6b7280", textAlign: "center" } }, "No students in this course.")
+              : googleStudents.map((s) =>
+                  React.createElement(
+                    "div",
+                    {
+                      key: s.google_user_id,
+                      style: {
+                        padding: "0.4rem 0.5rem",
+                        fontSize: "0.9rem",
+                        borderBottom: "1px solid #f3f4f6"
+                      }
+                    },
+                    React.createElement("span", null, s.full_name || `${s.first_name} ${s.last_name}`),
+                    React.createElement(
+                      "span",
+                      { style: { color: "#9ca3af", marginLeft: "0.5rem", fontSize: "0.8rem" } },
+                      s.email || "no email visible"
+                    )
+                  )
+                )
+          ),
+          googleStudents.length > 0 && React.createElement(
+            "button",
+            {
+              className: "btn btn-primary",
+              style: { width: "100%" },
+              onClick: runGoogleImport
+            },
+            React.createElement("i", { className: "fas fa-user-plus" }),
+            ` Import ${googleStudents.length} Students`
           )
         )
       )

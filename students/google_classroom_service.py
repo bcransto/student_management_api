@@ -5,13 +5,19 @@ Handles OAuth flow, token storage, and API interactions
 
 from google_auth_oauthlib.flow import Flow
 from google.oauth2.credentials import Credentials
+from google.oauth2 import id_token as google_id_token
+from google.auth.transport import requests as google_requests
 from googleapiclient.discovery import build
 from django.shortcuts import redirect
 from django.http import JsonResponse
 from django.urls import reverse
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import update_last_login
 from django.conf import settings
 from django.utils import timezone
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.response import Response
 from .models import GoogleClassroomCredentials
 import logging
 import os
@@ -21,33 +27,127 @@ logger = logging.getLogger(__name__)
 
 
 # ============================================================================
+# Google Sign-In (JWT login via Google Identity Services)
+# ============================================================================
+
+@api_view(["GET", "POST"])
+@permission_classes([AllowAny])
+def google_signin(request):
+    """
+    Google Sign-In endpoint.
+    URL: /api/auth/google/signin/
+
+    GET: Returns the Google client ID so the frontend can render the button.
+    POST: Verifies a Google ID token and returns JWT access/refresh tokens.
+        Body: {"credential": "<ID token from Google Identity Services>"}
+        Only existing users (matched by email) can sign in - no auto-creation.
+    """
+    if request.method == "GET":
+        return Response({"client_id": settings.GOOGLE_CLIENT_ID})
+
+    credential = request.data.get("credential")
+    if not credential:
+        return Response({"detail": "Missing credential"}, status=400)
+
+    try:
+        idinfo = google_id_token.verify_oauth2_token(
+            credential,
+            google_requests.Request(),
+            settings.GOOGLE_CLIENT_ID,
+            clock_skew_in_seconds=10,
+        )
+    except ValueError as e:
+        logger.warning(f"Google sign-in token verification failed: {e}")
+        return Response({"detail": "Invalid Google credential"}, status=401)
+
+    email = idinfo.get("email")
+    if not email or not idinfo.get("email_verified"):
+        return Response({"detail": "Google account email is not verified"}, status=401)
+
+    from .models import User
+
+    user = User.objects.filter(email__iexact=email, is_active=True).first()
+    if not user:
+        logger.warning(f"Google sign-in rejected - no account for {email}")
+        return Response(
+            {"detail": f"No account found for {email}. Contact your administrator."},
+            status=403,
+        )
+
+    from .serializers import CustomTokenObtainPairSerializer
+
+    refresh = CustomTokenObtainPairSerializer.get_token(user)
+    update_last_login(None, user)
+
+    logger.info(f"Google sign-in successful for {user.email}")
+    return Response({"access": str(refresh.access_token), "refresh": str(refresh)})
+
+
+# ============================================================================
 # OAuth Flow Functions
 # ============================================================================
+
+def _build_oauth_authorization_url(request, user, next_hash="dashboard"):
+    """
+    Build a Google OAuth authorization URL with a signed state that carries
+    the user's id (the callback arrives without JWT headers, so the state is
+    how we know which user is connecting).
+    """
+    from django.core import signing
+
+    state = signing.dumps({"uid": user.id, "next": next_hash})
+
+    flow = Flow.from_client_config(
+        settings.GOOGLE_OAUTH_CONFIG,
+        scopes=settings.GOOGLE_SCOPES,
+        redirect_uri=request.build_absolute_uri(reverse('google_auth_callback')),
+        state=state,
+    )
+
+    auth_url, _ = flow.authorization_url(
+        prompt='consent',  # Always show consent screen
+        access_type='offline',  # Request refresh token
+        include_granted_scopes='true'
+    )
+    return auth_url
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def google_oauth_url(request):
+    """
+    Get the Google OAuth authorization URL for the current (JWT) user.
+    URL: /api/google/oauth-url/?next=<hash route to return to>
+
+    The frontend redirects the browser to the returned auth_url. After the
+    user consents, the callback stores credentials and redirects back to
+    /#<next>.
+    """
+    try:
+        next_hash = request.GET.get("next", "dashboard").lstrip("#/")
+        auth_url = _build_oauth_authorization_url(request, request.user, next_hash)
+        return Response({"auth_url": auth_url})
+    except Exception as e:
+        logger.error(f"Error building OAuth URL: {str(e)}")
+        return Response({"error": "Failed to build OAuth URL", "details": str(e)}, status=500)
+
 
 def google_auth_start(request):
     """
     Start OAuth flow - visit this URL to connect to Google Classroom
     URL: /api/auth/google/start/
+
+    Requires a session-authenticated user (e.g. logged into /admin/).
+    The SPA should use /api/google/oauth-url/ instead.
     """
+    if not request.user.is_authenticated:
+        return JsonResponse({
+            'error': 'Not authenticated. Connect Google Classroom from within the app.'
+        }, status=401)
+
     try:
-        # Create OAuth flow instance
-        flow = Flow.from_client_config(
-            settings.GOOGLE_OAUTH_CONFIG,
-            scopes=settings.GOOGLE_SCOPES,
-            redirect_uri=request.build_absolute_uri(reverse('google_auth_callback'))
-        )
-
-        # Generate authorization URL
-        auth_url, state = flow.authorization_url(
-            prompt='consent',  # Always show consent screen
-            access_type='offline',  # Request refresh token
-            include_granted_scopes='true'
-        )
-
-        # Store state in session for security
-        request.session['oauth_state'] = state
-
-        logger.info("Starting OAuth flow")
+        auth_url = _build_oauth_authorization_url(request, request.user)
+        logger.info(f"Starting OAuth flow for {request.user.email}")
         return redirect(auth_url)
 
     except Exception as e:
@@ -78,11 +178,14 @@ def google_auth_callback(request):
             'error': 'No authorization code received'
         }, status=400)
 
-    # Verify state for security (CSRF protection)
+    # Verify signed state (CSRF protection + identifies the connecting user)
+    from django.core import signing
+
     state = request.GET.get('state')
-    stored_state = request.session.get('oauth_state')
-    if not stored_state or state != stored_state:
-        logger.warning("State mismatch in OAuth callback")
+    try:
+        state_data = signing.loads(state, max_age=600)
+    except Exception:
+        logger.warning("Invalid or expired state in OAuth callback")
         return JsonResponse({
             'error': 'Invalid state parameter'
         }, status=400)
@@ -109,18 +212,17 @@ def google_auth_callback(request):
         flow.fetch_token(code=code)
         credentials = flow.credentials
 
-        # Store tokens in database
-        # For testing: use the first user or create a test association
+        # Store tokens for the user identified by the signed state
         from .models import User
-        # Get the first user for testing (you should replace this with proper auth)
-        test_user = User.objects.first()
-        if not test_user:
+
+        user = User.objects.filter(id=state_data.get('uid'), is_active=True).first()
+        if not user:
             return JsonResponse({
-                'error': 'No users in database. Please create a user first.'
+                'error': 'User from OAuth state not found.'
             }, status=400)
 
         GoogleClassroomCredentials.objects.update_or_create(
-            user=test_user,
+            user=user,
             defaults={
                 'access_token': credentials.token,
                 'refresh_token': credentials.refresh_token,
@@ -129,19 +231,11 @@ def google_auth_callback(request):
             }
         )
 
-        # Clear state from session
-        if 'oauth_state' in request.session:
-            del request.session['oauth_state']
+        logger.info(f"Successfully connected Google Classroom for user {user.email}")
 
-        logger.info(f"Successfully connected Google Classroom for user {test_user.email}")
-
-        # Return success response
-        return JsonResponse({
-            'status': 'success',
-            'message': 'Successfully connected to Google Classroom',
-            'user': test_user.email,
-            'scopes': list(credentials.scopes) if credentials.scopes else settings.GOOGLE_SCOPES
-        })
+        # Redirect back into the SPA where the user started
+        next_hash = str(state_data.get('next') or 'dashboard').lstrip('#/')
+        return redirect(f"/#{next_hash}")
 
     except Exception as e:
         logger.error(f"Error in OAuth callback: {str(e)}")
@@ -311,6 +405,219 @@ def google_disconnect(request):
             'error': 'Failed to disconnect',
             'details': str(e)
         }, status=500)
+
+
+# ============================================================================
+# Classroom Roster Import Endpoints
+# ============================================================================
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def google_courses(request):
+    """
+    List the current user's active Google Classroom courses.
+    URL: /api/google/courses/
+
+    Returns {"connected": false} if the user hasn't connected Google Classroom.
+    """
+    if not is_user_connected(request.user):
+        return Response({"connected": False, "courses": []})
+
+    courses = get_user_courses(request.user)
+    if courses is None:
+        return Response(
+            {"error": "Failed to fetch courses from Google Classroom. Try reconnecting."},
+            status=502,
+        )
+
+    return Response({
+        "connected": True,
+        "courses": [
+            {
+                "id": c.get("id"),
+                "name": c.get("name"),
+                "section": c.get("section"),
+            }
+            for c in courses
+        ],
+    })
+
+
+def _fetch_course_students(service, course_id):
+    """Fetch the full student roster for a course (handles pagination)."""
+    students = []
+    page_token = None
+
+    while True:
+        response = service.courses().students().list(
+            courseId=course_id,
+            pageSize=100,
+            pageToken=page_token,
+        ).execute()
+
+        for s in response.get("students", []):
+            profile = s.get("profile", {})
+            name = profile.get("name", {})
+            students.append({
+                "google_user_id": s.get("userId"),
+                "first_name": name.get("givenName", ""),
+                "last_name": name.get("familyName", ""),
+                "full_name": name.get("fullName", ""),
+                "email": profile.get("emailAddress") or "",
+            })
+
+        page_token = response.get("nextPageToken")
+        if not page_token:
+            break
+
+    return students
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def google_course_students(request, course_id):
+    """
+    List the students in a Google Classroom course.
+    URL: /api/google/courses/<course_id>/students/
+    """
+    service = get_google_service(request.user)
+    if not service:
+        return Response({"error": "Google Classroom not connected."}, status=400)
+
+    try:
+        students = _fetch_course_students(service, course_id)
+    except Exception as e:
+        logger.error(f"Error fetching course roster: {str(e)}")
+        return Response(
+            {"error": "Failed to fetch roster from Google Classroom.", "details": str(e)},
+            status=502,
+        )
+
+    return Response({"students": students})
+
+
+def _unique_student_id(preferred, fallback):
+    """Pick an unused student_id (max 20 chars), preferring the email local part."""
+    from .models import Student
+
+    candidates = [c for c in (preferred, fallback) if c]
+    for base in candidates:
+        base = base[:20]
+        if not Student.objects.filter(student_id=base).exists():
+            return base
+        for i in range(2, 100):
+            suffix = str(i)
+            candidate = base[: 20 - len(suffix)] + suffix
+            if not Student.objects.filter(student_id=candidate).exists():
+                return candidate
+    return None
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def google_import_students(request):
+    """
+    Import students from a Google Classroom course into a class roster.
+    URL: /api/google/import-students/
+    Body: {"course_id": "...", "class_id": 1}
+
+    Matches existing students by google_user_id, then by email. Creates
+    Student records for unmatched Classroom students, then enrolls everyone
+    into the class (reactivating soft-deleted roster entries).
+    """
+    from .models import Class, ClassRoster, Student
+
+    course_id = request.data.get("course_id")
+    class_id = request.data.get("class_id")
+    if not course_id or not class_id:
+        return Response({"error": "course_id and class_id are required."}, status=400)
+
+    try:
+        target_class = Class.objects.get(id=class_id, teacher=request.user)
+    except Class.DoesNotExist:
+        return Response({"error": "Class not found or you are not its teacher."}, status=404)
+
+    service = get_google_service(request.user)
+    if not service:
+        return Response({"error": "Google Classroom not connected."}, status=400)
+
+    try:
+        google_students = _fetch_course_students(service, course_id)
+    except Exception as e:
+        logger.error(f"Error fetching course roster for import: {str(e)}")
+        return Response(
+            {"error": "Failed to fetch roster from Google Classroom.", "details": str(e)},
+            status=502,
+        )
+
+    created, enrolled, reenrolled, already_enrolled, skipped = [], [], [], [], []
+
+    for gs in google_students:
+        display_name = gs["full_name"] or f"{gs['first_name']} {gs['last_name']}".strip()
+
+        # Match existing student: google_user_id first, then email
+        student = None
+        if gs["google_user_id"]:
+            student = Student.objects.filter(google_user_id=gs["google_user_id"]).first()
+        if not student and gs["email"]:
+            student = Student.objects.filter(email__iexact=gs["email"]).first()
+
+        if student:
+            # Backfill the Google id for faster matching next time
+            if gs["google_user_id"] and not student.google_user_id:
+                student.google_user_id = gs["google_user_id"]
+                student.save(update_fields=["google_user_id"])
+        else:
+            if not gs["first_name"] and not gs["last_name"]:
+                skipped.append({"name": display_name, "reason": "No name in Google profile"})
+                continue
+
+            email_local = gs["email"].split("@")[0] if gs["email"] else ""
+            google_fallback = f"G{gs['google_user_id']}" if gs["google_user_id"] else ""
+            student_id = _unique_student_id(email_local, google_fallback)
+            if not student_id:
+                skipped.append({"name": display_name, "reason": "Could not generate a unique student ID"})
+                continue
+
+            student = Student.objects.create(
+                student_id=student_id,
+                first_name=gs["first_name"][:30],
+                last_name=gs["last_name"][:30],
+                nickname="",  # model auto-populates from first_name
+                email=gs["email"] or None,
+                google_user_id=gs["google_user_id"] or None,
+            )
+            created.append({"name": display_name, "student_id": student_id})
+
+        # Enroll (or reactivate) the student in the class
+        roster_entry, was_created = ClassRoster.objects.get_or_create(
+            class_assigned=target_class,
+            student=student,
+            defaults={"is_active": True},
+        )
+        if was_created:
+            enrolled.append(display_name)
+        elif not roster_entry.is_active:
+            roster_entry.is_active = True
+            roster_entry.save(update_fields=["is_active", "updated_at"])
+            reenrolled.append(display_name)
+        else:
+            already_enrolled.append(display_name)
+
+    logger.info(
+        f"Classroom import into class {target_class.id} by {request.user.email}: "
+        f"{len(created)} created, {len(enrolled)} enrolled, {len(reenrolled)} re-enrolled, "
+        f"{len(already_enrolled)} already enrolled, {len(skipped)} skipped"
+    )
+
+    return Response({
+        "total": len(google_students),
+        "created": created,
+        "enrolled": enrolled,
+        "reenrolled": reenrolled,
+        "already_enrolled": already_enrolled,
+        "skipped": skipped,
+    })
 
 
 # ============================================================================
