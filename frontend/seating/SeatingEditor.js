@@ -2136,99 +2136,114 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
     }
   };
 
-  // Handle creating a one-off untracked chart (does NOT end the current period,
-  // excluded from partnership history)
-  const handleNewOneOff = async () => {
+  // Toggle between the real current chart and a one-off scratch chart.
+  // ON: jump to the class's open one-off chart (creating it if needed) -
+  // the current period is left untouched and one-offs stay out of
+  // partnership history. OFF: return to the real current chart.
+  const handleToggleOneOff = async () => {
+    const viewingOneOff = classInfo?.current_seating_period?.is_tracked === false;
+
     // Check for unsaved changes
     if (hasUnsavedChanges) {
       const saveFirst = confirm(
-        "You have unsaved changes. Save them before creating a one-off chart?"
+        "You have unsaved changes. Save them before switching charts?"
       );
       if (saveFirst) {
         await handleSave();
-      } else if (!confirm("Discard unsaved changes and create a one-off chart?")) {
+      } else if (!confirm("Discard unsaved changes and switch charts?")) {
         return;
       }
     }
 
-    if (
-      !confirm(
-        "Create a one-off chart?\n\n" +
-          "One-off charts are untracked: they don't end the current period " +
-          "and don't count toward partnership history."
-      )
-    ) {
+    // Toggle OFF: back to the real current chart
+    if (viewingOneOff) {
+      if (nav?.toSeatingEdit) {
+        nav.toSeatingEdit(classId);
+      } else if (navigateTo) {
+        navigateTo(`seating/edit/${classId}`);
+      } else {
+        window.location.hash = `#seating/edit/${classId}`;
+      }
       return;
     }
 
+    // Toggle ON: reuse the class's open one-off chart, or create one
     setIsCreatingPeriod(true);
 
     try {
-      // Resolve a layout (same fallback as handleNewPeriod)
-      let layoutId = layout?.id;
-      if (!layoutId) {
-        try {
-          const layoutsResponse = await window.ApiModule.request("/layouts/");
-          const userLayouts = layoutsResponse.results || layoutsResponse;
-          if (userLayouts.length > 0) {
-            layoutId = userLayouts[0].id;
-          }
-        } catch (error) {
-          console.error("Failed to fetch layouts:", error);
-        }
-      }
-      if (!layoutId) {
-        alert("No layout available. Please create a classroom layout first.");
-        return;
-      }
-
-      // Name it "One-Off M/D/YYYY", deduping against existing period names
-      const baseName = `One-Off ${new Date().toLocaleDateString()}`;
-      let periodName = baseName;
+      let targetPeriod = null;
+      let existingNames = new Set();
       try {
         const allPeriods = await window.ApiModule.request(`/seating-periods/?class_assigned=${classId}`);
-        const existingNames = new Set((allPeriods.results || allPeriods || []).map((p) => p.name));
+        const periods = allPeriods.results || allPeriods || [];
+        existingNames = new Set(periods.map((p) => p.name));
+        targetPeriod = periods
+          .filter((p) => p.is_tracked === false && p.end_date === null)
+          .sort((a, b) => new Date(b.start_date) - new Date(a.start_date))[0];
+      } catch (error) {
+        console.error("Error fetching periods for one-off toggle:", error);
+      }
+
+      if (!targetPeriod) {
+        // Resolve a layout (same fallback as handleNewPeriod)
+        let layoutId = layout?.id;
+        if (!layoutId) {
+          try {
+            const layoutsResponse = await window.ApiModule.request("/layouts/");
+            const userLayouts = layoutsResponse.results || layoutsResponse;
+            if (userLayouts.length > 0) {
+              layoutId = userLayouts[0].id;
+            }
+          } catch (error) {
+            console.error("Failed to fetch layouts:", error);
+          }
+        }
+        if (!layoutId) {
+          alert("No layout available. Please create a classroom layout first.");
+          return;
+        }
+
+        // Name by date only - the "One-Off" pill in the title shows the status
+        const baseName = new Date().toLocaleDateString();
+        let periodName = baseName;
         let counter = 2;
         while (existingNames.has(periodName)) {
           periodName = `${baseName} (${counter})`;
           counter += 1;
         }
-      } catch (error) {
-        console.error("Error fetching periods for one-off naming:", error);
+
+        // Local date (toISOString is UTC and can roll over to tomorrow in the evening)
+        const now = new Date();
+        const localDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(
+          now.getDate()
+        ).padStart(2, "0")}`;
+
+        targetPeriod = await window.ApiModule.request("/seating-periods/", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            class_assigned: classId,
+            layout: layoutId,
+            name: periodName,
+            start_date: localDate,
+            end_date: null,
+            is_tracked: false,
+          }),
+        });
+        console.log("One-off chart created:", targetPeriod);
       }
 
-      // Local date (toISOString is UTC and can roll over to tomorrow in the evening)
-      const now = new Date();
-      const localDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(
-        now.getDate()
-      ).padStart(2, "0")}`;
-
-      const newPeriod = await window.ApiModule.request("/seating-periods/", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          class_assigned: classId,
-          layout: layoutId,
-          name: periodName,
-          start_date: localDate,
-          end_date: null,
-          is_tracked: false,
-        }),
-      });
-
-      console.log("One-off chart created:", newPeriod);
-
-      // Navigate to the new period so we edit the one-off, not the current chart
+      // Navigate to the one-off chart
       if (nav?.toSeatingEditPeriod) {
-        nav.toSeatingEditPeriod(classId, newPeriod.id);
+        nav.toSeatingEditPeriod(classId, targetPeriod.id);
       } else if (navigateTo) {
-        navigateTo(`seating/edit/${classId}/period/${newPeriod.id}`);
+        navigateTo(`seating/edit/${classId}/period/${targetPeriod.id}`);
       } else {
-        window.location.hash = `#seating/edit/${classId}/period/${newPeriod.id}`;
+        window.location.hash = `#seating/edit/${classId}/period/${targetPeriod.id}`;
       }
     } catch (error) {
-      console.error("Error creating one-off chart:", error);
-      alert("Failed to create one-off chart. Please try again.");
+      console.error("Error switching to one-off chart:", error);
+      alert("Failed to switch to one-off chart. Please try again.");
     } finally {
       setIsCreatingPeriod(false);
     }
@@ -2661,32 +2676,39 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
           React.createElement("i", { className: "fas fa-calendar-plus", style: { fontSize: "14px", color: "white" } })
         ),
 
-        // One-Off Chart button (untracked - no history, doesn't end current period)
-        React.createElement(
-          "button",
-          {
-            className: "btn-icon btn-gray",
-            onClick: handleNewOneOff,
-            disabled: isCreatingPeriod || !layout,
-            title: layout
-              ? "Create a one-off chart (untracked, keeps current period)"
-              : "No layout available",
-            style: {
-              width: "36px",
-              height: "36px",
-              border: "1px solid #f59e0b",
-              borderRadius: "0.375rem",
-              backgroundColor: "#f59e0b",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              cursor: isCreatingPeriod || !layout ? "not-allowed" : "pointer",
-              opacity: isCreatingPeriod || !layout ? 0.5 : 1,
-              transition: "all 0.15s"
-            }
-          },
-          React.createElement("i", { className: "fas fa-bolt", style: { fontSize: "14px", color: "white" } })
-        ),
+        // One-Off toggle: orange while editing a one-off scratch chart,
+        // gray while on the real chart. ON jumps to (or creates) the
+        // one-off; OFF returns to the current chart.
+        (() => {
+          const viewingOneOff = classInfo?.current_seating_period?.is_tracked === false;
+          return React.createElement(
+            "button",
+            {
+              className: "btn-icon",
+              onClick: handleToggleOneOff,
+              disabled: isCreatingPeriod || !layout,
+              title: !layout
+                ? "No layout available"
+                : viewingOneOff
+                  ? "One-off mode ON - click to return to the current chart"
+                  : "Switch to a one-off chart (untracked, keeps current period)",
+              style: {
+                width: "36px",
+                height: "36px",
+                border: viewingOneOff ? "1px solid #f59e0b" : "1px solid #6b7280",
+                borderRadius: "0.375rem",
+                backgroundColor: viewingOneOff ? "#f59e0b" : "#6b7280",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: isCreatingPeriod || !layout ? "not-allowed" : "pointer",
+                opacity: isCreatingPeriod || !layout ? 0.5 : 1,
+                transition: "all 0.15s"
+              }
+            },
+            React.createElement("i", { className: "fas fa-bolt", style: { fontSize: "14px", color: "white" } })
+          );
+        })(),
 
         // Make Active button - show for inactive periods and one-off charts
         ((!isViewingCurrentPeriod && classInfo?.current_seating_period?.end_date !== null) ||
