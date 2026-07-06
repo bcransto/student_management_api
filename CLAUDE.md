@@ -471,10 +471,12 @@ element.style.removeProperty('color');
 - Auto-naming: New periods are named "Chart N" where N increments (tracked only)
 
 **Untracked One-Off Charts** (`is_tracked=False`):
-- Bolt TOGGLE in SeatingEditor: ON (orange) jumps to the class's open one-off
-  chart, creating it if needed (named by date, e.g. "7/6/2026" - the amber
-  "One-Off" pill shows status, not the name); OFF (gray) returns to the
-  real current chart
+- Bolt TOGGLE in SeatingEditor marks/unmarks the VIEWED chart in place
+  (no navigation): orange = one-off, gray = tracked; amber "One-Off" pill
+  shows in the title. Restoring an OPEN one-off routes through make_current
+  (re-tracks it and ends any other tracked current period)
+- Marking the current chart one-off leaves the class with NO tracked current
+  until one is promoted/created (visual attendance falls back to most recent)
 - Do NOT end the current period and are never auto-ended by new periods
 - Excluded from partnership history, previous_period, current_seating_period,
   attendance/points visual current-chart lookup, and Chart N numbering

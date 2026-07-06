@@ -1175,8 +1175,9 @@ class SeatingPeriodViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN
             )
         
-        # Check if already current
-        if period.end_date is None:
+        # Check if already current (an OPEN one-off has end_date=None but is
+        # NOT current - promoting it is exactly what make_current is for)
+        if period.end_date is None and period.is_tracked:
             return Response(
                 {"error": "This period is already the current active period"},
                 status=status.HTTP_400_BAD_REQUEST

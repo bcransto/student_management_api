@@ -315,6 +315,23 @@ class UntrackedSeatingPeriodTests(TestCase):
         self.assertIsNone(one_off.end_date)
         self.assertIsNotNone(self.current.end_date)  # old current ended
 
+    def test_make_current_promotes_open_untracked_period(self):
+        # An OPEN one-off (end_date=None) is not "already current" - the
+        # bolt toggle uses make_current to re-track it in place
+        one_off = self.make_period("Sub Day", is_tracked=False, end_date=None)
+        response = self.client.post(f"/api/seating-periods/{one_off.id}/make_current/")
+        self.assertEqual(response.status_code, 200)
+
+        one_off.refresh_from_db()
+        self.current.refresh_from_db()
+        self.assertTrue(one_off.is_tracked)
+        self.assertIsNone(one_off.end_date)
+        self.assertIsNotNone(self.current.end_date)  # old current ended
+
+    def test_make_current_rejects_actual_current_period(self):
+        response = self.client.post(f"/api/seating-periods/{self.current.id}/make_current/")
+        self.assertEqual(response.status_code, 400)
+
     def test_serializer_exposes_is_tracked(self):
         one_off = self.make_period("Sub Day", is_tracked=False)
         response = self.client.get(f"/api/seating-periods/{one_off.id}/")
