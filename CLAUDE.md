@@ -350,7 +350,43 @@ await ApiModule.request('/api/endpoint/')   // ❌ Double /api/ prefix
 
 # GET /api/google/disconnect/
 # Removes stored Google Classroom credentials
+
+# --- Workspace directory import (Admin SDK, whole-cohort) ---
+# Needs admin.directory.user.readonly scope; readable by a normal teacher
+# account via viewType=domain_public. Shared helpers in
+# google_classroom_service.py: _get_directory_service (connection/scope/
+# refresh gate -> needs_reconnect + auth_url), _fetch_domain_users (paginated).
+
+# GET /api/google/directory-cohorts/
+# Groups domain users by two-digit email prefix (e.g. "28" = class of 2028);
+# staff (no digit prefix) excluded. {connected, cohorts: [{cohort, count}]}
+
+# GET /api/google/directory-students/?cohort=28
+# {cohort, students: [{student_id (from externalIds), first_name, last_name,
+#   email, google_user_id, exists}]}. exists computed server-side.
+
+# POST /api/google/import-directory-students/  Body: {"cohort": "28"}
+# Creates only missing students with REAL district IDs; matches by
+# google id -> student_id -> email, backfilling google id/email WITHOUT
+# overwriting student_id. No enrollment. {total, created, existing, skipped}
 ```
+
+**Bulk Student Update (CSV/TSV)**:
+```python
+# POST /api/students/bulk-update-info/  (StudentViewSet action)
+# Body: {"text": "<pasted rows w/ header>", "apply": bool}
+# Header (case-insensitive) needs student_id|id or email, plus nickname
+# and/or gender. Delimiter auto-sniffed (tab if present else comma), BOM
+# stripped. Rows match by student_id then email (iexact). Only non-empty
+# cells change anything; gender m/f/o normalized, "-" clears to null,
+# other values -> invalid. apply=false is a dry run.
+# {applied, updated:[{id,name,changes}], not_found, invalid, unchanged, conflicts}
+```
+
+**Blank gender**: `Student.gender` is nullable ("Not set" in StudentEditor).
+Seating editor Gender highlight renders null/unset gender as neutral GRAY
+(#9ca3af) - distinct from male/other blue and female green. Fill modes
+already tolerate null (Match excludes them, Balance places them last).
 
 **Smart Pair Algorithm**:
 ```javascript
@@ -584,6 +620,10 @@ Frontend auto-detects environment via hostname (pinto.local uses current origin 
 - `/api/google/courses/` - List current user's Classroom courses
 - `/api/google/courses/{id}/students/` - List a course's roster
 - `/api/google/import-students/` - Import a Classroom roster into a class
+- `/api/google/directory-cohorts/` - Workspace cohorts (by email prefix)
+- `/api/google/directory-students/` - Workspace cohort roster preview
+- `/api/google/import-directory-students/` - Bulk-create a cohort's students
+- `/api/students/bulk-update-info/` - Paste CSV/TSV to set nickname/gender
 - `/api/google/test/` - Test Google Classroom connection
 - `/api/google/disconnect/` - Remove Google credentials
 - `/api/special-points/fetch/` - Proxy: get point totals from Cranston Commons
