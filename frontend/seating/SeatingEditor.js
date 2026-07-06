@@ -1488,17 +1488,34 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
       // Single line format for new toolbar design
       return React.createElement(
         "div",
-        { 
-          style: { 
+        {
+          style: {
             fontSize: "1.125rem",
             fontWeight: "500",
             color: "#1f2937",
             whiteSpace: "nowrap",
             overflow: "hidden",
             textOverflow: "ellipsis"
-          } 
+          }
         },
-        `${periodName} • ${className} • ${startDate} - ${endDate}`
+        `${periodName} • ${className} • ${startDate} - ${endDate}`,
+        period.is_tracked === false && React.createElement(
+          "span",
+          {
+            style: {
+              marginLeft: "8px",
+              padding: "2px 8px",
+              fontSize: "0.75rem",
+              fontWeight: "600",
+              color: "#92400e",
+              backgroundColor: "#fef3c7",
+              border: "1px solid #f59e0b",
+              borderRadius: "9999px",
+              verticalAlign: "middle"
+            }
+          },
+          "One-Off"
+        )
       );
     }
 
@@ -1907,7 +1924,8 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
   // Handle making an inactive period the current active period
   const handleMakeActive = async () => {
     // Check if we're viewing the current period (should not show button in this case)
-    if (isViewingCurrentPeriod) {
+    // (an open one-off chart is NOT active - Make Active promotes it)
+    if (isViewingCurrentPeriod && classInfo?.current_seating_period?.is_tracked !== false) {
       alert("This period is already the active period.");
       return;
     }
@@ -1926,7 +1944,7 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
         `/seating-periods/?class_assigned=${classId}`
       );
       const periods = periodsResponse.results || [];
-      const activePeriod = periods.find(p => p.end_date === null);
+      const activePeriod = periods.find(p => p.end_date === null && p.is_tracked !== false);
       if (activePeriod) {
         currentActivePeriodName = activePeriod.name;
       }
@@ -2015,8 +2033,10 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
     setIsCreatingPeriod(true);
 
     try {
-      // If there's a current period, update its end date to today
-      if (classInfo?.current_seating_period) {
+      // If there's a current TRACKED period, update its end date to today.
+      // (When viewing a one-off chart, current_seating_period is the one-off;
+      // it must not be ended - the backend ends the real current period.)
+      if (classInfo?.current_seating_period && classInfo.current_seating_period.is_tracked !== false) {
         const today = new Date().toISOString().split("T")[0];
         await window.ApiModule.request(`/seating-periods/${classInfo.current_seating_period.id}/`, {
           method: "PATCH",
@@ -2038,23 +2058,19 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
         const allPeriods = await window.ApiModule.request(`/seating-periods/?class_assigned=${classId}`);
         console.log("All periods response:", allPeriods);
         
-        // Handle both array and object responses
-        if (Array.isArray(allPeriods)) {
-          chartNumber = allPeriods.length + 1;
-        } else if (allPeriods && typeof allPeriods === 'object') {
-          // If it's a paginated response with results array
-          if (allPeriods.results && Array.isArray(allPeriods.results)) {
-            chartNumber = allPeriods.results.length + 1;
-          } else if (allPeriods.count !== undefined) {
-            chartNumber = allPeriods.count + 1;
-          }
+        // Handle both array and object responses (count tracked charts only)
+        const periodList = Array.isArray(allPeriods) ? allPeriods : allPeriods?.results;
+        if (Array.isArray(periodList)) {
+          chartNumber = periodList.filter((p) => p.is_tracked !== false).length + 1;
+        } else if (allPeriods && allPeriods.count !== undefined) {
+          chartNumber = allPeriods.count + 1;
         }
       } catch (error) {
         console.error("Error fetching periods for chart numbering:", error);
         // Fall back to 1 if we can't get the count
         chartNumber = 1;
       }
-      
+
       // Auto-generate period name as "Chart N"
       const periodName = `Chart ${chartNumber}`;
 
@@ -2115,6 +2131,104 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
         // Only show error if we truly failed
         alert("Failed to create new seating period. Please try again.");
       }
+    } finally {
+      setIsCreatingPeriod(false);
+    }
+  };
+
+  // Handle creating a one-off untracked chart (does NOT end the current period,
+  // excluded from partnership history)
+  const handleNewOneOff = async () => {
+    // Check for unsaved changes
+    if (hasUnsavedChanges) {
+      const saveFirst = confirm(
+        "You have unsaved changes. Save them before creating a one-off chart?"
+      );
+      if (saveFirst) {
+        await handleSave();
+      } else if (!confirm("Discard unsaved changes and create a one-off chart?")) {
+        return;
+      }
+    }
+
+    if (
+      !confirm(
+        "Create a one-off chart?\n\n" +
+          "One-off charts are untracked: they don't end the current period " +
+          "and don't count toward partnership history."
+      )
+    ) {
+      return;
+    }
+
+    setIsCreatingPeriod(true);
+
+    try {
+      // Resolve a layout (same fallback as handleNewPeriod)
+      let layoutId = layout?.id;
+      if (!layoutId) {
+        try {
+          const layoutsResponse = await window.ApiModule.request("/layouts/");
+          const userLayouts = layoutsResponse.results || layoutsResponse;
+          if (userLayouts.length > 0) {
+            layoutId = userLayouts[0].id;
+          }
+        } catch (error) {
+          console.error("Failed to fetch layouts:", error);
+        }
+      }
+      if (!layoutId) {
+        alert("No layout available. Please create a classroom layout first.");
+        return;
+      }
+
+      // Name it "One-Off M/D/YYYY", deduping against existing period names
+      const baseName = `One-Off ${new Date().toLocaleDateString()}`;
+      let periodName = baseName;
+      try {
+        const allPeriods = await window.ApiModule.request(`/seating-periods/?class_assigned=${classId}`);
+        const existingNames = new Set((allPeriods.results || allPeriods || []).map((p) => p.name));
+        let counter = 2;
+        while (existingNames.has(periodName)) {
+          periodName = `${baseName} (${counter})`;
+          counter += 1;
+        }
+      } catch (error) {
+        console.error("Error fetching periods for one-off naming:", error);
+      }
+
+      // Local date (toISOString is UTC and can roll over to tomorrow in the evening)
+      const now = new Date();
+      const localDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(
+        now.getDate()
+      ).padStart(2, "0")}`;
+
+      const newPeriod = await window.ApiModule.request("/seating-periods/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          class_assigned: classId,
+          layout: layoutId,
+          name: periodName,
+          start_date: localDate,
+          end_date: null,
+          is_tracked: false,
+        }),
+      });
+
+      console.log("One-off chart created:", newPeriod);
+
+      // Navigate to the new period so we edit the one-off, not the current chart
+      if (nav?.toSeatingEditPeriod) {
+        nav.toSeatingEditPeriod(classId, newPeriod.id);
+      } else if (navigateTo) {
+        navigateTo(`seating/edit/${classId}/period/${newPeriod.id}`);
+      } else {
+        window.location.hash = `#seating/edit/${classId}/period/${newPeriod.id}`;
+      }
+    } catch (error) {
+      console.error("Error creating one-off chart:", error);
+      alert("Failed to create one-off chart. Please try again.");
     } finally {
       setIsCreatingPeriod(false);
     }
@@ -2546,9 +2660,37 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
           },
           React.createElement("i", { className: "fas fa-calendar-plus", style: { fontSize: "14px", color: "white" } })
         ),
-        
-        // Make Active button - only show when viewing an inactive period
-        !isViewingCurrentPeriod && classInfo?.current_seating_period?.end_date !== null &&
+
+        // One-Off Chart button (untracked - no history, doesn't end current period)
+        React.createElement(
+          "button",
+          {
+            className: "btn-icon btn-gray",
+            onClick: handleNewOneOff,
+            disabled: isCreatingPeriod || !layout,
+            title: layout
+              ? "Create a one-off chart (untracked, keeps current period)"
+              : "No layout available",
+            style: {
+              width: "36px",
+              height: "36px",
+              border: "1px solid #f59e0b",
+              borderRadius: "0.375rem",
+              backgroundColor: "#f59e0b",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: isCreatingPeriod || !layout ? "not-allowed" : "pointer",
+              opacity: isCreatingPeriod || !layout ? 0.5 : 1,
+              transition: "all 0.15s"
+            }
+          },
+          React.createElement("i", { className: "fas fa-bolt", style: { fontSize: "14px", color: "white" } })
+        ),
+
+        // Make Active button - show for inactive periods and one-off charts
+        ((!isViewingCurrentPeriod && classInfo?.current_seating_period?.end_date !== null) ||
+          classInfo?.current_seating_period?.is_tracked === false) &&
           React.createElement(
             "button",
             {

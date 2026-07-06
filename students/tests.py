@@ -1,9 +1,20 @@
+from datetime import date, timedelta
 from unittest.mock import patch
 
 from django.test import TestCase
 from rest_framework.test import APIClient
 
-from .models import Class, ClassRoster, Student, User
+from .models import (
+    Class,
+    ClassRoster,
+    ClassroomLayout,
+    ClassroomTable,
+    SeatingAssignment,
+    SeatingPeriod,
+    Student,
+    TableSeat,
+    User,
+)
 
 
 def make_user(email="teacher@school.edu", username="teacher"):
@@ -194,3 +205,136 @@ class GoogleSigninTests(TestCase):
             "/api/auth/google/signin/", {"credential": "garbage"}, format="json"
         )
         self.assertEqual(response.status_code, 401)
+
+
+class UntrackedSeatingPeriodTests(TestCase):
+    def setUp(self):
+        self.teacher = make_user()
+        self.klass = Class.objects.create(name="Science", subject="Science", teacher=self.teacher)
+        self.layout = ClassroomLayout.objects.create(
+            name="Room 1", room_width=10, room_height=8, created_by=self.teacher
+        )
+        table = ClassroomTable.objects.create(
+            layout=self.layout,
+            table_number=1,
+            table_name="Table 1",
+            x_position=0,
+            y_position=0,
+            width=2,
+            height=2,
+            max_seats=2,
+        )
+        for seat_number in (1, 2):
+            TableSeat.objects.create(
+                table=table,
+                seat_number=seat_number,
+                relative_x=0.25 * seat_number,
+                relative_y=0.5,
+            )
+        self.current = SeatingPeriod.objects.create(
+            class_assigned=self.klass,
+            layout=self.layout,
+            name="Chart 1",
+            start_date=date.today() - timedelta(days=10),
+            end_date=None,
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.teacher)
+
+    def make_period(self, name, **kwargs):
+        defaults = {
+            "class_assigned": self.klass,
+            "layout": self.layout,
+            "start_date": date.today(),
+            "end_date": None,
+        }
+        defaults.update(kwargs)
+        return SeatingPeriod.objects.create(name=name, **defaults)
+
+    def test_untracked_period_does_not_end_current(self):
+        self.make_period("Sub Day", is_tracked=False)
+        self.current.refresh_from_db()
+        self.assertIsNone(self.current.end_date)
+
+    def test_new_tracked_period_ends_current_but_not_untracked(self):
+        one_off = self.make_period("Sub Day", is_tracked=False)
+        self.make_period("Chart 2")
+
+        self.current.refresh_from_db()
+        one_off.refresh_from_db()
+        self.assertIsNotNone(self.current.end_date)  # real current was ended
+        self.assertIsNone(one_off.end_date)  # one-off untouched
+
+    def test_current_seating_period_ignores_untracked(self):
+        self.make_period("Sub Day", is_tracked=False)
+        self.assertEqual(self.klass.current_seating_period, self.current)
+
+    def test_partnership_history_excludes_untracked_periods(self):
+        students = []
+        for i in range(2):
+            s = Student.objects.create(
+                student_id=f"s{i}", first_name=f"Kid{i}", last_name="Test", nickname=""
+            )
+            students.append(ClassRoster.objects.create(class_assigned=self.klass, student=s))
+
+        # A completed untracked chart where the two students sat together
+        one_off = self.make_period(
+            "Sub Day", is_tracked=False, end_date=date.today() - timedelta(days=1)
+        )
+        for i, roster_entry in enumerate(students):
+            SeatingAssignment.objects.create(
+                seating_period=one_off, roster_entry=roster_entry, seat_id=f"1-{i + 1}"
+            )
+
+        response = self.client.get(f"/api/classes/{self.klass.id}/partnership-history/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["partnership_data"], {})
+
+        # Same seating in a completed TRACKED period does count
+        tracked = self.make_period(
+            "Chart 0", end_date=date.today() - timedelta(days=2), start_date=date.today() - timedelta(days=5)
+        )
+        for i, roster_entry in enumerate(students):
+            SeatingAssignment.objects.create(
+                seating_period=tracked, roster_entry=roster_entry, seat_id=f"1-{i + 1}"
+            )
+
+        response = self.client.get(f"/api/classes/{self.klass.id}/partnership-history/")
+        self.assertNotEqual(response.json()["partnership_data"], {})
+
+    def test_make_current_promotes_untracked_period(self):
+        one_off = self.make_period(
+            "Sub Day", is_tracked=False, end_date=date.today() - timedelta(days=1)
+        )
+        response = self.client.post(f"/api/seating-periods/{one_off.id}/make_current/")
+        self.assertEqual(response.status_code, 200)
+
+        one_off.refresh_from_db()
+        self.current.refresh_from_db()
+        self.assertTrue(one_off.is_tracked)  # promoted to a real period
+        self.assertIsNone(one_off.end_date)
+        self.assertIsNotNone(self.current.end_date)  # old current ended
+
+    def test_serializer_exposes_is_tracked(self):
+        one_off = self.make_period("Sub Day", is_tracked=False)
+        response = self.client.get(f"/api/seating-periods/{one_off.id}/")
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.json()["is_tracked"])
+
+    def test_period_can_be_created_untracked_via_api(self):
+        response = self.client.post(
+            "/api/seating-periods/",
+            {
+                "class_assigned": self.klass.id,
+                "layout": self.layout.id,
+                "name": "One-Off 7/6",
+                "start_date": str(date.today()),
+                "end_date": None,
+                "is_tracked": False,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+        self.assertFalse(response.json()["is_tracked"])
+        self.current.refresh_from_db()
+        self.assertIsNone(self.current.end_date)  # current period untouched

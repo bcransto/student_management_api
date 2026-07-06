@@ -279,7 +279,8 @@ const SeatingViewer = ({ classId, periodId, onEdit, onBack, navigateTo }) => {
     }
 
     // Check if the viewed period is already active
-    if (viewedPeriod.end_date === null) {
+    // (an open one-off chart is NOT active - Make Active promotes it)
+    if (viewedPeriod.end_date === null && viewedPeriod.is_tracked !== false) {
       alert("This period is already the active period.");
       return;
     }
@@ -291,7 +292,7 @@ const SeatingViewer = ({ classId, periodId, onEdit, onBack, navigateTo }) => {
         `/seating-periods/?class_assigned=${classId}`
       );
       const periods = periodsResponse.results || [];
-      const activePeriod = periods.find(p => p.end_date === null);
+      const activePeriod = periods.find(p => p.end_date === null && p.is_tracked !== false);
       if (activePeriod) {
         currentActivePeriodName = activePeriod.name;
       }
@@ -381,7 +382,7 @@ const SeatingViewer = ({ classId, periodId, onEdit, onBack, navigateTo }) => {
         `/seating-periods/?class_assigned=${classId}`
       );
       const periods = response.results || [];
-      currentActivePeriod = periods.find(p => p.end_date === null);
+      currentActivePeriod = periods.find(p => p.end_date === null && p.is_tracked !== false);
     } catch (error) {
       console.error("Error fetching periods:", error);
     }
@@ -432,16 +433,12 @@ const SeatingViewer = ({ classId, periodId, onEdit, onBack, navigateTo }) => {
         const allPeriods = await window.ApiModule.request(`/seating-periods/?class_assigned=${classId}`);
         console.log("All periods for numbering:", allPeriods);
         
-        // Handle both array and object responses
-        if (Array.isArray(allPeriods)) {
-          chartNumber = allPeriods.length + 1;
-        } else if (allPeriods && typeof allPeriods === 'object') {
-          // If it's a paginated response with results array
-          if (allPeriods.results && Array.isArray(allPeriods.results)) {
-            chartNumber = allPeriods.results.length + 1;
-          } else if (allPeriods.count !== undefined) {
-            chartNumber = allPeriods.count + 1;
-          }
+        // Handle both array and object responses (count tracked charts only)
+        const periodList = Array.isArray(allPeriods) ? allPeriods : allPeriods?.results;
+        if (Array.isArray(periodList)) {
+          chartNumber = periodList.filter((p) => p.is_tracked !== false).length + 1;
+        } else if (allPeriods && allPeriods.count !== undefined) {
+          chartNumber = allPeriods.count + 1;
         }
       } catch (error) {
         console.error("Error fetching periods for chart numbering:", error);
@@ -526,20 +523,37 @@ const SeatingViewer = ({ classId, periodId, onEdit, onBack, navigateTo }) => {
       // Single line format for new toolbar design
       return React.createElement(
         "div",
-        { 
-          style: { 
+        {
+          style: {
             fontSize: "1.125rem",
             fontWeight: "500",
             color: "#1f2937",
             whiteSpace: "nowrap",
             overflow: "hidden",
             textOverflow: "ellipsis"
-          } 
+          }
         },
-        `${periodName} • ${className} • ${startDate} - ${endDate}`
+        `${periodName} • ${className} • ${startDate} - ${endDate}`,
+        period.is_tracked === false && React.createElement(
+          "span",
+          {
+            style: {
+              marginLeft: "8px",
+              padding: "2px 8px",
+              fontSize: "0.75rem",
+              fontWeight: "600",
+              color: "#92400e",
+              backgroundColor: "#fef3c7",
+              border: "1px solid #f59e0b",
+              borderRadius: "9999px",
+              verticalAlign: "middle"
+            }
+          },
+          "One-Off"
+        )
       );
     }
-    
+
     // No period yet - single line
     return React.createElement(
       "div",
@@ -889,8 +903,8 @@ const SeatingViewer = ({ classId, periodId, onEdit, onBack, navigateTo }) => {
           React.createElement("i", { className: "fas fa-trash", style: { fontSize: "14px", color: "white" } })
         ),
 
-        // Make Active button - only show when viewing an inactive period
-        viewedPeriod && viewedPeriod.end_date !== null &&
+        // Make Active button - show for inactive periods and one-off charts
+        viewedPeriod && (viewedPeriod.end_date !== null || viewedPeriod.is_tracked === false) &&
           React.createElement(
             "button",
             {
