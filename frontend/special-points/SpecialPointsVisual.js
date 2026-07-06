@@ -28,6 +28,11 @@ const SpecialPointsVisual = ({ classId, onBack, navigateTo }) => {
   const [teacherClasses, setTeacherClasses] = useState([]);
   const [showClassDropdown, setShowClassDropdown] = useState(false);
 
+  // Chart selector state (tracked current chart + open one-offs)
+  const [availableCharts, setAvailableCharts] = useState([]);
+  const [selectedChartId, setSelectedChartId] = useState(null);
+  const [showChartDropdown, setShowChartDropdown] = useState(false);
+
   // Refs
   const containerRef = useRef(null);
   const pressTimerRef = useRef(null);
@@ -45,17 +50,20 @@ const SpecialPointsVisual = ({ classId, onBack, navigateTo }) => {
     loadTeacherClasses();
   }, []);
 
-  // Close dropdown when clicking outside
+  // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (showClassDropdown && !event.target.closest(".spv-class-dropdown-btn")) {
         setShowClassDropdown(false);
       }
+      if (showChartDropdown && !event.target.closest(".spv-chart-dropdown-btn")) {
+        setShowChartDropdown(false);
+      }
     };
 
     document.addEventListener("click", handleClickOutside);
     return () => document.removeEventListener("click", handleClickOutside);
-  }, [showClassDropdown]);
+  }, [showClassDropdown, showChartDropdown]);
 
   // Auto-scale to fit container
   useEffect(() => {
@@ -93,6 +101,19 @@ const SpecialPointsVisual = ({ classId, onBack, navigateTo }) => {
   }, [hasUnsavedChanges]);
 
   // Load class data, seating layout, and point totals
+  // Selectable charts = tracked current chart, then open one-offs (most recent
+  // first). Ended/historical charts are excluded - they aren't "today".
+  const buildSelectableCharts = (periods) => {
+    const list = [];
+    const trackedCurrent = periods.find((p) => p.end_date === null && p.is_tracked !== false);
+    if (trackedCurrent) list.push(trackedCurrent);
+    periods
+      .filter((p) => p.end_date === null && p.is_tracked === false)
+      .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))
+      .forEach((p) => list.push(p));
+    return list.map((p) => ({ id: p.id, name: p.name, is_tracked: p.is_tracked }));
+  };
+
   const loadClassData = async () => {
     try {
       setLoading(true);
@@ -111,6 +132,8 @@ const SpecialPointsVisual = ({ classId, onBack, navigateTo }) => {
         setStudents(cached.students);
         setLayout(cached.layout);
         setAssignments(cached.assignments);
+        setAvailableCharts(cached.availableCharts || []);
+        setSelectedChartId(cached.selectedChartId || null);
       } else {
         // Load class info with roster
         classData = await window.ApiModule.request(`/classes/${classId}/`);
@@ -136,6 +159,7 @@ const SpecialPointsVisual = ({ classId, onBack, navigateTo }) => {
         let layoutData = null;
         let currentPeriod = null;
         let assignmentMap = {};
+        let selectableCharts = [];
 
         try {
           const periodsResponse = await window.ApiModule.request(
@@ -143,11 +167,21 @@ const SpecialPointsVisual = ({ classId, onBack, navigateTo }) => {
           );
           const periods = periodsResponse.results || [];
 
-          currentPeriod = periods.find((p) => p.end_date === null && p.is_tracked !== false);
-          if (!currentPeriod && periods.length > 0) {
+          // Selectable charts: tracked current + open one-offs
+          selectableCharts = buildSelectableCharts(periods);
+          setAvailableCharts(selectableCharts);
+
+          const preferred =
+            (selectedChartId && periods.find((p) => p.id === selectedChartId)) ||
+            periods.find((p) => p.end_date === null && p.is_tracked !== false) ||
+            selectableCharts[0];
+          if (preferred) {
+            currentPeriod = preferred;
+          } else if (periods.length > 0) {
             periods.sort((a, b) => new Date(b.start_date) - new Date(a.start_date));
             currentPeriod = periods[0];
           }
+          setSelectedChartId(currentPeriod ? currentPeriod.id : null);
 
           if (currentPeriod) {
             const fullPeriod = await window.ApiModule.request(
@@ -204,6 +238,8 @@ const SpecialPointsVisual = ({ classId, onBack, navigateTo }) => {
           assignments: assignmentMap,
           students: studentList,
           roster: classData.roster,
+          availableCharts: selectableCharts,
+          selectedChartId: currentPeriod ? currentPeriod.id : null,
           timestamp: Date.now(),
         };
       }
@@ -272,6 +308,43 @@ const SpecialPointsVisual = ({ classId, onBack, navigateTo }) => {
       const newHash = `special-points/visual/${selectedClassId}`;
       window.location.hash = newHash;
       window.location.reload();
+    }
+  };
+
+  // Handle chart selection - swaps only the seating surface. Point totals and
+  // pending awards are keyed by student, so they are untouched.
+  const handleChartSelect = async (chartId) => {
+    setShowChartDropdown(false);
+    if (chartId === selectedChartId) return;
+
+    try {
+      const fullPeriod = await window.ApiModule.request(`/seating-periods/${chartId}/`);
+      const layoutData = fullPeriod.layout_details || layout;
+
+      const assignmentMap = {};
+      if (fullPeriod.seating_assignments && layoutData) {
+        fullPeriod.seating_assignments.forEach((assignment) => {
+          const table = layoutData.tables?.find(
+            (t) => t.table_number === assignment.table_number
+          );
+          if (table) {
+            const tableId = String(table.id);
+            const seatNumber = String(assignment.seat_number);
+            const rosterEntry = roster.find((r) => r.id === assignment.roster_entry);
+            if (rosterEntry) {
+              if (!assignmentMap[tableId]) assignmentMap[tableId] = {};
+              assignmentMap[tableId][seatNumber] = rosterEntry.student;
+            }
+          }
+        });
+      }
+
+      if (fullPeriod.layout_details) setLayout(fullPeriod.layout_details);
+      setAssignments(assignmentMap);
+      setSelectedChartId(chartId);
+    } catch (error) {
+      console.error("Failed to switch chart:", error);
+      alert("Failed to load the selected chart. Please try again.");
     }
   };
 
@@ -641,7 +714,127 @@ const SpecialPointsVisual = ({ classId, onBack, navigateTo }) => {
             },
           },
           "Special Points"
-        )
+        ),
+
+        // Chart selector - only when an open one-off exists alongside current
+        availableCharts.length > 1 &&
+          React.createElement(
+            "div",
+            { style: { position: "relative", display: "inline-block", marginLeft: "12px" } },
+            React.createElement(
+              "button",
+              {
+                className: "spv-chart-dropdown-btn",
+                onClick: () => setShowChartDropdown(!showChartDropdown),
+                style: {
+                  background: "transparent",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "6px",
+                  padding: "6px 12px",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  fontSize: "13px",
+                  fontWeight: "600",
+                  color: "#374151",
+                },
+              },
+              React.createElement("i", { className: "fas fa-chair", style: { fontSize: "12px", color: "#6b7280" } }),
+              React.createElement(
+                "span",
+                null,
+                availableCharts.find((c) => c.id === selectedChartId)?.name || "Chart"
+              ),
+              React.createElement("i", {
+                className: `fas fa-chevron-${showChartDropdown ? "up" : "down"}`,
+                style: { fontSize: "12px" },
+              })
+            ),
+            showChartDropdown &&
+              React.createElement(
+                "div",
+                {
+                  style: {
+                    position: "absolute",
+                    top: "100%",
+                    left: "0",
+                    marginTop: "4px",
+                    background: "white",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "6px",
+                    boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+                    minWidth: "200px",
+                    zIndex: 100,
+                  },
+                },
+                availableCharts.map((chart) =>
+                  React.createElement(
+                    "button",
+                    {
+                      key: chart.id,
+                      onClick: () => handleChartSelect(chart.id),
+                      style: {
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: "8px",
+                        width: "100%",
+                        padding: "8px 12px",
+                        textAlign: "left",
+                        border: "none",
+                        background: chart.id === selectedChartId ? "#f3f4f6" : "transparent",
+                        cursor: "pointer",
+                        fontSize: "14px",
+                        color: "#374151",
+                        borderBottom: "1px solid #f3f4f6",
+                      },
+                      onMouseEnter: (e) => (e.currentTarget.style.background = "#f9fafb"),
+                      onMouseLeave: (e) =>
+                        (e.currentTarget.style.background =
+                          chart.id === selectedChartId ? "#f3f4f6" : "transparent"),
+                    },
+                    React.createElement("span", null, chart.name),
+                    chart.is_tracked === false &&
+                      React.createElement(
+                        "span",
+                        {
+                          style: {
+                            fontSize: "0.7rem",
+                            fontWeight: "600",
+                            color: "#92400e",
+                            backgroundColor: "#fef3c7",
+                            border: "1px solid #f59e0b",
+                            borderRadius: "9999px",
+                            padding: "1px 6px",
+                          },
+                        },
+                        "One-Off"
+                      )
+                  )
+                )
+              )
+          ),
+
+        // One-Off pill - shown whenever the displayed chart is a one-off
+        availableCharts.find((c) => c.id === selectedChartId)?.is_tracked === false &&
+          React.createElement(
+            "span",
+            {
+              style: {
+                marginLeft: "10px",
+                padding: "2px 8px",
+                fontSize: "0.7rem",
+                fontWeight: "600",
+                color: "#92400e",
+                backgroundColor: "#fef3c7",
+                border: "1px solid #f59e0b",
+                borderRadius: "9999px",
+                verticalAlign: "middle",
+              },
+            },
+            "One-Off"
+          )
       ),
 
       // Mode toggle button (only for authorized user)
