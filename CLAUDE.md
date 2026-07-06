@@ -476,7 +476,10 @@ element.style.removeProperty('color');
   shows in the title. Restoring an OPEN one-off routes through make_current
   (re-tracks it and ends any other tracked current period)
 - Marking the current chart one-off leaves the class with NO tracked current
-  until one is promoted/created (visual attendance falls back to most recent)
+  until one is promoted/created. SeatingEditor/SeatingViewer then fall back to
+  the most-recently-updated OPEN one-off (not an empty state). Visual
+  attendance/special-points still fall back to most-recent chart - a chart
+  selector for those is deferred (see GH issue)
 - Do NOT end the current period and are never auto-ended by new periods
 - Excluded from partnership history, previous_period, current_seating_period,
   attendance/points visual current-chart lookup, and Chart N numbering

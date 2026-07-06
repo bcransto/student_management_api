@@ -65,8 +65,12 @@ const SeatingViewer = ({ classId, periodId, onEdit, onBack, navigateTo }) => {
         const periods = periodsResponse.results || [];
         
         if (periods.length > 0) {
-          // Sort by start date descending and take the first
-          periods.sort((a, b) => new Date(b.start_date) - new Date(a.start_date));
+          // Prefer OPEN charts (one-offs) over ended ones, then most recent start date
+          periods.sort(
+            (a, b) =>
+              (b.end_date === null) - (a.end_date === null) ||
+              new Date(b.start_date) - new Date(a.start_date)
+          );
           
           // Get full details for the most recent period
           const periodId = periods[0].id;

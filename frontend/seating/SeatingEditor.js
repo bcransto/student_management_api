@@ -360,8 +360,28 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
       } else {
         // Otherwise use current period from classData
         periodToEdit = classData.current_seating_period;
+
+        // No tracked current chart (e.g. it was marked one-off) - fall back
+        // to the most recently touched OPEN one-off instead of an empty state
+        if (!periodToEdit) {
+          try {
+            const periodsResponse = await window.ApiModule.request(
+              `/seating-periods/?class_assigned=${classId}`
+            );
+            const openOneOffs = (periodsResponse.results || [])
+              .filter((p) => p.end_date === null && p.is_tracked === false)
+              .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+            if (openOneOffs.length > 0) {
+              periodToEdit = await window.ApiModule.request(`/seating-periods/${openOneOffs[0].id}/`);
+              classData.current_seating_period = periodToEdit;
+              console.log("No current chart - falling back to open one-off:", periodToEdit.name);
+            }
+          } catch (error) {
+            console.error("Error looking for open one-off fallback:", error);
+          }
+        }
       }
-      
+
       setClassInfo(classData);
 
       // Load partnership history for the class
