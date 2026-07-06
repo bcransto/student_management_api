@@ -241,6 +241,7 @@ GOOGLE_SCOPES = [
     'https://www.googleapis.com/auth/classroom.coursework.students',   # Create/manage assignments
     'https://www.googleapis.com/auth/classroom.rosters.readonly',      # Read class rosters
     'https://www.googleapis.com/auth/classroom.profile.emails',
+    'https://www.googleapis.com/auth/admin.directory.user.readonly',   # Read Workspace directory (exploration)
 ]
 
 # Google OAuth configuration for the Flow

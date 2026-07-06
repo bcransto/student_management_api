@@ -415,6 +415,90 @@ def google_disconnect(request):
 
 
 # ============================================================================
+# Workspace Directory Exploration
+# ============================================================================
+
+DIRECTORY_SCOPE = "https://www.googleapis.com/auth/admin.directory.user.readonly"
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def google_test_directory(request):
+    """
+    Probe the Admin SDK Directory API with the current user's credentials.
+    URL: /api/google/test-directory/
+
+    Tries two access levels and reports both:
+    1. Admin access (users.list customer='my_customer') - full directory
+    2. Non-admin public view (viewType='domain_public') - whatever the
+       domain shares internally
+
+    If the stored token predates the directory scope, returns needs_reconnect
+    with an auth_url to re-consent.
+    """
+    try:
+        creds_obj = GoogleClassroomCredentials.objects.get(user=request.user)
+    except GoogleClassroomCredentials.DoesNotExist:
+        return Response({
+            "error": "Google not connected.",
+            "auth_url": _build_oauth_authorization_url(request, request.user),
+        }, status=400)
+
+    if DIRECTORY_SCOPE not in (creds_obj.scopes or []):
+        return Response({
+            "needs_reconnect": True,
+            "message": "Stored credentials lack the Directory scope - re-consent via auth_url.",
+            "auth_url": _build_oauth_authorization_url(request, request.user),
+        })
+
+    creds = Credentials(
+        token=creds_obj.access_token,
+        refresh_token=creds_obj.refresh_token,
+        token_uri='https://oauth2.googleapis.com/token',
+        client_id=settings.GOOGLE_CLIENT_ID,
+        client_secret=settings.GOOGLE_CLIENT_SECRET,
+        scopes=creds_obj.scopes or settings.GOOGLE_SCOPES,
+    )
+    if creds.expired and creds.refresh_token:
+        from google.auth.transport.requests import Request
+        creds.refresh(Request())
+        creds_obj.access_token = creds.token
+        creds_obj.token_expiry = creds.expiry
+        creds_obj.save(update_fields=['access_token', 'token_expiry', 'updated_at'])
+
+    service = build('admin', 'directory_v1', credentials=creds)
+    domain = request.user.email.split('@')[-1]
+
+    def summarize(users):
+        return [
+            {
+                "email": u.get("primaryEmail"),
+                "name": u.get("name", {}).get("fullName"),
+                "orgUnitPath": u.get("orgUnitPath"),
+            }
+            for u in users
+        ]
+
+    results = {"domain": domain}
+
+    # Attempt 1: full admin access
+    try:
+        resp = service.users().list(customer="my_customer", maxResults=10).execute()
+        results["admin_access"] = {"ok": True, "sample": summarize(resp.get("users", []))}
+    except Exception as e:
+        results["admin_access"] = {"ok": False, "error": str(e)}
+
+    # Attempt 2: non-admin public view
+    try:
+        resp = service.users().list(domain=domain, viewType="domain_public", maxResults=10).execute()
+        results["public_view"] = {"ok": True, "sample": summarize(resp.get("users", []))}
+    except Exception as e:
+        results["public_view"] = {"ok": False, "error": str(e)}
+
+    return Response(results)
+
+
+# ============================================================================
 # Classroom Roster Import Endpoints
 # ============================================================================
 
