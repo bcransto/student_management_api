@@ -402,10 +402,12 @@ class ClassViewSet(viewsets.ModelViewSet):
         """
         class_obj = self.get_object()
         
-        # Get all completed seating periods (end_date is not null)
+        # Get all completed tracked seating periods (end_date is not null).
+        # Untracked one-off charts are excluded from partnership history.
         completed_periods = SeatingPeriod.objects.filter(
             class_assigned=class_obj,
-            end_date__isnull=False
+            end_date__isnull=False,
+            is_tracked=True,
         ).order_by('end_date')
         
         if not completed_periods.exists():
@@ -1173,27 +1175,32 @@ class SeatingPeriodViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN
             )
         
-        # Check if already current
-        if period.end_date is None:
+        # Check if already current (an OPEN one-off has end_date=None but is
+        # NOT current - promoting it is exactly what make_current is for)
+        if period.end_date is None and period.is_tracked:
             return Response(
                 {"error": "This period is already the current active period"},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Find and end any current periods for this class
+        # Find and end any current tracked periods for this class
+        # (untracked one-off charts are left alone)
         current_periods = SeatingPeriod.objects.filter(
             class_assigned=period.class_assigned,
-            end_date__isnull=True
+            end_date__isnull=True,
+            is_tracked=True,
         ).exclude(id=period.id)
-        
+
         today = date.today()
         for current_period in current_periods:
             current_period.end_date = today
             current_period.save(update_fields=["end_date"])
-        
-        # Make this period current by removing its end date
+
+        # Make this period current by removing its end date.
+        # Promoting an untracked chart makes it a real tracked period.
         period.end_date = None
-        period.save(update_fields=["end_date"])
+        period.is_tracked = True
+        period.save(update_fields=["end_date", "is_tracked"])
         
         # Return updated period data
         serializer = self.get_serializer(period)
@@ -1222,19 +1229,21 @@ class SeatingPeriodViewSet(viewsets.ModelViewSet):
         if not class_id:
             return Response({"error": "class_assigned parameter is required"}, status=400)
         
-        # Get the current active period (end_date is null)
+        # Get the current active tracked period (end_date is null)
         current_period = SeatingPeriod.objects.filter(
             class_assigned_id=class_id,
-            end_date__isnull=True
+            end_date__isnull=True,
+            is_tracked=True,
         ).first()
-        
+
         if not current_period:
             return Response({"error": "No current period found"}, status=404)
-        
-        # Get the most recent completed period (has end_date) before the current one
+
+        # Get the most recent completed tracked period (has end_date)
         previous_period = SeatingPeriod.objects.filter(
             class_assigned_id=class_id,
-            end_date__isnull=False
+            end_date__isnull=False,
+            is_tracked=True,
         ).order_by("-end_date").first()
         
         if not previous_period:
@@ -1715,7 +1724,7 @@ class ExternalReadViewSet(viewsets.ViewSet):
         ]
 
         current_period = SeatingPeriod.objects.filter(
-            class_assigned=klass, end_date__isnull=True
+            class_assigned=klass, end_date__isnull=True, is_tracked=True
         ).first()
 
         grouping = None

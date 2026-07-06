@@ -143,7 +143,7 @@ const SpecialPointsVisual = ({ classId, onBack, navigateTo }) => {
           );
           const periods = periodsResponse.results || [];
 
-          currentPeriod = periods.find((p) => p.end_date === null);
+          currentPeriod = periods.find((p) => p.end_date === null && p.is_tracked !== false);
           if (!currentPeriod && periods.length > 0) {
             periods.sort((a, b) => new Date(b.start_date) - new Date(a.start_date));
             currentPeriod = periods[0];

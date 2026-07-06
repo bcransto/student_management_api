@@ -461,14 +461,32 @@ element.style.removeProperty('color');
 ```
 
 **SeatingPeriod Current State**:
-- Current period identified by `end_date=None` (no is_active field)
-- Creating new period auto-ends previous (sets end_date to today)
-- Only one period per class can have `end_date=None`
-- Model's save() method enforces single current period
+- Current period identified by `end_date=None` AND `is_tracked=True`
+- Creating new tracked period auto-ends previous (sets end_date to today)
+- Only one TRACKED period per class can have `end_date=None`
+- Model's save() method enforces single current tracked period
 - **CRITICAL**: Period navigation (Previous/Next buttons) must NEVER modify end_dates
 - Navigation is view-only - historical periods never become active again
 - Only "New Period" button should modify database state
-- Auto-naming: New periods are named "Chart N" where N increments
+- Auto-naming: New periods are named "Chart N" where N increments (tracked only)
+
+**Untracked One-Off Charts** (`is_tracked=False`):
+- Bolt TOGGLE in SeatingEditor marks/unmarks the VIEWED chart in place
+  (no navigation): orange = one-off, gray = tracked; amber "One-Off" pill
+  shows in the title. Restoring an OPEN one-off routes through make_current
+  (re-tracks it and ends any other tracked current period)
+- Marking the current chart one-off leaves the class with NO tracked current
+  until one is promoted/created. SeatingEditor/SeatingViewer then fall back to
+  the most-recently-updated OPEN one-off (not an empty state). Visual
+  attendance/special-points still fall back to most-recent chart - a chart
+  selector for those is deferred (see GH issue)
+- Do NOT end the current period and are never auto-ended by new periods
+- Excluded from partnership history, previous_period, current_seating_period,
+  attendance/points visual current-chart lookup, and Chart N numbering
+- Frontend guard idiom: `p.end_date === null && p.is_tracked !== false`
+- "Make Active" on a one-off PROMOTES it: sets is_tracked=True, ends the
+  old current period (make_current endpoint handles this)
+- Editor/viewer title shows an amber "One-Off" badge when viewing one
 
 **Nickname Handling**:
 - Model auto-sets to first_name if empty/whitespace

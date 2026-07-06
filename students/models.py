@@ -251,8 +251,8 @@ class Class(models.Model):
 
     @property
     def current_seating_period(self):
-        """Get the current seating period (one with no end date)"""
-        return self.seating_periods.filter(end_date__isnull=True).first()
+        """Get the current seating period (tracked, with no end date)"""
+        return self.seating_periods.filter(end_date__isnull=True, is_tracked=True).first()
 
     def get_available_seats(self):
         """Get all available seats based on the classroom layout"""
@@ -465,6 +465,13 @@ class SeatingPeriod(models.Model):
     start_date = models.DateField()
     end_date = models.DateField(blank=True, null=True)
     notes = models.TextField(blank=True, help_text="Notes about this seating arrangement")
+    is_tracked = models.BooleanField(
+        default=True,
+        help_text=(
+            "Untracked periods are one-off charts: excluded from partnership "
+            "history and from the single-current-period rule"
+        ),
+    )
 
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
@@ -484,13 +491,15 @@ class SeatingPeriod(models.Model):
     def save(self, *args, **kwargs):
         from datetime import date
         
-        # If this is a new period with no end_date (making it current)
-        # We need to close any other current periods for this class
-        if not self.pk and self.end_date is None:  # New period without end date
-            # Find any other periods for this class with no end date
+        # If this is a new TRACKED period with no end_date (making it current)
+        # We need to close any other current tracked periods for this class.
+        # Untracked one-off charts neither end other periods nor get ended.
+        if not self.pk and self.end_date is None and self.is_tracked:
+            # Find any other tracked periods for this class with no end date
             current_periods = SeatingPeriod.objects.filter(
                 class_assigned=self.class_assigned,
-                end_date__isnull=True
+                end_date__isnull=True,
+                is_tracked=True,
             )
             
             # Set their end_date to today

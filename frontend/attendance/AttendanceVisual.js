@@ -140,8 +140,8 @@ const AttendanceVisual = ({ classId, date, onBack, navigateTo }) => {
           );
           const periods = periodsResponse.results || [];
 
-          // Find current period (end_date === null) or most recent
-          currentPeriod = periods.find((p) => p.end_date === null);
+          // Find current tracked period (end_date === null) or most recent
+          currentPeriod = periods.find((p) => p.end_date === null && p.is_tracked !== false);
           if (!currentPeriod && periods.length > 0) {
             // No current period, use most recent
             periods.sort((a, b) => new Date(b.start_date) - new Date(a.start_date));

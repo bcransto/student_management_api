@@ -264,6 +264,7 @@ class SeatingPeriodSerializer(serializers.ModelSerializer):
             "start_date",
             "end_date",
             "notes",
+            "is_tracked",
             "layout",
             "layout_details",
             "seating_assignments",
