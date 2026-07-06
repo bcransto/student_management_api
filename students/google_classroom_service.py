@@ -415,10 +415,294 @@ def google_disconnect(request):
 
 
 # ============================================================================
-# Workspace Directory Exploration
+# Workspace Directory (Admin SDK) - probe + cohort import
 # ============================================================================
 
 DIRECTORY_SCOPE = "https://www.googleapis.com/auth/admin.directory.user.readonly"
+
+
+def _get_directory_service(request):
+    """
+    Build an Admin SDK Directory service for the current user.
+
+    Returns (service, error_response) - exactly one is non-None. Error
+    responses carry auth_url so the frontend can offer a (re)connect button;
+    the signed state routes the user back to the Students page.
+    """
+    try:
+        creds_obj = GoogleClassroomCredentials.objects.get(user=request.user)
+    except GoogleClassroomCredentials.DoesNotExist:
+        return None, Response({
+            "error": "Google not connected.",
+            "needs_reconnect": True,
+            "auth_url": _build_oauth_authorization_url(request, request.user, "students"),
+        }, status=400)
+
+    if DIRECTORY_SCOPE not in (creds_obj.scopes or []):
+        return None, Response({
+            "needs_reconnect": True,
+            "message": "Stored credentials lack the Directory scope - re-consent via auth_url.",
+            "auth_url": _build_oauth_authorization_url(request, request.user, "students"),
+        })
+
+    creds = Credentials(
+        token=creds_obj.access_token,
+        refresh_token=creds_obj.refresh_token,
+        token_uri='https://oauth2.googleapis.com/token',
+        client_id=settings.GOOGLE_CLIENT_ID,
+        client_secret=settings.GOOGLE_CLIENT_SECRET,
+        scopes=creds_obj.scopes or settings.GOOGLE_SCOPES,
+    )
+    if creds.expired and creds.refresh_token:
+        try:
+            from google.auth.transport.requests import Request
+            creds.refresh(Request())
+            creds_obj.access_token = creds.token
+            creds_obj.token_expiry = creds.expiry
+            creds_obj.save(update_fields=['access_token', 'token_expiry', 'updated_at'])
+        except Exception as e:
+            logger.warning(f"Google token refresh failed for {request.user.email}: {e}")
+            return None, Response({
+                "needs_reconnect": True,
+                "message": "Google credentials expired - reconnect via auth_url.",
+                "auth_url": _build_oauth_authorization_url(request, request.user, "students"),
+            })
+
+    return build('admin', 'directory_v1', credentials=creds), None
+
+
+def _fetch_domain_users(service, domain):
+    """Fetch all domain-visible users via the public directory view."""
+    users = []
+    page_token = None
+
+    while True:
+        response = service.users().list(
+            domain=domain,
+            viewType='domain_public',
+            maxResults=500,
+            pageToken=page_token,
+        ).execute()
+        users.extend(response.get('users', []))
+        page_token = response.get('nextPageToken')
+        if not page_token:
+            break
+
+    return users
+
+
+def _normalize_directory_user(u):
+    """Flatten a raw directory user record to the fields we care about."""
+    name = u.get("name") or {}
+    external_ids = u.get("externalIds") or [{}]
+    return {
+        "student_id": external_ids[0].get("value") or "",
+        "first_name": name.get("givenName", ""),
+        "last_name": name.get("familyName", ""),
+        "email": u.get("primaryEmail") or "",
+        "google_user_id": u.get("id") or "",
+    }
+
+
+def _match_existing_student(data):
+    """Find an existing Student: google_user_id, then student_id, then email."""
+    from .models import Student
+
+    if data["google_user_id"]:
+        student = Student.objects.filter(google_user_id=data["google_user_id"]).first()
+        if student:
+            return student
+    if data["student_id"]:
+        student = Student.objects.filter(student_id=data["student_id"]).first()
+        if student:
+            return student
+    if data["email"]:
+        return Student.objects.filter(email__iexact=data["email"]).first()
+    return None
+
+
+def _cohort_prefix(email):
+    """Two-digit cohort prefix of a student email, or None for staff."""
+    prefix = (email or "")[:2]
+    return prefix if prefix.isdigit() else None
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def google_directory_cohorts(request):
+    """
+    List student cohorts (two-digit email prefixes) in the Workspace directory.
+    URL: /api/google/directory-cohorts/
+
+    Response: {"connected": true, "cohorts": [{"cohort": "28", "count": 58}, ...]}
+    Staff accounts (no digit prefix) are excluded.
+    """
+    service, error = _get_directory_service(request)
+    if error:
+        return error
+
+    domain = request.user.email.split('@')[-1]
+    try:
+        users = _fetch_domain_users(service, domain)
+    except Exception as e:
+        logger.error(f"Error fetching Workspace directory: {str(e)}")
+        return Response(
+            {"error": "Failed to fetch the Workspace directory.", "details": str(e)},
+            status=502,
+        )
+
+    counts = {}
+    for u in users:
+        prefix = _cohort_prefix(u.get("primaryEmail"))
+        if prefix:
+            counts[prefix] = counts.get(prefix, 0) + 1
+
+    return Response({
+        "connected": True,
+        "cohorts": [{"cohort": c, "count": n} for c, n in sorted(counts.items())],
+    })
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def google_directory_students(request):
+    """
+    List a cohort's students from the Workspace directory.
+    URL: /api/google/directory-students/?cohort=28
+
+    Response: {"cohort": "28", "students": [{student_id, first_name, last_name,
+               email, google_user_id, exists}]}
+    `exists` is computed server-side against the full Student table.
+    """
+    cohort = request.GET.get("cohort") or ""
+    if not (cohort.isdigit() and len(cohort) == 2):
+        return Response({"error": "cohort query param (two digits) is required."}, status=400)
+
+    service, error = _get_directory_service(request)
+    if error:
+        return error
+
+    domain = request.user.email.split('@')[-1]
+    try:
+        users = _fetch_domain_users(service, domain)
+    except Exception as e:
+        logger.error(f"Error fetching Workspace directory: {str(e)}")
+        return Response(
+            {"error": "Failed to fetch the Workspace directory.", "details": str(e)},
+            status=502,
+        )
+
+    students = [
+        _normalize_directory_user(u)
+        for u in users
+        if _cohort_prefix(u.get("primaryEmail")) == cohort
+    ]
+    students.sort(key=lambda s: (s["last_name"].lower(), s["first_name"].lower()))
+    for s in students:
+        s["exists"] = _match_existing_student(s) is not None
+
+    return Response({"cohort": cohort, "students": students})
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def google_import_directory_students(request):
+    """
+    Bulk-create Students for a Workspace directory cohort.
+    URL: /api/google/import-directory-students/
+    Body: {"cohort": "28"}
+
+    Matches existing students (google_user_id -> student_id -> email iexact),
+    backfilling google_user_id/email on matches WITHOUT touching their
+    student_id. Creates missing students with the real district ID from
+    externalIds. Does NOT enroll anyone in a class.
+
+    Response: {"total", "created": [...], "existing": [...], "skipped": [...]}
+    """
+    from django.db import transaction
+
+    from .models import Student
+
+    cohort = str(request.data.get("cohort") or "")
+    if not (cohort.isdigit() and len(cohort) == 2):
+        return Response({"error": "cohort (two digits) is required."}, status=400)
+
+    service, error = _get_directory_service(request)
+    if error:
+        return error
+
+    domain = request.user.email.split('@')[-1]
+    try:
+        users = _fetch_domain_users(service, domain)
+    except Exception as e:
+        logger.error(f"Error fetching Workspace directory for import: {str(e)}")
+        return Response(
+            {"error": "Failed to fetch the Workspace directory.", "details": str(e)},
+            status=502,
+        )
+
+    cohort_students = [
+        _normalize_directory_user(u)
+        for u in users
+        if _cohort_prefix(u.get("primaryEmail")) == cohort
+    ]
+
+    created, existing, skipped = [], [], []
+
+    with transaction.atomic():
+        for gs in cohort_students:
+            display_name = f"{gs['first_name']} {gs['last_name']}".strip() or gs["email"]
+
+            student = _match_existing_student(gs)
+            if student:
+                # Backfill identifiers on the match; never overwrite student_id
+                update_fields = []
+                if gs["google_user_id"] and not student.google_user_id:
+                    student.google_user_id = gs["google_user_id"]
+                    update_fields.append("google_user_id")
+                if gs["email"] and not student.email:
+                    student.email = gs["email"]
+                    update_fields.append("email")
+                if update_fields:
+                    student.save(update_fields=update_fields)
+                existing.append(display_name)
+                continue
+
+            if not gs["first_name"] and not gs["last_name"]:
+                skipped.append({"name": display_name, "reason": "No name in directory profile"})
+                continue
+
+            # Prefer the real district ID; fall back if missing or taken
+            student_id = gs["student_id"][:20]
+            if not student_id or Student.objects.filter(student_id=student_id).exists():
+                email_local = gs["email"].split("@")[0] if gs["email"] else ""
+                google_fallback = f"G{gs['google_user_id']}" if gs["google_user_id"] else ""
+                student_id = _unique_student_id(email_local, google_fallback)
+            if not student_id:
+                skipped.append({"name": display_name, "reason": "Could not determine a unique student ID"})
+                continue
+
+            Student.objects.create(
+                student_id=student_id,
+                first_name=gs["first_name"][:30],
+                last_name=gs["last_name"][:30],
+                nickname="",  # model auto-populates from first_name
+                email=gs["email"] or None,
+                google_user_id=gs["google_user_id"] or None,
+            )
+            created.append({"name": display_name, "student_id": student_id})
+
+    logger.info(
+        f"Directory import (cohort {cohort}) by {request.user.email}: "
+        f"{len(created)} created, {len(existing)} existing, {len(skipped)} skipped"
+    )
+
+    return Response({
+        "total": len(cohort_students),
+        "created": created,
+        "existing": existing,
+        "skipped": skipped,
+    })
 
 
 @api_view(["GET"])
@@ -436,37 +720,10 @@ def google_test_directory(request):
     If the stored token predates the directory scope, returns needs_reconnect
     with an auth_url to re-consent.
     """
-    try:
-        creds_obj = GoogleClassroomCredentials.objects.get(user=request.user)
-    except GoogleClassroomCredentials.DoesNotExist:
-        return Response({
-            "error": "Google not connected.",
-            "auth_url": _build_oauth_authorization_url(request, request.user),
-        }, status=400)
+    service, error = _get_directory_service(request)
+    if error:
+        return error
 
-    if DIRECTORY_SCOPE not in (creds_obj.scopes or []):
-        return Response({
-            "needs_reconnect": True,
-            "message": "Stored credentials lack the Directory scope - re-consent via auth_url.",
-            "auth_url": _build_oauth_authorization_url(request, request.user),
-        })
-
-    creds = Credentials(
-        token=creds_obj.access_token,
-        refresh_token=creds_obj.refresh_token,
-        token_uri='https://oauth2.googleapis.com/token',
-        client_id=settings.GOOGLE_CLIENT_ID,
-        client_secret=settings.GOOGLE_CLIENT_SECRET,
-        scopes=creds_obj.scopes or settings.GOOGLE_SCOPES,
-    )
-    if creds.expired and creds.refresh_token:
-        from google.auth.transport.requests import Request
-        creds.refresh(Request())
-        creds_obj.access_token = creds.token
-        creds_obj.token_expiry = creds.expiry
-        creds_obj.save(update_fields=['access_token', 'token_expiry', 'updated_at'])
-
-    service = build('admin', 'directory_v1', credentials=creds)
     domain = request.user.email.split('@')[-1]
 
     def summarize(users):

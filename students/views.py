@@ -258,6 +258,152 @@ class StudentViewSet(viewsets.ModelViewSet):
     serializer_class = StudentSerializer
     permission_classes = [IsAuthenticated]
 
+    GENDER_MAP = {
+        "m": "male", "male": "male",
+        "f": "female", "female": "female",
+        "o": "other", "other": "other",
+        "-": None,  # explicit clear back to Not set
+    }
+    BULK_HEADER_SYNONYMS = {
+        "student_id": "student_id", "id": "student_id",
+        "email": "email",
+        "nickname": "nickname",
+        "gender": "gender",
+    }
+
+    @action(detail=False, methods=["post"], url_path="bulk-update-info")
+    def bulk_update_info(self, request):
+        """
+        Bulk-update nickname/gender from pasted CSV or TSV text.
+
+        POST /api/students/bulk-update-info/
+        Body: {"text": "<pasted rows with header>", "apply": bool}
+
+        Header row (case-insensitive): student_id (or id), email, nickname,
+        gender - at least one identifier column required. Rows match by
+        student_id first, then email (case-insensitive). Only non-empty cells
+        change anything; a literal "-" in gender clears it to Not set.
+        apply=false is a dry run.
+
+        Response: {applied, updated: [{id, name, changes}], not_found,
+                   invalid, unchanged, conflicts}
+        """
+        from django.db import transaction
+
+        text = request.data.get("text") or ""
+        apply_changes = bool(request.data.get("apply"))
+
+        lines = [line for line in text.splitlines() if line.strip()]
+        if len(lines) < 2:
+            return Response(
+                {"error": "Paste a header row plus at least one data row."}, status=400
+            )
+
+        delimiter = "\t" if "\t" in lines[0] else ","
+        header_cells = [c.strip().lstrip("﻿").lower() for c in lines[0].split(delimiter)]
+        columns = {}
+        for idx, cell in enumerate(header_cells):
+            field = self.BULK_HEADER_SYNONYMS.get(cell)
+            if field and field not in columns:
+                columns[field] = idx
+
+        if "student_id" not in columns and "email" not in columns:
+            return Response(
+                {"error": "Header must include a student_id (or id) or email column."},
+                status=400,
+            )
+        if "nickname" not in columns and "gender" not in columns:
+            return Response(
+                {"error": "Header must include a nickname or gender column."}, status=400
+            )
+
+        updated, not_found, invalid, unchanged, conflicts = [], [], [], [], []
+        pending = []  # (student, changes)
+
+        for line_number, line in enumerate(lines[1:], start=2):
+            cells = [c.strip() for c in line.split(delimiter)]
+
+            def cell(field):
+                idx = columns.get(field)
+                return cells[idx] if idx is not None and idx < len(cells) else ""
+
+            row_student_id = cell("student_id")
+            row_email = cell("email")
+            if not row_student_id and not row_email:
+                invalid.append({"line": line_number, "reason": "No student_id or email in row"})
+                continue
+
+            # Match by student_id first, then email
+            student = None
+            if row_student_id:
+                student = Student.objects.filter(student_id=row_student_id).first()
+            email_match = (
+                Student.objects.filter(email__iexact=row_email).first() if row_email else None
+            )
+            if student is None:
+                student = email_match
+            elif email_match and email_match.id != student.id:
+                conflicts.append({
+                    "line": line_number,
+                    "reason": (
+                        f"student_id {row_student_id} and email {row_email} are different "
+                        f"students - matched by student_id"
+                    ),
+                })
+
+            if not student:
+                not_found.append({
+                    "line": line_number,
+                    "value": row_student_id or row_email,
+                })
+                continue
+
+            changes = {}
+            nickname = cell("nickname")
+            if nickname and nickname != student.nickname:
+                changes["nickname"] = {"from": student.nickname, "to": nickname[:30]}
+
+            raw_gender = cell("gender")
+            if raw_gender:
+                if raw_gender.lower() not in self.GENDER_MAP:
+                    invalid.append({
+                        "line": line_number,
+                        "reason": f"Invalid gender value '{raw_gender}' (use m/f/o or - to clear)",
+                    })
+                    continue
+                new_gender = self.GENDER_MAP[raw_gender.lower()]
+                if new_gender != student.gender:
+                    changes["gender"] = {"from": student.gender, "to": new_gender}
+
+            name = f"{student.first_name} {student.last_name}"
+            if not changes:
+                unchanged.append(name)
+                continue
+
+            pending.append((student, changes))
+            updated.append({"id": student.id, "name": name, "changes": changes})
+
+        if apply_changes and pending:
+            with transaction.atomic():
+                for student, changes in pending:
+                    fields = []
+                    if "nickname" in changes:
+                        student.nickname = changes["nickname"]["to"]
+                        fields.append("nickname")
+                    if "gender" in changes:
+                        student.gender = changes["gender"]["to"]
+                        fields.append("gender")
+                    student.save(update_fields=fields)
+
+        return Response({
+            "applied": apply_changes,
+            "updated": updated,
+            "not_found": not_found,
+            "invalid": invalid,
+            "unchanged": unchanged,
+            "conflicts": conflicts,
+        })
+
 
 class ClassViewSet(viewsets.ModelViewSet):
     """

@@ -8,25 +8,27 @@ const Students = ({ data, navigateTo, apiModule }) => {
   const [students, setStudents] = React.useState(data?.students || []);
   const [loading, setLoading] = React.useState(!data?.students?.length);
   const [searchTerm, setSearchTerm] = React.useState("");
+  const [workspaceModalOpen, setWorkspaceModalOpen] = React.useState(false);
+  const [bulkUpdateModalOpen, setBulkUpdateModalOpen] = React.useState(false);
+
+  // Fetch (or re-fetch after imports/updates) the student list
+  const loadStudents = async () => {
+    try {
+      setLoading(true);
+      const response = await window.ApiModule.request('/students/');
+      const studentData = response.results || response;
+      setStudents(studentData);
+    } catch (error) {
+      console.error("Error fetching students:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Fetch students if not provided
   React.useEffect(() => {
-    const fetchStudents = async () => {
-      if (students.length > 0) return; // Already have data
-
-      try {
-        setLoading(true);
-        const response = await window.ApiModule.request('/students/');
-        const studentData = response.results || response;
-        setStudents(studentData);
-      } catch (error) {
-        console.error("Error fetching students:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchStudents();
+    if (students.length > 0) return; // Already have data
+    loadStudents();
   }, []);
 
   // Handle student row click - navigate to edit view
@@ -137,6 +139,54 @@ const Students = ({ data, navigateTo, apiModule }) => {
         React.createElement("i", { className: "fas fa-plus" }),
         "Add Student"
       ),
+      React.createElement(
+        "button",
+        {
+          onClick: () => setWorkspaceModalOpen(true),
+          style: {
+            padding: "8px 16px",
+            backgroundColor: "#10b981",
+            color: "white",
+            border: "none",
+            borderRadius: "6px",
+            cursor: "pointer",
+            fontSize: "14px",
+            fontWeight: "500",
+            display: "flex",
+            alignItems: "center",
+            gap: "6px",
+            transition: "background-color 0.2s ease"
+          },
+          onMouseOver: (e) => e.target.style.backgroundColor = "#059669",
+          onMouseOut: (e) => e.target.style.backgroundColor = "#10b981"
+        },
+        React.createElement("i", { className: "fab fa-google" }),
+        "Import from Workspace"
+      ),
+      React.createElement(
+        "button",
+        {
+          onClick: () => setBulkUpdateModalOpen(true),
+          style: {
+            padding: "8px 16px",
+            backgroundColor: "#6b7280",
+            color: "white",
+            border: "none",
+            borderRadius: "6px",
+            cursor: "pointer",
+            fontSize: "14px",
+            fontWeight: "500",
+            display: "flex",
+            alignItems: "center",
+            gap: "6px",
+            transition: "background-color 0.2s ease"
+          },
+          onMouseOver: (e) => e.target.style.backgroundColor = "#4b5563",
+          onMouseOut: (e) => e.target.style.backgroundColor = "#6b7280"
+        },
+        React.createElement("i", { className: "fas fa-file-csv" }),
+        "Bulk Update"
+      ),
       searchTerm && React.createElement(
         "span",
         {
@@ -227,7 +277,25 @@ const Students = ({ data, navigateTo, apiModule }) => {
           )
         )
       )
-    )
+    ),
+
+    // Workspace directory import modal
+    workspaceModalOpen && window.WorkspaceImportModal && React.createElement(window.WorkspaceImportModal, {
+      onClose: () => setWorkspaceModalOpen(false),
+      onImported: () => {
+        setWorkspaceModalOpen(false);
+        loadStudents();
+      }
+    }),
+
+    // CSV/TSV bulk update modal
+    bulkUpdateModalOpen && window.BulkUpdateModal && React.createElement(window.BulkUpdateModal, {
+      onClose: () => setBulkUpdateModalOpen(false),
+      onApplied: () => {
+        setBulkUpdateModalOpen(false);
+        loadStudents();
+      }
+    })
   );
 };
 

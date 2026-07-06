@@ -382,7 +382,7 @@ const StudentEditor = ({ studentId, navigateTo, apiModule }) => {
                 value: formData.gender,
                 onChange: (e) => handleInputChange("gender", e.target.value),
               },
-              React.createElement("option", { value: "" }, "-- Select --"),
+              React.createElement("option", { value: "" }, "Not set"),
               React.createElement("option", { value: "male" }, "Male"),
               React.createElement("option", { value: "female" }, "Female"),
               React.createElement("option", { value: "other" }, "Other")

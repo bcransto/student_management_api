@@ -3512,20 +3512,23 @@ const SeatingCanvas = ({
         // Find all occupied seats with gender classes
         const femaleSeat = document.querySelectorAll('.seat.gender-female');
         const maleSeats = document.querySelectorAll('.seat.gender-male');
-        
-        console.log(`Found ${femaleSeat.length} female seats and ${maleSeats.length} male seats`);
-        
+        const unknownSeats = document.querySelectorAll('.seat.gender-unknown');
+
         femaleSeat.forEach(el => {
-          console.log("Setting female seat style directly on element");
           el.style.setProperty('background-color', '#10b981', 'important');
           el.style.setProperty('border', '2px solid #059669', 'important');
           el.style.setProperty('color', 'white', 'important');
         });
-        
+
         maleSeats.forEach(el => {
-          console.log("Setting male seat style directly on element");
           el.style.setProperty('background-color', '#3b82f6', 'important');
           el.style.setProperty('border', '2px solid #2563eb', 'important');
+          el.style.setProperty('color', 'white', 'important');
+        });
+
+        unknownSeats.forEach(el => {
+          el.style.setProperty('background-color', '#9ca3af', 'important');
+          el.style.setProperty('border', '2px solid #6b7280', 'important');
           el.style.setProperty('color', 'white', 'important');
         });
       }, 100);
@@ -3716,29 +3719,27 @@ const SeatingCanvas = ({
           
           // Only add gender classes when in gender highlight mode
           if (assignedStudent && highlightMode === "gender") {
-            // Check for female gender (female, F or Female)
+            const hasGender = assignedStudent.gender && String(assignedStudent.gender).trim();
             const isFemale = assignedStudent.gender === "female" || assignedStudent.gender === "F" || assignedStudent.gender === "Female";
-            console.log(`Gender highlighting applied - Student: ${assignedStudent.first_name}, Gender: "${assignedStudent.gender}", isFemale: ${isFemale}`);
-            
-            if (isFemale) {
-              console.log("Applying FEMALE styling - green background");
+
+            if (!hasGender) {
+              // Gender not set - neutral gray (distinct from male blue)
+              genderClass = "gender-unknown";
+              finalSeatStyle.backgroundColor = "#9ca3af";  // Gray
+              finalSeatStyle.border = "2px solid #6b7280";
+              finalSeatStyle.color = "white";
+            } else if (isFemale) {
               genderClass = "gender-female";
-              // Override style properties in the copy
               finalSeatStyle.backgroundColor = "#10b981";  // Green
               finalSeatStyle.border = "2px solid #059669";
               finalSeatStyle.color = "white";
             } else {
-              console.log("Applying MALE styling - blue background");
+              // male / other
               genderClass = "gender-male";
-              // Override style properties in the copy
               finalSeatStyle.backgroundColor = "#3b82f6";  // Blue
               finalSeatStyle.border = "2px solid #2563eb";
               finalSeatStyle.color = "white";
             }
-            console.log("Gender class:", genderClass);
-            console.log("Final seatStyle backgroundColor:", finalSeatStyle.backgroundColor);
-            console.log("Final seatStyle border:", finalSeatStyle.border);
-            console.log("Final seatStyle with gender:", finalSeatStyle);
           }
           
           // Apply previous period highlighting
@@ -4389,13 +4390,18 @@ const StudentPool = ({
         sortedStudents.map((student) => {
         // Determine if we should apply gender highlighting
         const isFemale = student.gender === "female" || student.gender === "Female" || student.gender === "F";
+        const hasGender = student.gender && String(student.gender).trim();
         const genderStyle = {};
-        
+
         // Apply gender-specific styling when in gender highlight mode
         if (highlightMode === "gender" && isFemale) {
           genderStyle.border = "2px solid #10b981";  // Green border for females
           genderStyle.backgroundColor = "white";  // Keep white background
           genderStyle.color = "black";  // Keep black text
+        } else if (highlightMode === "gender" && !hasGender) {
+          genderStyle.border = "2px solid #9ca3af";  // Gray border for gender not set
+          genderStyle.backgroundColor = "white";
+          genderStyle.color = "black";
         }
         
         return React.createElement(
