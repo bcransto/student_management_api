@@ -61,6 +61,11 @@ MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
 ]
 
+# Django's default COOP header ("same-origin") severs window.opener for the
+# Google Sign-In popup, breaking it with a blank gsi/transform window.
+# "same-origin-allow-popups" keeps protection but lets our popups communicate.
+SECURE_CROSS_ORIGIN_OPENER_POLICY = "same-origin-allow-popups"
+
 # Add WhiteNoise only in production
 if PRODUCTION:
     MIDDLEWARE.append("whitenoise.middleware.WhiteNoiseMiddleware")
