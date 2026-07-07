@@ -1,881 +1,835 @@
-// SeatingOptimizer.js - Simulated Annealing optimizer for seating arrangements
-console.log("Loading SeatingOptimizer module...");
+// SeatingOptimizer.js - Least-repeat-pairings seating optimizer
+//
+// Fills the empty (active) seats of a layout with unseated students so that the
+// number of "repeat pairings" -- pairs of students at the same table who have
+// already sat together in a completed period -- is as small as possible.
+//
+// Objective, compared lexicographically (earlier entries strictly dominate):
+//   H  count of co-seated pairs that have sat together before
+//   M  among repeat pairs, prior co-seatings beyond the first (capped) --
+//      when repeats are unavoidable, prefer the least-repeated pairs
+//   S  soft rating score: -1 (Avoid) discouraged, +1/+2 (Good/Best) rewarded
+//   B  table-size balance (squared deviation from balanced targets)
+//
+// Hard constraints, enforced by construction and never merely penalized:
+//   - locked students (everyone already seated when optimize is called) never move
+//   - pairs rated -2 (Never Together) never share a table
+//   - deactivated seats are never filled
+// Infeasibility is reported ({ok: false, ...}); a violating chart is never returned.
+//
+// Search: multi-restart randomized greedy construction followed by
+// steepest-descent local search (cross-table swaps and relocations) over table
+// GROUPS -- seat positions within a table don't affect the objective, so seats
+// are materialized once at the end (locked students keep their exact seats).
 
-class SimulatedAnnealingOptimizer {
-  constructor(config = {}) {
-    // Temperature settings
-    this.initialTemp = config.initialTemp || 100;
-    this.coolingRate = config.coolingRate || 0.995;
-    this.minTemp = config.minTemp || 0.01;
-    this.maxIterations = config.maxIterations || 500;  // Further reduced default for better performance
-    
-    // Constraint storage
-    this.lockedStudents = new Set(); // Student IDs that cannot be moved
-    this.doNotPair = new Map(); // Map of student ID to Set of incompatible student IDs
-    this.lockedSeats = {}; // {studentId: "tableId-seatNumber"}
-    
-    // Move strategy statistics
-    this.moveStats = {
-      swap: { attempts: 0, successes: 0 },
-      relocation: { attempts: 0, successes: 0 },
-      threeCycle: { attempts: 0, successes: 0 }
-    };
-    
-    // Score weights
-    this.weights = {
-      doNotPairViolation: 10000, // Should never happen with hard constraints
-      newPartnership: -10, // Reward for never paired before
-      repeatedPartnership: 5, // Penalty multiplied by count
-      positiveRating: -20, // Reward multiplied by rating (1 or 2)
-      negativeRating: 10, // Penalty for negative ratings (-1)
-      emptyTable: 20 // Penalty for tables with only one student
-    };
-    
-    // Runtime state
-    this.partnershipHistory = null;
-    this.ratings = null;
-    this.temperature = this.initialTemp;
-    this.currentScore = null;
-    this.bestScore = null;
-    this.bestSolution = null;
-  }
-  
-  /**
-   * Set constraints for the optimization
-   * @param {Object} constraints - Contains lockedSeats and doNotPair arrays
-   */
-  setConstraints(constraints) {
-    // Process locked seats: {studentId: "tableId-seatNumber"}
-    this.lockedSeats = constraints.lockedSeats || {};
-    this.lockedStudents = new Set(Object.keys(this.lockedSeats).map(id => parseInt(id)));
-    
-    // Build bidirectional do-not-pair lookup Map for O(1) checking
-    this.doNotPair.clear();
-    if (constraints.doNotPair) {
-      constraints.doNotPair.forEach(pair => {
-        const [s1, s2] = pair.map(id => parseInt(id));
-        
-        // Add to both directions for O(1) lookup
-        if (!this.doNotPair.has(s1)) {
-          this.doNotPair.set(s1, new Set());
-        }
-        this.doNotPair.get(s1).add(s2);
-        
-        if (!this.doNotPair.has(s2)) {
-          this.doNotPair.set(s2, new Set());
-        }
-        this.doNotPair.get(s2).add(s1);
-      });
-    }
-    
-    console.log(`Constraints set: ${this.lockedStudents.size} locked students, ${this.doNotPair.size} students with pairing restrictions`);
-  }
-  
-  /**
-   * Main solving method using simulated annealing
-   * @param {Array} students - Array of student objects
-   * @param {Object} tables - Table structure {tableId: [seat1, seat2, ...]}
-   * @param {Object} partnershipHistory - Historical partnership data
-   * @param {Object} ratings - Teacher preference ratings
-   * @returns {Object} - Optimized seating assignment
-   */
-  solve(students, tables, partnershipHistory, ratings) {
-    console.log("Starting simulated annealing optimization...");
-    
-    this.partnershipHistory = partnershipHistory || {};
-    this.ratings = ratings || {};
-    this.temperature = this.initialTemp;
-    
-    // Create initial valid assignment
-    let current = this.createInitialAssignment(students, tables);
-    this.currentScore = this.evaluate(current);
-    
-    // Initialize best solution
-    this.bestSolution = this.deepCopy(current);
-    this.bestScore = this.currentScore;
-    
-    // Get list of moveable students (not locked)
-    const moveable = students.filter(s => !this.lockedStudents.has(s.id)).map(s => s.id);
-    
-    console.log(`Starting optimization with ${moveable.length} moveable students out of ${students.length} total`);
-    
-    // Simulated annealing loop
-    for (let iteration = 0; iteration < this.maxIterations && this.temperature > this.minTemp; iteration++) {
-      // Generate a valid neighbor
-      const neighbor = this.generateValidNeighbor(current, moveable);
-      
-      if (neighbor) {
-        const neighborScore = this.evaluate(neighbor);
-        
-        // Metropolis criterion
-        if (this.shouldAccept(this.currentScore, neighborScore, this.temperature)) {
-          current = neighbor;
-          this.currentScore = neighborScore;
-          
-          // Update best if improved
-          if (neighborScore < this.bestScore) {
-            this.bestSolution = this.deepCopy(neighbor);
-            this.bestScore = neighborScore;
-            console.log(`New best score: ${this.bestScore} at iteration ${iteration}`);
-          }
-        }
-      }
-      
-      // Cool down
-      this.temperature *= this.coolingRate;
-      
-      // Periodic logging - reduced frequency for performance
-      if (iteration % 100 === 0 && iteration > 0) {
-        console.log(`Iteration ${iteration}: temp=${this.temperature.toFixed(2)}, current=${this.currentScore}, best=${this.bestScore}`);
-      }
-    }
-    
-    console.log("Optimization complete. Move statistics:", this.moveStats);
-    return this.bestSolution;
-  }
-  
-  /**
-   * Create initial valid assignment respecting all constraints
-   */
-  createInitialAssignment(students, tables) {
-    const assignment = {};
-    const assigned = new Set();
-    
-    // First, place locked students at their required seats
-    for (const [studentId, seatLocation] of Object.entries(this.lockedSeats)) {
-      const [tableId, seatIndex] = seatLocation.split('-').map(s => parseInt(s));
-      if (!assignment[tableId]) {
-        assignment[tableId] = new Array(tables[tableId].length).fill(null);
-      }
-      assignment[tableId][seatIndex] = parseInt(studentId);
-      assigned.add(parseInt(studentId));
-    }
-    
-    // Get remaining students to place
-    const toPlace = students.filter(s => !assigned.has(s.id));
-    
-    // Shuffle for randomness
-    for (let i = toPlace.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [toPlace[i], toPlace[j]] = [toPlace[j], toPlace[i]];
-    }
-    
-    // Place remaining students in first valid seat found
-    for (const student of toPlace) {
-      let placed = false;
-      
-      for (const [tableId, seats] of Object.entries(tables)) {
-        if (!assignment[tableId]) {
-          assignment[tableId] = new Array(seats.length).fill(null);
-        }
-        
-        for (let i = 0; i < seats.length; i++) {
-          if (assignment[tableId][i] === null && this.canSitAtTable(student.id, tableId, assignment)) {
-            assignment[tableId][i] = student.id;
-            placed = true;
-            break;
-          }
-        }
-        
-        if (placed) break;
-      }
-      
-      if (!placed) {
-        console.warn(`Could not place student ${student.id} - constraints may be too restrictive`);
-      }
-    }
-    
-    return assignment;
-  }
-  
-  /**
-   * Generate a valid neighbor solution using multiple strategies
-   */
-  generateValidNeighbor(current, moveable) {
-    if (moveable.length < 2) return null;
-    
-    const strategies = [
-      { name: 'swap', weight: 0.5, fn: () => this.trySwap(current, moveable) },
-      { name: 'relocation', weight: 0.3, fn: () => this.tryRelocation(current, moveable) },
-      { name: 'threeCycle', weight: 0.2, fn: () => this.tryThreeCycle(current, moveable) }
-    ];
-    
-    // Select strategy based on weights
-    const rand = Math.random();
-    let cumulative = 0;
-    let selectedStrategy = null;
-    
-    for (const strategy of strategies) {
-      cumulative += strategy.weight;
-      if (rand < cumulative) {
-        selectedStrategy = strategy;
-        break;
-      }
-    }
-    
-    // Try selected strategy up to 5 times (reduced from 10 for performance)
-    for (let attempt = 0; attempt < 5; attempt++) {
-      this.moveStats[selectedStrategy.name].attempts++;
-      const result = selectedStrategy.fn();
-      if (result) {
-        this.moveStats[selectedStrategy.name].successes++;
-        return result;
-      }
-    }
-    
-    return null;
-  }
-  
-  /**
-   * Try to swap two moveable students
-   */
-  trySwap(current, moveable) {
-    if (moveable.length < 2) return null;
-    
-    // Pick two random moveable students
-    const idx1 = Math.floor(Math.random() * moveable.length);
-    let idx2 = Math.floor(Math.random() * moveable.length);
-    while (idx2 === idx1) {
-      idx2 = Math.floor(Math.random() * moveable.length);
-    }
-    
-    const student1 = moveable[idx1];
-    const student2 = moveable[idx2];
-    
-    // Find their current positions
-    let pos1 = null, pos2 = null;
-    for (const [tableId, seats] of Object.entries(current)) {
-      for (let i = 0; i < seats.length; i++) {
-        if (seats[i] === student1) pos1 = { table: tableId, seat: i };
-        if (seats[i] === student2) pos2 = { table: tableId, seat: i };
-      }
-    }
-    
-    if (!pos1 || !pos2) return null;
-    
-    // Check if swap is valid
-    if (!this.isSwapValid(student1, student2, pos1, pos2, current)) {
-      return null;
-    }
-    
-    // Create new assignment with swap
-    const newAssignment = this.deepCopy(current);
-    newAssignment[pos1.table][pos1.seat] = student2;
-    newAssignment[pos2.table][pos2.seat] = student1;
-    
-    return newAssignment;
-  }
-  
-  /**
-   * Try to relocate a student to a new seat
-   */
-  tryRelocation(current, moveable) {
-    if (moveable.length === 0) return null;
-    
-    // Pick random student to move
-    const studentId = moveable[Math.floor(Math.random() * moveable.length)];
-    
-    // Find current position
-    let currentPos = null;
-    for (const [tableId, seats] of Object.entries(current)) {
-      for (let i = 0; i < seats.length; i++) {
-        if (seats[i] === studentId) {
-          currentPos = { table: tableId, seat: i };
-          break;
-        }
-      }
-    }
-    
-    if (!currentPos) return null;
-    
-    // Pick random target table and seat
-    const tableIds = Object.keys(current);
-    const targetTable = tableIds[Math.floor(Math.random() * tableIds.length)];
-    const targetSeat = Math.floor(Math.random() * current[targetTable].length);
-    
-    // If same position, no change
-    if (targetTable === currentPos.table && targetSeat === currentPos.seat) {
-      return null;
-    }
-    
-    const occupant = current[targetTable][targetSeat];
-    
-    // If seat is empty, just move if valid
-    if (occupant === null) {
-      if (!this.canSitAtTable(studentId, targetTable, current)) {
-        return null;
-      }
-      
-      const newAssignment = this.deepCopy(current);
-      newAssignment[currentPos.table][currentPos.seat] = null;
-      newAssignment[targetTable][targetSeat] = studentId;
-      return newAssignment;
-    }
-    
-    // If seat is occupied by locked student, cannot move
-    if (this.lockedStudents.has(occupant)) {
-      return null;
-    }
-    
-    // Try swap with occupant (displacement)
-    const pos1 = currentPos;
-    const pos2 = { table: targetTable, seat: targetSeat };
-    
-    if (!this.isSwapValid(studentId, occupant, pos1, pos2, current)) {
-      return null;
-    }
-    
-    const newAssignment = this.deepCopy(current);
-    newAssignment[pos1.table][pos1.seat] = occupant;
-    newAssignment[pos2.table][pos2.seat] = studentId;
-    
-    return newAssignment;
-  }
-  
-  /**
-   * Try to rotate three students
-   */
-  tryThreeCycle(current, moveable) {
-    if (moveable.length < 3) return null;
-    
-    // Pick three distinct moveable students
-    const indices = [];
-    while (indices.length < 3) {
-      const idx = Math.floor(Math.random() * moveable.length);
-      if (!indices.includes(idx)) {
-        indices.push(idx);
-      }
-    }
-    
-    const students = indices.map(i => moveable[i]);
-    
-    // Find their positions
-    const positions = [];
-    for (const studentId of students) {
-      for (const [tableId, seats] of Object.entries(current)) {
-        for (let i = 0; i < seats.length; i++) {
-          if (seats[i] === studentId) {
-            positions.push({ table: tableId, seat: i, student: studentId });
-            break;
-          }
-        }
-      }
-    }
-    
-    if (positions.length !== 3) return null;
-    
-    // Check if rotation is valid (s1→s2, s2→s3, s3→s1)
-    for (let i = 0; i < 3; i++) {
-      const student = positions[i].student;
-      const targetPos = positions[(i + 1) % 3];
-      
-      // Check if student can sit at target table
-      const tempAssignment = this.deepCopy(current);
-      // Temporarily remove all three students to check constraints
-      for (const pos of positions) {
-        tempAssignment[pos.table][pos.seat] = null;
-      }
-      
-      if (!this.canSitAtTable(student, targetPos.table, tempAssignment)) {
-        return null;
-      }
-    }
-    
-    // Create rotated assignment
-    const newAssignment = this.deepCopy(current);
-    newAssignment[positions[0].table][positions[0].seat] = positions[2].student;
-    newAssignment[positions[1].table][positions[1].seat] = positions[0].student;
-    newAssignment[positions[2].table][positions[2].seat] = positions[1].student;
-    
-    return newAssignment;
-  }
-  
-  /**
-   * Check if a swap violates do-not-pair constraints
-   */
-  isSwapValid(student1, student2, pos1, pos2, current) {
-    // Check if student1 can sit at pos2's table
-    const tempAssignment1 = this.deepCopy(current);
-    tempAssignment1[pos1.table][pos1.seat] = null; // Remove student1 temporarily
-    if (!this.canSitAtTable(student1, pos2.table, tempAssignment1)) {
-      return false;
-    }
-    
-    // Check if student2 can sit at pos1's table
-    const tempAssignment2 = this.deepCopy(current);
-    tempAssignment2[pos2.table][pos2.seat] = null; // Remove student2 temporarily
-    if (!this.canSitAtTable(student2, pos1.table, tempAssignment2)) {
-      return false;
-    }
-    
-    return true;
-  }
-  
-  /**
-   * Check if a student can sit at a table without violating constraints
-   */
-  canSitAtTable(studentId, tableId, assignment) {
-    const tableStudents = assignment[tableId] || [];
-    const incompatible = this.doNotPair.get(studentId);
-    
-    if (!incompatible) return true;
-    
-    // Check each student at the table
-    for (const otherStudent of tableStudents) {
-      if (otherStudent !== null && incompatible.has(otherStudent)) {
-        return false;
-      }
-    }
-    
-    return true;
-  }
-  
-  /**
-   * Evaluate the quality of a seating arrangement
-   */
-  evaluate(assignment) {
-    let score = 0;
-    
-    // Check each table
-    for (const [tableId, seats] of Object.entries(assignment)) {
-      const studentsAtTable = seats.filter(s => s !== null);
-      
-      // Penalty for tables with only one student
-      if (studentsAtTable.length === 1) {
-        score += this.weights.emptyTable;
-      }
-      
-      // Evaluate each pair of students at the table
-      for (let i = 0; i < studentsAtTable.length; i++) {
-        for (let j = i + 1; j < studentsAtTable.length; j++) {
-          const s1 = studentsAtTable[i];
-          const s2 = studentsAtTable[j];
-          
-          // Check do-not-pair violations (shouldn't happen with hard constraints)
-          if (this.doNotPair.has(s1) && this.doNotPair.get(s1).has(s2)) {
-            score += this.weights.doNotPairViolation;
-          }
-          
-          // Check partnership history
-          const partnershipCount = this.getPartnershipCount(s1, s2);
-          if (partnershipCount === 0) {
-            score += this.weights.newPartnership; // Reward new partnerships
-          } else {
-            score += this.weights.repeatedPartnership * partnershipCount;
-          }
-          
-          // Check teacher ratings
-          const rating = this.getRating(s1, s2);
-          if (rating > 0) {
-            score += this.weights.positiveRating * rating; // Reward positive ratings
-          } else if (rating < 0 && rating !== -2) { // -2 handled by hard constraints
-            score += this.weights.negativeRating * Math.abs(rating);
-          }
-        }
-      }
-    }
-    
-    return score;
-  }
-  
-  /**
-   * Get partnership count from history
-   */
-  getPartnershipCount(student1, student2) {
-    if (!this.partnershipHistory) return 0;
-    
-    const s1 = String(student1);
-    const s2 = String(student2);
-    
-    // Check both directions
-    if (this.partnershipHistory[s1]?.partnerships?.[s2]) {
-      return this.partnershipHistory[s1].partnerships[s2].length;
-    }
-    if (this.partnershipHistory[s2]?.partnerships?.[s1]) {
-      return this.partnershipHistory[s2].partnerships[s1].length;
-    }
-    
-    return 0;
-  }
-  
-  /**
-   * Get teacher rating for a pair of students
-   */
-  getRating(student1, student2) {
-    if (!this.ratings || !this.ratings.grid) return 0;
-    
-    const s1 = String(student1);
-    const s2 = String(student2);
-    
-    // Check both directions
-    if (this.ratings.grid[s1]?.ratings?.[s2] !== undefined) {
-      return this.ratings.grid[s1].ratings[s2];
-    }
-    if (this.ratings.grid[s2]?.ratings?.[s1] !== undefined) {
-      return this.ratings.grid[s2].ratings[s1];
-    }
-    
-    return 0;
-  }
-  
-  /**
-   * Metropolis acceptance criterion
-   */
-  shouldAccept(currentScore, newScore, temperature) {
-    if (newScore < currentScore) {
-      return true; // Always accept improvements
-    }
-    
-    const delta = newScore - currentScore;
-    const probability = Math.exp(-delta / temperature);
-    return Math.random() < probability;
-  }
-  
-  /**
-   * Deep copy an assignment object
-   */
-  deepCopy(obj) {
-    return JSON.parse(JSON.stringify(obj));
-  }
+const OPTIMIZER_DEFAULTS = {
+  // If true, a +2 (Best) rating exempts a pair from the repeat count H.
+  // Default false: ratings are preferences; pre-seating a pair is the
+  // teacher's absolute override for "keep them together anyway".
+  allowBestPairRepeats: false,
+  multiplicityCap: 10, // per-pair cap on the M tier contribution
+  ratingScore: { "-1": 40, 1: -25, 2: -60 }, // S tier (lower = better)
+  maxRestarts: 400,
+  polishRestarts: 30, // extra restarts after a 0-repeat chart is found (improves S)
+  timeBudgetMs: 400,
+  maxLocalSearchPasses: 60,
+  seed: null, // integer for reproducible output; null = random each call
+};
+
+// Small deterministic PRNG so a seed reproduces the exact same chart
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
 }
 
-// Keep the original SeatingOptimizer class as a wrapper
+function nowMs() {
+  return typeof performance !== "undefined" && performance.now ? performance.now() : Date.now();
+}
+
 class SeatingOptimizer {
   constructor(config = {}) {
-    this.config = config;
-    this.optimizer = null;
+    this.config = Object.assign({}, OPTIMIZER_DEFAULTS, config);
   }
-  
+
   /**
-   * Main optimization function - wrapper for backward compatibility
-   * @param {Object} assignments - Current seating assignments {tableId: {seatNumber: studentId}}
-   * @param {Array} students - Array of student objects
-   * @param {Object} layout - Classroom layout with tables and seats
-   * @param {Object} constraints - Constraints and preferences (ratings, history, etc.)
-   * @returns {Object} - Optimized assignments
+   * @param {Object} assignments - current chart {tableId: {seatNumber: studentId}}
+   *   (string keys, editor shape). Every student in it is treated as locked.
+   * @param {Array} students - student objects ({id, first_name, last_name,
+   *   nickname, ...}) to seat: both the locked ones and the pool.
+   * @param {Object} layout - classroom layout with tables[].seats[].seat_number
+   * @param {Object} constraints - {
+   *     partnershipHistory,  // {studentId: {partnerships: {partnerId: [dates...]}}}
+   *     partnershipRatings,  // {grid: {studentId: {ratings: {otherId: -2..2}}}}
+   *     deactivatedSeats,    // Set or array of "tableId-seatNumber" strings
+   *     lockedSeats,         // optional override, same shape as assignments
+   *   }
+   * @returns {ok: true, assignments, stats} or {ok: false, error, conflicts?, unplaced?}
    */
   optimize(assignments, students, layout, constraints = {}) {
-    console.log("SeatingOptimizer.optimize called");
-    
-    // Convert assignments format from {tableId: {seatNumber: studentId}} to {tableId: [array]}
-    const tables = {};
-    if (layout && layout.tables) {
-      layout.tables.forEach(table => {
-        const tableId = String(table.id);
-        const seatCount = table.seats ? table.seats.length : 0;
-        tables[tableId] = new Array(seatCount).fill(null);
-        
-        // Fill in current assignments
-        if (assignments[tableId]) {
-          Object.entries(assignments[tableId]).forEach(([seatNum, studentId]) => {
-            const seatIndex = parseInt(seatNum) - 1; // Convert to 0-based index
-            if (seatIndex >= 0 && seatIndex < seatCount) {
-              tables[tableId][seatIndex] = studentId;
-            }
-          });
-        }
+    const cfg = this.config;
+    const start = nowMs();
+
+    const history = constraints.partnershipHistory || {};
+    const grid = (constraints.partnershipRatings && constraints.partnershipRatings.grid) || {};
+    const deactivated = new Set(constraints.deactivatedSeats || []);
+    const lockedChart = constraints.lockedSeats || assignments || {};
+
+    if (!layout || !layout.tables || layout.tables.length === 0) {
+      return { ok: false, error: "No layout with tables was provided." };
+    }
+
+    // ---- Index students -------------------------------------------------
+    const lockedIds = new Set();
+    Object.values(lockedChart).forEach((seatMap) => {
+      Object.values(seatMap || {}).forEach((sid) => lockedIds.add(Number(sid)));
+    });
+
+    const ids = [];
+    const idx = new Map(); // studentId -> 0..n-1
+    const nameOf = new Map();
+    students.forEach((s) => {
+      if (!idx.has(s.id)) {
+        idx.set(s.id, ids.length);
+        ids.push(s.id);
+        const nick = s.nickname || s.first_name || "";
+        nameOf.set(s.id, `${nick} ${s.last_name || ""}`.trim() || `Student ${s.id}`);
+      }
+    });
+    // Seated students missing from the students array still occupy seats
+    lockedIds.forEach((sid) => {
+      if (!idx.has(sid)) {
+        idx.set(sid, ids.length);
+        ids.push(sid);
+        nameOf.set(sid, `Student ${sid}`);
+      }
+    });
+    const n = ids.length;
+    if (n === 0) return { ok: false, error: "No students to seat." };
+
+    // ---- Pair matrices ---------------------------------------------------
+    // Backend shapes: partnerships values are ARRAYS OF DATE STRINGS (count =
+    // length); the ratings grid is symmetric, but read both directions anyway.
+    const pairCount = new Int32Array(n * n);
+    const pairRating = new Int8Array(n * n);
+    const forb = new Uint8Array(n * n);
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        const a = String(ids[i]);
+        const b = String(ids[j]);
+        const dates =
+          (history[a] && history[a].partnerships && history[a].partnerships[b]) ||
+          (history[b] && history[b].partnerships && history[b].partnerships[a]);
+        const c = Array.isArray(dates) ? dates.length : 0;
+        let r = grid[a] && grid[a].ratings ? grid[a].ratings[b] : undefined;
+        if (r === undefined) r = grid[b] && grid[b].ratings ? grid[b].ratings[a] : undefined;
+        if (r === undefined) r = 0;
+        pairCount[i * n + j] = pairCount[j * n + i] = c;
+        pairRating[i * n + j] = pairRating[j * n + i] = r;
+        if (r === -2) forb[i * n + j] = forb[j * n + i] = 1;
+      }
+    }
+    const pairH = new Uint8Array(n * n); // 1 = counts as a repeat pairing
+    const pairM = new Int32Array(n * n);
+    const pairS = new Int32Array(n * n);
+    for (let k = 0; k < n * n; k++) {
+      if (forb[k]) continue;
+      const c = pairCount[k];
+      const r = pairRating[k];
+      if (c > 0 && !(cfg.allowBestPairRepeats && r === 2)) pairH[k] = 1;
+      if (c > 0) pairM[k] = Math.min(c - 1, cfg.multiplicityCap);
+      pairS[k] = cfg.ratingScore[String(r)] || 0;
+    }
+
+    // ---- Tables: capacities, locked members, free seats ------------------
+    // Locked students keep their seats even if that seat was deactivated
+    // after they were placed; deactivated EMPTY seats are simply unavailable.
+    const tables = [];
+    const tableIndexOf = new Map(); // tableId string -> index in tables
+    layout.tables.forEach((table) => {
+      const tableId = String(table.id);
+      const lockedHere = lockedChart[tableId] || {};
+      const lockedSeatNums = new Set(Object.keys(lockedHere).map(String));
+      const freeSeats = (table.seats || [])
+        .map((seat) => String(seat.seat_number))
+        .filter((sn) => !lockedSeatNums.has(sn) && !deactivated.has(`${tableId}-${sn}`))
+        .sort((x, y) => Number(x) - Number(y));
+
+      const lockedMembers = [];
+      const lockedSeatOf = new Map(); // student index -> seat number string
+      Object.entries(lockedHere).forEach(([seatNum, sid]) => {
+        const si = idx.get(Number(sid));
+        lockedMembers.push(si);
+        lockedSeatOf.set(si, String(seatNum));
       });
+
+      tableIndexOf.set(tableId, tables.length);
+      tables.push({
+        tableId,
+        freeSeats,
+        capacity: lockedMembers.length + freeSeats.length,
+        lockedMembers,
+        lockedSeatOf,
+      });
+    });
+    const T = tables.length;
+
+    // Locked entries pointing at tables missing from the layout are preserved
+    // verbatim in the output but can't participate in optimization.
+    const strayLocked = {};
+    Object.entries(lockedChart).forEach(([tableId, seatMap]) => {
+      if (!tableIndexOf.has(String(tableId))) {
+        strayLocked[tableId] = Object.assign({}, seatMap);
+        console.warn(
+          `SeatingOptimizer: table ${tableId} not in layout; leaving its assignments untouched`
+        );
+      }
+    });
+
+    // ---- Feasibility pre-flight ------------------------------------------
+    const conflicts = [];
+    tables.forEach((t) => {
+      for (let i = 0; i < t.lockedMembers.length; i++) {
+        for (let j = i + 1; j < t.lockedMembers.length; j++) {
+          const a = t.lockedMembers[i];
+          const b = t.lockedMembers[j];
+          if (forb[a * n + b]) {
+            conflicts.push({
+              student1: nameOf.get(ids[a]),
+              student2: nameOf.get(ids[b]),
+              tableId: t.tableId,
+            });
+          }
+        }
+      }
+    });
+    if (conflicts.length > 0) {
+      return {
+        ok: false,
+        error: "Students rated Never Together are already seated at the same table.",
+        conflicts,
+      };
     }
-    
-    // Extract constraints
-    const optimizerConstraints = {
-      lockedSeats: {},
-      doNotPair: []
+
+    const lockedInLayout = new Set();
+    tables.forEach((t) => t.lockedMembers.forEach((si) => lockedInLayout.add(si)));
+    const pool = [];
+    for (let s = 0; s < n; s++) if (!lockedInLayout.has(s)) pool.push(s);
+    // Students locked at stray tables are neither pool nor placeable
+    Object.values(strayLocked).forEach((seatMap) =>
+      Object.values(seatMap).forEach((sid) => {
+        const si = idx.get(Number(sid));
+        const at = pool.indexOf(si);
+        if (at !== -1) pool.splice(at, 1);
+      })
+    );
+
+    const freeSeatTotal = tables.reduce((sum, t) => sum + t.freeSeats.length, 0);
+    if (pool.length > freeSeatTotal) {
+      return {
+        ok: false,
+        error:
+          `Not enough open seats: ${pool.length} unseated students but only ` +
+          `${freeSeatTotal} active empty seats. Activate more seats (Shift+click) ` +
+          `or use a larger layout.`,
+      };
+    }
+
+    if (pool.length === 0) {
+      return {
+        ok: false,
+        error: "Everyone is already seated - there are no students in the pool to place.",
+      };
+    }
+
+    // ---- Balanced size targets -------------------------------------------
+    const target = tables.map((t) => t.lockedMembers.length);
+    let remaining = pool.length;
+    while (remaining > 0) {
+      let best = -1;
+      for (let t = 0; t < T; t++) {
+        if (target[t] >= tables[t].capacity) continue;
+        if (best === -1 || target[t] < target[best]) best = t;
+      }
+      if (best === -1) break; // cannot happen: capacity checked above
+      target[best]++;
+      remaining--;
+    }
+
+    // ---- Difficulty order for construction --------------------------------
+    const neverDeg = new Int32Array(n);
+    const repSum = new Int32Array(n);
+    const avoidDeg = new Int32Array(n);
+    for (let i = 0; i < n; i++) {
+      for (let j = 0; j < n; j++) {
+        if (i === j) continue;
+        if (forb[i * n + j]) neverDeg[i]++;
+        repSum[i] += pairCount[i * n + j];
+        if (pairRating[i * n + j] === -1) avoidDeg[i]++;
+      }
+    }
+
+    // ---- Solve: multi-restart greedy + steepest-descent local search ------
+    const baseSeed =
+      cfg.seed !== null && cfg.seed !== undefined
+        ? cfg.seed >>> 0
+        : (Date.now() ^ (Math.random() * 0xffffffff)) >>> 0;
+    const deadline = start + cfg.timeBudgetMs;
+
+    // Delta of adding student s to table t's members (excluding `skip`).
+    // Returns null if a -2 pair would be created.
+    const joinDelta = (s, memb, skip) => {
+      let dH = 0;
+      let dM = 0;
+      let dS = 0;
+      for (let k = 0; k < memb.length; k++) {
+        const o = memb[k];
+        if (o === skip) continue;
+        const p = s * n + o;
+        if (forb[p]) return null;
+        dH += pairH[p];
+        dM += pairM[p];
+        dS += pairS[p];
+      }
+      return { dH, dM, dS };
     };
-    
-    // Convert locked seats if provided
-    if (constraints.lockedSeats) {
-      optimizerConstraints.lockedSeats = constraints.lockedSeats;
-    }
-    
-    // Extract do-not-pair from ratings if available
-    if (constraints.partnershipRatings && constraints.partnershipRatings.grid) {
-      const doNotPair = [];
-      for (const s1 in constraints.partnershipRatings.grid) {
-        const studentData = constraints.partnershipRatings.grid[s1];
-        if (studentData && studentData.ratings) {
-          for (const s2 in studentData.ratings) {
-            if (studentData.ratings[s2] === -2 && parseInt(s1) < parseInt(s2)) {
-              doNotPair.push([s1, s2]);
+    const lexLess = (aH, aM, aS, aB, bH, bM, bS, bB) =>
+      aH !== bH ? aH < bH : aM !== bM ? aM < bM : aS !== bS ? aS < bS : aB < bB;
+
+    const construct = (rand) => {
+      const memb = tables.map((t) => t.lockedMembers.slice());
+      const tableOf = new Int32Array(n).fill(-1);
+      tables.forEach((t, ti) => t.lockedMembers.forEach((si) => (tableOf[si] = ti)));
+
+      const jitter = new Map(pool.map((s) => [s, rand()]));
+      const order = pool
+        .slice()
+        .sort(
+          (a, b) =>
+            neverDeg[b] - neverDeg[a] ||
+            repSum[b] - repSum[a] ||
+            avoidDeg[b] - avoidDeg[a] ||
+            jitter.get(a) - jitter.get(b)
+        );
+
+      for (const s of order) {
+        // Two passes: balanced targets first, physical capacity second
+        let placedAt = -1;
+        for (const cap of [target, tables.map((t) => t.capacity)]) {
+          let bestT = [];
+          let bH = Infinity;
+          let bM = Infinity;
+          let bS = Infinity;
+          for (let t = 0; t < T; t++) {
+            if (memb[t].length >= cap[t]) continue;
+            const d = joinDelta(s, memb[t], -1);
+            if (d === null) continue;
+            if (lexLess(d.dH, d.dM, d.dS, 0, bH, bM, bS, 0)) {
+              bH = d.dH;
+              bM = d.dM;
+              bS = d.dS;
+              bestT = [t];
+            } else if (d.dH === bH && d.dM === bM && d.dS === bS) {
+              bestT.push(t); // tie -> random pick below (restart diversity)
+            }
+          }
+          if (bestT.length > 0) {
+            placedAt = bestT[Math.floor(rand() * bestT.length)];
+            break;
+          }
+        }
+        if (placedAt === -1) {
+          // One-level repair: evict a conflicting unlocked occupant elsewhere
+          let repaired = false;
+          for (let t = 0; t < T && !repaired; t++) {
+            if (memb[t].length >= tables[t].capacity) continue;
+            const blockers = memb[t].filter((o) => forb[s * n + o]);
+            if (blockers.length !== 1 || lockedInLayout.has(blockers[0])) continue;
+            const o = blockers[0];
+            for (let t2 = 0; t2 < T; t2++) {
+              if (t2 === t || memb[t2].length >= tables[t2].capacity) continue;
+              if (joinDelta(o, memb[t2], -1) === null) continue;
+              memb[t].splice(memb[t].indexOf(o), 1);
+              memb[t2].push(o);
+              tableOf[o] = t2;
+              memb[t].push(s);
+              tableOf[s] = t;
+              repaired = true;
+              break;
+            }
+          }
+          if (!repaired) return { failed: s };
+          continue;
+        }
+        memb[placedAt].push(s);
+        tableOf[s] = placedAt;
+      }
+      return { memb, tableOf };
+    };
+
+    const localSearch = (sol) => {
+      const { memb, tableOf } = sol;
+      let improved = true;
+      let passes = 0;
+      while (improved && passes < cfg.maxLocalSearchPasses) {
+        improved = false;
+        passes++;
+        // Relocations into free capacity (re-read tableOf[s] each candidate:
+        // an applied move earlier in this pass changes it)
+        for (const s of pool) {
+          for (let t = 0; t < T; t++) {
+            const from = tableOf[s];
+            if (t === from || memb[t].length >= tables[t].capacity) continue;
+            const add = joinDelta(s, memb[t], -1);
+            if (add === null) continue;
+            const rem = joinDelta(s, memb[from], s); // never null: s already sits there
+            const dFrom = memb[from].length - target[from];
+            const dTo = memb[t].length - target[t];
+            const dB = (dFrom - 1) ** 2 + (dTo + 1) ** 2 - dFrom ** 2 - dTo ** 2;
+            if (lexLess(add.dH - rem.dH, add.dM - rem.dM, add.dS - rem.dS, dB, 0, 0, 0, 0)) {
+              memb[from].splice(memb[from].indexOf(s), 1);
+              memb[t].push(s);
+              tableOf[s] = t;
+              improved = true;
+            }
+          }
+        }
+        // Cross-table swaps (same-table swaps don't change the grouping)
+        for (let i = 0; i < pool.length; i++) {
+          for (let j = i + 1; j < pool.length; j++) {
+            const a = pool[i];
+            const b = pool[j];
+            const ta = tableOf[a];
+            const tb = tableOf[b];
+            if (ta === tb) continue;
+            const addA = joinDelta(a, memb[tb], b);
+            if (addA === null) continue;
+            const addB = joinDelta(b, memb[ta], a);
+            if (addB === null) continue;
+            const remA = joinDelta(a, memb[ta], a);
+            const remB = joinDelta(b, memb[tb], b);
+            const dH = addA.dH + addB.dH - remA.dH - remB.dH;
+            const dM = addA.dM + addB.dM - remA.dM - remB.dM;
+            const dS = addA.dS + addB.dS - remA.dS - remB.dS;
+            if (lexLess(dH, dM, dS, 0, 0, 0, 0, 0)) {
+              memb[ta][memb[ta].indexOf(a)] = b;
+              memb[tb][memb[tb].indexOf(b)] = a;
+              tableOf[a] = tb;
+              tableOf[b] = ta;
+              improved = true;
             }
           }
         }
       }
-      optimizerConstraints.doNotPair = doNotPair;
-    }
-    
-    // Create optimizer instance
-    this.optimizer = new SimulatedAnnealingOptimizer(this.config);
-    this.optimizer.setConstraints(optimizerConstraints);
-    
-    // Run optimization
-    const optimizedTables = this.optimizer.solve(
-      students,
-      tables,
-      constraints.partnershipHistory,
-      constraints.partnershipRatings
-    );
-    
-    // Convert back to original format {tableId: {seatNumber: studentId}}
-    const result = {};
-    for (const [tableId, seats] of Object.entries(optimizedTables)) {
-      result[tableId] = {};
-      seats.forEach((studentId, index) => {
-        if (studentId !== null) {
-          const seatNumber = String(index + 1); // Convert back to 1-based
-          result[tableId][seatNumber] = studentId;
+    };
+
+    const scoreOf = (memb) => {
+      let H = 0;
+      let M = 0;
+      let S = 0;
+      let B = 0;
+      for (let t = 0; t < T; t++) {
+        const m = memb[t];
+        const dev = m.length - target[t];
+        B += dev * dev;
+        for (let i = 0; i < m.length; i++) {
+          for (let j = i + 1; j < m.length; j++) {
+            const p = m[i] * n + m[j];
+            H += pairH[p];
+            M += pairM[p];
+            S += pairS[p];
+          }
         }
-      });
+      }
+      return { H, M, S, B };
+    };
+
+    let best = null;
+    let bestScore = null;
+    let restarts = 0;
+    let zeroFoundAt = -1;
+    let lastFailure = null;
+    for (let r = 0; r < cfg.maxRestarts; r++) {
+      if (nowMs() > deadline && best) break;
+      if (zeroFoundAt >= 0 && r - zeroFoundAt >= cfg.polishRestarts) break;
+      restarts++;
+      const rand = mulberry32(baseSeed + r * 7919);
+      const sol = construct(rand);
+      if (sol.failed !== undefined) {
+        lastFailure = sol.failed;
+        continue;
+      }
+      localSearch(sol);
+      const sc = scoreOf(sol.memb);
+      if (
+        !bestScore ||
+        lexLess(sc.H, sc.M, sc.S, sc.B, bestScore.H, bestScore.M, bestScore.S, bestScore.B)
+      ) {
+        best = sol;
+        bestScore = sc;
+      }
+      if (bestScore.H === 0 && zeroFoundAt < 0) zeroFoundAt = r;
     }
-    
-    return result;
-  }
-  
-  /**
-   * Get optimizer status
-   */
-  getStatus() {
-    if (this.optimizer) {
+
+    if (!best) {
+      const name = lastFailure !== null ? nameOf.get(ids[lastFailure]) : "a student";
       return {
-        bestScore: this.optimizer.bestScore,
-        currentScore: this.optimizer.currentScore,
-        temperature: this.optimizer.temperature,
-        moveStats: this.optimizer.moveStats
+        ok: false,
+        error:
+          `Could not find any valid seating: ${name} cannot be placed at any table ` +
+          `given the Never Together ratings, locked seats, and active-seat capacities.`,
+        unplaced: lastFailure !== null ? [nameOf.get(ids[lastFailure])] : [],
       };
     }
-    return null;
+
+    // ---- Materialize seats -------------------------------------------------
+    const result = {};
+    Object.entries(strayLocked).forEach(([tableId, seatMap]) => {
+      result[tableId] = Object.assign({}, seatMap);
+    });
+    tables.forEach((t, ti) => {
+      const seatMap = {};
+      t.lockedSeatOf.forEach((seatNum, si) => {
+        seatMap[seatNum] = ids[si];
+      });
+      const newcomers = best.memb[ti].filter((si) => !t.lockedSeatOf.has(si));
+      newcomers.forEach((si, k) => {
+        seatMap[t.freeSeats[k]] = ids[si];
+      });
+      if (Object.keys(seatMap).length > 0) result[t.tableId] = seatMap;
+    });
+
+    // ---- Post-solve assertions (belt and suspenders) -----------------------
+    for (let t = 0; t < T; t++) {
+      const m = best.memb[t];
+      for (let i = 0; i < m.length; i++) {
+        for (let j = i + 1; j < m.length; j++) {
+          if (forb[m[i] * n + m[j]]) {
+            return {
+              ok: false,
+              error:
+                "Internal error: optimizer produced a Never Together violation. No changes applied.",
+            };
+          }
+        }
+      }
+    }
+
+    const repeatDetail = [];
+    let avoidPairsSeated = 0;
+    let bestPairsSeated = 0;
+    for (let t = 0; t < T; t++) {
+      const m = best.memb[t];
+      for (let i = 0; i < m.length; i++) {
+        for (let j = i + 1; j < m.length; j++) {
+          const p = m[i] * n + m[j];
+          if (pairCount[p] > 0) {
+            repeatDetail.push({
+              student1: nameOf.get(ids[m[i]]),
+              student2: nameOf.get(ids[m[j]]),
+              timesPaired: pairCount[p],
+            });
+          }
+          if (pairRating[p] === -1) avoidPairsSeated++;
+          if (pairRating[p] === 2) bestPairsSeated++;
+        }
+      }
+    }
+
+    return {
+      ok: true,
+      assignments: result,
+      stats: {
+        placed: pool.length,
+        repeatPairs: bestScore.H,
+        repeatDetail,
+        avoidPairsSeated,
+        bestPairsSeated,
+        provablyOptimal: bestScore.H === 0,
+        restarts,
+        ms: Math.round(nowMs() - start),
+        seed: baseSeed,
+      },
+    };
   }
 }
 
-// Export to global scope
-if (typeof window !== "undefined") {
-  window.SeatingOptimizer = SeatingOptimizer;
-  window.SimulatedAnnealingOptimizer = SimulatedAnnealingOptimizer;
-  console.log("SeatingOptimizer module loaded");
-}
-
-// ============ COMPREHENSIVE TEST SUITE ============
-// Uncomment the line below to run tests when the file loads
-// runOptimizerTests();
+// ============ TEST SUITE (asserting) ============
+// Browser: open /test_optimizer.html or call runOptimizerTests() in the console.
+// Node:    node frontend/seating/SeatingOptimizer.js
 
 function runOptimizerTests() {
-    console.log("🧪 Starting Optimizer Tests...\n");
-    
-    // Test 1: Basic optimization without constraints
-    console.log("Test 1: Basic Optimization");
-    test1_basicOptimization();
-    
-    // Test 2: Optimization with locked students
-    console.log("\nTest 2: Locked Students");
-    test2_lockedStudents();
-    
-    // Test 3: Optimization with do-not-pair constraints
-    console.log("\nTest 3: Do-Not-Pair Constraints");
-    test3_doNotPair();
-    
-    // Test 4: Combined constraints
-    console.log("\nTest 4: Combined Constraints");
-    test4_combinedConstraints();
-    
-    // Test 5: Move strategy distribution
-    console.log("\nTest 5: Move Strategy Distribution");
-    test5_moveStrategies();
-    
-    console.log("\n✅ All tests complete! Check results above.");
-}
-
-function test1_basicOptimization() {
-    const students = [
-        {id: 1, name: "Alice"}, {id: 2, name: "Bob"}, 
-        {id: 3, name: "Carol"}, {id: 4, name: "Dave"},
-        {id: 5, name: "Eve"}, {id: 6, name: "Frank"},
-        {id: 7, name: "Grace"}, {id: 8, name: "Henry"}
-    ];
-    
-    const tables = {
-        "table1": new Array(4).fill(null),
-        "table2": new Array(4).fill(null)
-    };
-    
-    const partnershipHistory = {
-        "1": {partnerships: {"2": [1,2,3], "3": [1]}}, // Alice sat with Bob 3 times, Carol once
-        "2": {partnerships: {"1": [1,2,3], "4": [1,2]}}, // Bob sat with Alice 3 times, Dave twice
-        // etc...
-    };
-    
-    const optimizer = new SimulatedAnnealingOptimizer({
-        maxIterations: 200  // Reduced for faster testing
-    });
-    
-    const result = optimizer.solve(students, tables, partnershipHistory, {});
-    
-    console.log("Result:", result);
-    console.log("Best Score:", optimizer.bestScore);
-    console.log("Move Stats:", optimizer.moveStats);
-    
-    // Verify all students are placed
-    let placedCount = 0;
-    for (const tableStudents of Object.values(result)) {
-        placedCount += tableStudents.filter(s => s !== null).length;
+  const results = [];
+  const check = (name, fn) => {
+    try {
+      fn();
+      results.push({ name, ok: true });
+    } catch (e) {
+      results.push({ name, ok: false, detail: e.message });
     }
-    console.log(`✓ Placed ${placedCount}/${students.length} students`);
-}
+  };
+  const assert = (cond, msg) => {
+    if (!cond) throw new Error(msg);
+  };
 
-function test2_lockedStudents() {
-    const students = [
-        {id: 1}, {id: 2}, {id: 3}, {id: 4},
-        {id: 5}, {id: 6}, {id: 7}, {id: 8}
-    ];
-    
-    const tables = {
-        "table1": new Array(4).fill(null),
-        "table2": new Array(4).fill(null)
-    };
-    
-    const optimizer = new SimulatedAnnealingOptimizer({
-        maxIterations: 20  // Minimal iterations for locked student test
+  // --- fixture helpers (editor shapes) ---
+  const makeStudents = (count) =>
+    Array.from({ length: count }, (_, i) => ({
+      id: i + 1,
+      first_name: `S${i + 1}`,
+      last_name: `L${i + 1}`,
+    }));
+  const makeLayout = (tableCount, seatsPerTable) => ({
+    tables: Array.from({ length: tableCount }, (_, t) => ({
+      id: 100 + t,
+      table_number: t + 1,
+      seats: Array.from({ length: seatsPerTable }, (_, s) => ({
+        seat_number: s + 1,
+      })),
+    })),
+  });
+  // pairs: [[id, id, times]] -> backend partnership_data shape (date arrays)
+  const makeHistory = (pairs) => {
+    const h = {};
+    pairs.forEach(([a, b, times]) => {
+      const dates = Array.from({ length: times || 1 }, (_, k) => `2024-0${k + 1}-01`);
+      [
+        [a, b],
+        [b, a],
+      ].forEach(([x, y]) => {
+        if (!h[String(x)]) h[String(x)] = { partnerships: {} };
+        h[String(x)].partnerships[String(y)] = dates;
+      });
     });
-    
-    // Lock students 1 and 5 in specific positions (using correct key names)
-    optimizer.setConstraints({
-        lockedSeats: {
-            1: "table1-0",  // Student 1 locked to table1, seat 0
-            5: "table2-2"   // Student 5 locked to table2, seat 2
-        },
-        doNotPair: []
+    return h;
+  };
+  // ratings: [[id, id, rating]] -> symmetric grid like the backend emits
+  const makeRatings = (list) => {
+    const grid = {};
+    list.forEach(([a, b, r]) => {
+      [
+        [a, b],
+        [b, a],
+      ].forEach(([x, y]) => {
+        if (!grid[String(x)]) grid[String(x)] = { ratings: {} };
+        grid[String(x)].ratings[String(y)] = r;
+      });
     });
-    
-    const result = optimizer.solve(students, tables, {}, {});
-    
-    // Verify locked students didn't move
-    const student1Position = result["table1"][0];
-    const student5Position = result["table2"][2];
-    
-    console.log(`✓ Student 1 in correct position: ${student1Position === 1}`);
-    console.log(`✓ Student 5 in correct position: ${student5Position === 5}`);
-    console.log("Table arrangement:", result);
-}
+    return { grid };
+  };
+  const seatedPairs = (assignments) => {
+    const pairs = [];
+    Object.values(assignments).forEach((seatMap) => {
+      const members = Object.values(seatMap).map(Number);
+      for (let i = 0; i < members.length; i++)
+        for (let j = i + 1; j < members.length; j++)
+          pairs.push([members[i], members[j]].sort((x, y) => x - y));
+    });
+    return pairs;
+  };
+  const opt = (over) => new SeatingOptimizer(Object.assign({ seed: 42, timeBudgetMs: 800 }, over));
 
-function test3_doNotPair() {
-    const students = [
-        {id: 1}, {id: 2}, {id: 3}, {id: 4},
-        {id: 5}, {id: 6}, {id: 7}, {id: 8}
-    ];
-    
-    const tables = {
-        "table1": new Array(4).fill(null),
-        "table2": new Array(4).fill(null)
-    };
-    
-    const optimizer = new SimulatedAnnealingOptimizer({
-        maxIterations: 200  // Reduced for faster testing
+  check("places every pool student, editor output shape", () => {
+    const res = opt().optimize({}, makeStudents(8), makeLayout(2, 4), {});
+    assert(res.ok, `expected ok, got: ${res.error}`);
+    const seated = Object.values(res.assignments).flatMap((m) => Object.values(m));
+    assert(seated.length === 8, `expected 8 seated, got ${seated.length}`);
+    assert(new Set(seated).size === 8, "duplicate student in output");
+    Object.entries(res.assignments).forEach(([tid, seatMap]) => {
+      assert(typeof tid === "string", "table key must be string");
+      Object.keys(seatMap).forEach((sn) =>
+        assert(typeof sn === "string", "seat key must be string")
+      );
     });
-    
-    // Students 1 and 2 cannot sit together, 3 and 4 cannot sit together
-    optimizer.setConstraints({
-        lockedSeats: {},
-        doNotPair: [[1, 2], [3, 4]]
-    });
-    
-    const result = optimizer.solve(students, tables, {}, {});
-    
-    // Verify constraints are respected
-    let violations = 0;
-    for (const [tableId, students] of Object.entries(result)) {
-        const tableStudents = students.filter(s => s !== null);
-        
-        // Check if 1 and 2 are at same table
-        if (tableStudents.includes(1) && tableStudents.includes(2)) {
-            console.log("❌ Violation: Students 1 and 2 at same table!");
-            violations++;
-        }
-        
-        // Check if 3 and 4 are at same table
-        if (tableStudents.includes(3) && tableStudents.includes(4)) {
-            console.log("❌ Violation: Students 3 and 4 at same table!");
-            violations++;
-        }
+    assert(res.stats.placed === 8, "stats.placed wrong");
+  });
+
+  check("locked students keep their exact seats", () => {
+    const current = { 100: { 2: 1 }, 101: { 3: 5 } };
+    const res = opt().optimize(current, makeStudents(8), makeLayout(2, 4), {});
+    assert(res.ok, `expected ok, got: ${res.error}`);
+    assert(res.assignments["100"]["2"] === 1, "student 1 moved from table 100 seat 2");
+    assert(res.assignments["101"]["3"] === 5, "student 5 moved from table 101 seat 3");
+  });
+
+  check("-2 pairs never share a table (10 seeds)", () => {
+    const ratings = makeRatings([
+      [1, 2, -2],
+      [3, 4, -2],
+      [5, 6, -2],
+    ]);
+    for (let seed = 1; seed <= 10; seed++) {
+      const res = opt({ seed }).optimize({}, makeStudents(12), makeLayout(3, 4), {
+        partnershipRatings: ratings,
+      });
+      assert(res.ok, `seed ${seed}: ${res.error}`);
+      seatedPairs(res.assignments).forEach(([a, b]) => {
+        assert(
+          !((a === 1 && b === 2) || (a === 3 && b === 4) || (a === 5 && b === 6)),
+          `seed ${seed}: -2 pair ${a},${b} co-seated`
+        );
+      });
     }
-    
-    console.log(`✓ Do-not-pair constraints respected: ${violations === 0}`);
-    console.log("Table arrangement:", result);
-}
+  });
 
-function test4_combinedConstraints() {
-    const students = Array.from({length: 12}, (_, i) => ({id: i + 1}));
-    
-    const tables = {
-        "table1": new Array(4).fill(null),
-        "table2": new Array(4).fill(null),
-        "table3": new Array(4).fill(null)
-    };
-    
-    const optimizer = new SimulatedAnnealingOptimizer({
-        maxIterations: 50  // Minimal iterations for combined constraints test
+  check("deactivated seats stay empty", () => {
+    const deactivated = new Set(["100-1", "101-4"]);
+    const res = opt().optimize({}, makeStudents(6), makeLayout(2, 4), {
+      deactivatedSeats: deactivated,
     });
-    
-    // Complex constraints
-    optimizer.setConstraints({
-        lockedSeats: {
-            1: "table1-0",  // Lock student 1
-            6: "table2-1"   // Lock student 6
-        },
-        doNotPair: [
-            [2, 3],  // 2 and 3 cannot sit together
-            [4, 5],  // 4 and 5 cannot sit together
-            [7, 8]   // 7 and 8 cannot sit together
-        ]
+    assert(res.ok, `expected ok, got: ${res.error}`);
+    assert(!(res.assignments["100"] || {})["1"], "deactivated seat 100-1 was filled");
+    assert(!(res.assignments["101"] || {})["4"], "deactivated seat 101-4 was filled");
+  });
+
+  check("finds a zero-repeat chart when one exists (certificate)", () => {
+    // Prior chart paired (1,2) (3,4) (5,6) (7,8); splitting odds/evens fixes it
+    const history = makeHistory([
+      [1, 2, 1],
+      [3, 4, 1],
+      [5, 6, 1],
+      [7, 8, 1],
+    ]);
+    const res = opt().optimize({}, makeStudents(8), makeLayout(2, 4), {
+      partnershipHistory: history,
     });
-    
-    const ratings = {
-        grid: {
-            "9": {ratings: {"10": 2}},   // 9 and 10 prefer to sit together
-            "10": {ratings: {"9": 2}}
+    assert(res.ok, `expected ok, got: ${res.error}`);
+    assert(res.stats.repeatPairs === 0, `expected 0 repeats, got ${res.stats.repeatPairs}`);
+    assert(res.stats.provablyOptimal === true, "0 repeats should be provably optimal");
+  });
+
+  check("matches brute-force optimum (6 students, 2 tables of 3)", () => {
+    const history = makeHistory([
+      [1, 2, 3],
+      [1, 3, 1],
+      [2, 3, 1],
+      [4, 5, 2],
+      [1, 4, 1],
+    ]);
+    const counts = { "1-2": 3, "1-3": 1, "2-3": 1, "4-5": 2, "1-4": 1 };
+    // Enumerate all 3-of-6 groupings, find true minimum repeat-pair count
+    let minH = Infinity;
+    const students = [1, 2, 3, 4, 5, 6];
+    for (let a = 0; a < 6; a++)
+      for (let b = a + 1; b < 6; b++)
+        for (let c = b + 1; c < 6; c++) {
+          const g1 = [students[a], students[b], students[c]];
+          const g2 = students.filter((s) => !g1.includes(s));
+          let h = 0;
+          [g1, g2].forEach((g) => {
+            for (let i = 0; i < 3; i++)
+              for (let j = i + 1; j < 3; j++) {
+                const key = [g[i], g[j]].sort((x, y) => x - y).join("-");
+                if (counts[key]) h++;
+              }
+          });
+          minH = Math.min(minH, h);
         }
-    };
-    
-    const result = optimizer.solve(students, tables, {}, ratings);
-    
-    console.log("✓ Complex constraints test complete");
-    console.log("Table arrangement:", result);
-    console.log("Move statistics:", optimizer.moveStats);
-}
-
-function test5_moveStrategies() {
-    const students = Array.from({length: 16}, (_, i) => ({id: i + 1}));
-    
-    const tables = {
-        "table1": new Array(4).fill(null),
-        "table2": new Array(4).fill(null),
-        "table3": new Array(4).fill(null),
-        "table4": new Array(4).fill(null)
-    };
-    
-    const optimizer = new SimulatedAnnealingOptimizer({
-        maxIterations: 200  // Reduced for faster testing
+    const res = opt().optimize({}, makeStudents(6), makeLayout(2, 3), {
+      partnershipHistory: history,
     });
-    
-    const result = optimizer.solve(students, tables, {}, {});
-    
-    const stats = optimizer.moveStats;
-    const total = stats.swap.attempts + stats.relocation.attempts + stats.threeCycle.attempts;
-    
-    console.log("Move Strategy Distribution:");
-    console.log(`  Swaps: ${stats.swap.attempts} attempts, ${stats.swap.successes} successful (${(stats.swap.attempts/total*100).toFixed(1)}%)`);
-    console.log(`  Relocations: ${stats.relocation.attempts} attempts, ${stats.relocation.successes} successful (${(stats.relocation.attempts/total*100).toFixed(1)}%)`);
-    console.log(`  3-Cycles: ${stats.threeCycle.attempts} attempts, ${stats.threeCycle.successes} successful (${(stats.threeCycle.attempts/total*100).toFixed(1)}%)`);
-    
-    // Verify distribution is roughly 50/30/20
-    const swapPercent = stats.swap.attempts / total;
-    const relocPercent = stats.relocation.attempts / total;
-    const cyclePercent = stats.threeCycle.attempts / total;
-    
-    console.log(`✓ Strategy distribution reasonable: ${Math.abs(swapPercent - 0.5) < 0.1 && Math.abs(relocPercent - 0.3) < 0.1}`);
+    assert(res.ok, `expected ok, got: ${res.error}`);
+    assert(
+      res.stats.repeatPairs === minH,
+      `optimizer got ${res.stats.repeatPairs} repeats, brute-force optimum is ${minH}`
+    );
+  });
+
+  check("a +2 rating cannot buy a repeat pairing (default policy)", () => {
+    // 1&2 sat together AND are rated +2; a 0-repeat chart exists -> they separate
+    const history = makeHistory([[1, 2, 2]]);
+    const ratings = makeRatings([[1, 2, 2]]);
+    const res = opt().optimize({}, makeStudents(8), makeLayout(2, 4), {
+      partnershipHistory: history,
+      partnershipRatings: ratings,
+    });
+    assert(res.ok, `expected ok, got: ${res.error}`);
+    assert(res.stats.repeatPairs === 0, "repeat pairing bought by +2 rating");
+  });
+
+  check("+2 pairs sit together when history is clean", () => {
+    const ratings = makeRatings([[1, 2, 2]]);
+    const res = opt().optimize({}, makeStudents(8), makeLayout(2, 4), {
+      partnershipRatings: ratings,
+    });
+    assert(res.ok, `expected ok, got: ${res.error}`);
+    const together = seatedPairs(res.assignments).some(([a, b]) => a === 1 && b === 2);
+    assert(together, "+2 pair was not seated together despite no history");
+  });
+
+  check("locked -2 conflict is reported, not silently accepted", () => {
+    const current = { 100: { 1: 1, 2: 2 } };
+    const ratings = makeRatings([[1, 2, -2]]);
+    const res = opt().optimize(current, makeStudents(6), makeLayout(2, 4), {
+      partnershipRatings: ratings,
+    });
+    assert(res.ok === false, "expected ok:false");
+    assert(res.conflicts && res.conflicts.length === 1, "expected 1 named conflict");
+    assert(res.conflicts[0].tableId === "100", "conflict table wrong");
+  });
+
+  check("capacity shortfall is an error, not a silent drop", () => {
+    const res = opt().optimize({}, makeStudents(9), makeLayout(2, 4), {});
+    assert(res.ok === false, "expected ok:false for 9 students / 8 seats");
+    assert(/Not enough open seats/.test(res.error), `unexpected error: ${res.error}`);
+  });
+
+  check("same seed reproduces the identical chart", () => {
+    const history = makeHistory([
+      [1, 2, 1],
+      [3, 4, 2],
+    ]);
+    const run = () =>
+      opt({ seed: 7 }).optimize({}, makeStudents(10), makeLayout(3, 4), {
+        partnershipHistory: history,
+      });
+    const a = run();
+    const b = run();
+    assert(a.ok && b.ok, "runs failed");
+    assert(JSON.stringify(a.assignments) === JSON.stringify(b.assignments), "seeded runs differ");
+  });
+
+  check("impossible -2 web reports unplaced instead of dropping", () => {
+    // Student 1 is -2 with everyone; tables of 2 force a partner
+    const ratings = makeRatings([
+      [1, 2, -2],
+      [1, 3, -2],
+      [1, 4, -2],
+    ]);
+    const res = opt().optimize({}, makeStudents(4), makeLayout(2, 2), {
+      partnershipRatings: ratings,
+    });
+    // Feasible: 1 alone is impossible (2 tables x 2 seats, 4 students) -> must fail loudly
+    assert(res.ok === false, "expected ok:false");
+    assert(res.unplaced && res.unplaced.length > 0, "expected unplaced report");
+  });
+
+  const passed = results.filter((r) => r.ok).length;
+  const failed = results.length - passed;
+  results.forEach((r) =>
+    console.log(`${r.ok ? "PASS" : "FAIL"}  ${r.name}${r.detail ? " -- " + r.detail : ""}`)
+  );
+  console.log(`\n${passed}/${results.length} tests passed`);
+  return { passed, failed, results };
 }
 
-// Run tests immediately when file loads (comment out for production)
-console.log("SeatingOptimizer.js loaded. To test, call runOptimizerTests() in console.");
-// Export test function to global scope for easy testing
+// Export to browser and Node
 if (typeof window !== "undefined") {
+  window.SeatingOptimizer = SeatingOptimizer;
   window.runOptimizerTests = runOptimizerTests;
+  console.log("SeatingOptimizer module loaded (least-repeat-pairings optimizer)");
 }
+/* eslint-disable no-undef */
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = { SeatingOptimizer, runOptimizerTests };
+  if (require.main === module) {
+    const { failed } = runOptimizerTests();
+    process.exit(failed > 0 ? 1 : 0);
+  }
+}
+/* eslint-enable no-undef */

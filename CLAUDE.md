@@ -694,6 +694,7 @@ Frontend auto-detects environment via hostname (pinto.local uses current origin 
 - **Shift+click** any seat: Toggle deactivation (red/blocked)
 - **Drag & Drop**: Move students between seats or back to pool
 - **Auto button**: Fill all empty seats based on selected mode (disabled in Smart Pair)
+- **Optimize button**: Fill all empty seats minimizing repeat partnerships (seated students stay; -2 ratings enforced)
 - **Highlight buttons**: Normal/Gender/Previous modes
 - **Partnership Ratings button**: Opens grid for teacher preferences
 - **Click Timer**: Uses React.useRef for single/double click differentiation
@@ -726,57 +727,46 @@ Frontend auto-detects environment via hostname (pinto.local uses current origin 
   - Colors: gray (#6b7280), purple (#667eea), green (#10b981), red for danger
   - display: inline-flex with alignItems: center and gap: 6px for icon+text
 
-## Seating Optimizer (Phase 1 Complete - Paused)
+## Seating Optimizer (issue #7 - implemented)
 
-**Status**: Phase 1 implementation complete with performance optimizations. Ready for Phase 2 integration.
+`frontend/seating/SeatingOptimizer.js` fills the empty active seats of a chart
+with pool students so the number of **repeat pairings** (pairs at the same
+table who already sat together in a completed tracked period) is minimized.
+Wired into SeatingEditor via the **Optimize** button below Auto (one undo
+entry via addToHistory; alert shows the repeat count and any conflicts).
 
-### Completed Work (Phase 1)
+**Algorithm**: multi-restart randomized greedy construction + steepest-descent
+local search (cross-table swaps/relocations) over table groups; seats are
+materialized at the end. Replaced the old simulated-annealing implementation.
 
-**Core Implementation**:
-- Created three new files without modifying existing code:
-  1. `SeatingOptimizer.js` - Full SimulatedAnnealingOptimizer implementation
-  2. `SeatingUtils.js` - Utility functions for partnership management  
-  3. `SeatingConstants.js` - Constants, presets, and configuration
-- Integrated into index.html with proper script loading order
-- Added test page at `/test_optimizer.html` with comprehensive test suite
-- Added URL routing in `student_project/urls.py`
+**Objective** (lexicographic - earlier tiers strictly dominate):
+1. H: count of co-seated repeat pairs (the primary goal)
+2. M: prior co-seatings beyond the first (prefer least-repeated when forced)
+3. S: soft ratings (-1 discouraged +40, +1 rewarded -25, +2 rewarded -60)
+4. B: table-size balance
+- `allowBestPairRepeats` config (default false): +2 ratings can never buy a
+  repeat pairing; pre-seating the pair is the teacher's override
+- H === 0 in the result is a proof of optimality (`stats.provablyOptimal`)
 
-**Key Features Implemented**:
-- Simulated Annealing algorithm with temperature-based acceptance (Metropolis criterion)
-- Multi-strategy neighbor generation (50% swap, 30% relocation, 20% three-cycle)
-- Hard constraint enforcement (locked seats, do-not-pair from -2 ratings)
-- Soft preference optimization (ratings, partnership history)
-- Data structure conversion between UI format and internal array format
-- Wrapper class for backward compatibility
+**Hard constraints** (by construction, never penalties):
+- Every student in `assignments` when optimize runs is LOCKED (exact seat kept)
+- -2 (Never Together) pairs never share a table
+- Deactivated seats are never filled
+- Infeasibility returns `{ok: false, error, conflicts?/unplaced?}` with names -
+  a violating chart or silent student drop is never produced
 
-**Performance Optimizations Applied**:
-- Default maxIterations: 500 (reduced from initial 10,000)
-- Neighbor generation attempts: 5 (reduced from 100)
-- Test-specific iterations: Test 1 (200), Test 2 (20), Test 3 (200), Test 4 (50), Test 5 (200)
-- Logging frequency: Every 100 iterations
-- All tests complete in under 2 seconds
-
-### Next Steps (Phase 2 - Not Started)
-
-**Phase 2: Integration with SeatingEditor**
-1. Add "Optimize" button to SeatingEditor toolbar
-2. Hook up optimizer to use current assignments, constraints, and history
-3. Add progress indicator during optimization
-4. Implement undo for optimization changes
-5. Add constraint configuration UI (lock seats, set do-not-pair)
-
-**Phase 3: Advanced Features** (Future)
-- Real-time preview of changes
-- Partial optimization (selected tables only)
-- Custom weight configuration
-- Save/load optimization presets
-- Optimization history and comparison
+**API**: `new SeatingOptimizer(config).optimize(assignments, students, layout,
+{partnershipHistory, partnershipRatings, deactivatedSeats})` -> editor-shape
+assignments + stats. Config: `seed` (reproducible output), `timeBudgetMs`
+(default 400), `allowBestPairRepeats`. Runs 10-100ms for typical classes.
 
 ### Testing
-Access test suite at: http://127.0.0.1:8000/test_optimizer.html
-- All tests validate core functionality
-- Tests run quickly with minimal iterations
-- Individual test buttons available for debugging
+- `node frontend/seating/SeatingOptimizer.js` - asserting suite (12 tests:
+  locked seats, -2 enforcement, deactivated seats, zero-repeat certificate,
+  brute-force optimality match, infeasibility reporting, seeded reproducibility)
+- Browser: http://127.0.0.1:8000/test_optimizer.html (same suite)
+- `SeatingUtils.js` / `SeatingConstants.js` predate the rewrite and are not
+  used by the optimizer
 
 ## Troubleshooting Guide
 

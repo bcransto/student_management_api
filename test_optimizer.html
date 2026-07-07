@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seating Optimizer Tests</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        max-width: 720px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+        color: #1f2937;
+      }
+      h1 {
+        font-size: 1.4rem;
+      }
+      button {
+        padding: 8px 16px;
+        font-size: 14px;
+        border: none;
+        border-radius: 6px;
+        background: #667eea;
+        color: white;
+        cursor: pointer;
+      }
+      button:hover {
+        background: #5a6fd6;
+      }
+      #summary {
+        margin: 1rem 0;
+        font-weight: 600;
+      }
+      #summary.pass {
+        color: #10b981;
+      }
+      #summary.fail {
+        color: #ef4444;
+      }
+      ul {
+        list-style: none;
+        padding: 0;
+      }
+      li {
+        padding: 6px 10px;
+        border-radius: 4px;
+        margin-bottom: 4px;
+        font-size: 14px;
+      }
+      li.pass {
+        background: #ecfdf5;
+        color: #065f46;
+      }
+      li.fail {
+        background: #fef2f2;
+        color: #991b1b;
+      }
+      .detail {
+        display: block;
+        font-size: 12px;
+        margin-top: 2px;
+        opacity: 0.8;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Seating Optimizer Test Suite</h1>
+    <p>
+      Asserting tests for the least-repeat-pairings optimizer
+      (<code>frontend/seating/SeatingOptimizer.js</code>): locked seats, -2
+      enforcement, deactivated seats, zero-repeat certificates, brute-force
+      optimality, infeasibility reporting, and seeded reproducibility.
+    </p>
+    <button id="run">Run Tests</button>
+    <div id="summary"></div>
+    <ul id="results"></ul>
+
+    <script src="/frontend/seating/SeatingOptimizer.js"></script>
+    <script>
+      document.getElementById("run").addEventListener("click", function () {
+        const { passed, failed, results } = window.runOptimizerTests();
+        const summary = document.getElementById("summary");
+        summary.textContent = `${passed}/${results.length} tests passed`;
+        summary.className = failed === 0 ? "pass" : "fail";
+        const list = document.getElementById("results");
+        list.innerHTML = "";
+        results.forEach(function (r) {
+          const li = document.createElement("li");
+          li.className = r.ok ? "pass" : "fail";
+          li.textContent = (r.ok ? "PASS  " : "FAIL  ") + r.name;
+          if (r.detail) {
+            const span = document.createElement("span");
+            span.className = "detail";
+            span.textContent = r.detail;
+            li.appendChild(span);
+          }
+          list.appendChild(li);
+        });
+      });
+    </script>
+  </body>
+</html>

@@ -878,7 +878,11 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
       if (partnershipHistory) {
         const targetData = partnershipHistory[String(targetStudentId)];
         if (targetData && targetData.partnerships) {
-          const partnershipCount = targetData.partnerships[String(candidate.id)];
+          // partnerships values are arrays of dates; length = times paired
+          const partnerDates = targetData.partnerships[String(candidate.id)];
+          const partnershipCount = Array.isArray(partnerDates)
+            ? partnerDates.length
+            : partnerDates || 0;
           if (partnershipCount) {
             // Recent pairings get higher weights (less likely to be selected)
             // Assuming most recent partnerships have higher counts
@@ -1330,6 +1334,67 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
     } else {
       alert("No students were placed!");
     }
+  };
+
+  // Handle Optimize: fill all empty seats minimizing repeat partnerships.
+  // Everyone currently seated is locked in place; only pool students are
+  // placed. Honors partnership ratings (-2 is a hard constraint).
+  const handleOptimize = () => {
+    if (!layout || !layout.tables) {
+      alert("No layout loaded!");
+      return;
+    }
+    if (!window.SeatingOptimizer) {
+      alert("Optimizer failed to load - refresh the page and try again.");
+      return;
+    }
+    const unassignedStudents = getUnassignedStudents();
+    if (unassignedStudents.length === 0) {
+      alert("No unassigned students available!");
+      return;
+    }
+
+    const optimizer = new window.SeatingOptimizer();
+    const result = optimizer.optimize(assignments, students, layout, {
+      partnershipHistory: partnershipHistory,
+      partnershipRatings: partnershipRatings,
+      deactivatedSeats: deactivatedSeats,
+    });
+
+    if (!result.ok) {
+      let message = result.error;
+      if (result.conflicts && result.conflicts.length > 0) {
+        message += "\n" + result.conflicts
+          .map((c) => `- ${c.student1} + ${c.student2} (table ${c.tableId})`)
+          .join("\n");
+      }
+      if (result.unplaced && result.unplaced.length > 0) {
+        message += "\nCould not place: " + result.unplaced.join(", ");
+      }
+      alert(message);
+      return;
+    }
+
+    const stats = result.stats;
+    addToHistory(
+      result.assignments,
+      `Optimize: seat ${stats.placed} students (${stats.repeatPairs} repeat pairings)`
+    );
+
+    let summary = `Seated ${stats.placed} students.\nRepeat pairings: ${stats.repeatPairs}`;
+    if (stats.provablyOptimal) {
+      summary += " - the best possible for this class!";
+    } else if (stats.repeatDetail.length > 0) {
+      const shown = stats.repeatDetail.slice(0, 8);
+      summary += ":\n" + shown
+        .map((d) => `- ${d.student1} + ${d.student2} (${d.timesPaired}x before)`)
+        .join("\n");
+      if (stats.repeatDetail.length > shown.length) {
+        summary += `\n...and ${stats.repeatDetail.length - shown.length} more`;
+      }
+    }
+    console.log(`Optimize: ${stats.repeatPairs} repeat pairings, ${stats.restarts} restarts, ${stats.ms}ms, seed ${stats.seed}`);
+    alert(summary);
   };
 
   // Handle layout selection from modal
@@ -2926,6 +2991,22 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
                 },
                 React.createElement("i", { className: "fas fa-magic", style: { fontSize: "10px" } }),
                 fillMode === "smartPair" ? " Auto (Disabled)" : " Auto"
+              ),
+              // Optimize button - fills empty seats minimizing repeat partnerships
+              React.createElement(
+                "button",
+                {
+                  className: "btn btn-sm btn-primary",
+                  style: {
+                    width: "100%",
+                    fontSize: "12px",
+                    marginTop: "0.5rem"
+                  },
+                  onClick: handleOptimize,
+                  title: "Fill empty seats with the fewest repeat partnerships (seated students stay put; honors ratings)"
+                },
+                React.createElement("i", { className: "fas fa-wand-magic-sparkles", style: { fontSize: "10px" } }),
+                " Optimize"
               )
             )
           ),
