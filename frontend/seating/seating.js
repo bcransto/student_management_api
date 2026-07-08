@@ -327,11 +327,11 @@ const Seating = ({ data, navigateTo, initialView, classId, periodId }) => {
     // Header
     React.createElement(
       "div",
-      { className: "seating-header" },
-      React.createElement("h2", null, "Seating Charts"),
+      { className: "page-header" },
+      React.createElement("h1", { className: "page-title" }, "Seating Charts"),
       React.createElement(
         "p",
-        { className: "seating-subtitle" },
+        { className: "page-subtitle" },
         "Create and manage seating arrangements for your classes"
       )
     ),
@@ -339,7 +339,7 @@ const Seating = ({ data, navigateTo, initialView, classId, periodId }) => {
     // Classes grid
     React.createElement(
       "div",
-      { className: "seating-classes-grid" },
+      { className: "list-grid" },
 
       classes.length === 0
         ? React.createElement(
@@ -358,17 +358,28 @@ const Seating = ({ data, navigateTo, initialView, classId, periodId }) => {
               "div",
               {
                 key: classItem.id,
-                className: "seating-class-card floating-card",
+                className: "list-card",
               },
 
               // Class info
               React.createElement(
                 "div",
-                { className: "seating-class-card-header" },
-                React.createElement("h3", null, classItem.name),
+                { className: "list-card-header" },
                 React.createElement(
-                  "span",
-                  { className: "seating-class-period" },
+                  "div",
+                  { className: "list-card-title" },
+                  React.createElement("i", { className: "fas fa-chair" }),
+                  classItem.name
+                )
+              ),
+
+              React.createElement(
+                "div",
+                { className: "list-card-meta" },
+                React.createElement(
+                  "div",
+                  null,
+                  React.createElement("i", { className: "fas fa-graduation-cap" }),
                   classItem.grade_level
                     ? `Grade ${classItem.grade_level}`
                     : classItem.subject || "N/A"
@@ -378,14 +389,11 @@ const Seating = ({ data, navigateTo, initialView, classId, periodId }) => {
               // Action buttons
               React.createElement(
                 "div",
-                {
-                  className: "seating-class-card-actions",
-                  style: { display: "flex", gap: "0.5rem", marginTop: "0.75rem" }
-                },
+                { className: "list-card-actions" },
                 React.createElement(
                   "button",
                   {
-                    className: "btn btn-sm btn-outline-primary",
+                    className: "btn btn-sm btn-ghost",
                     onClick: (e) => { e.stopPropagation(); handleViewChart(classItem.id); }
                   },
                   "View"
@@ -393,7 +401,7 @@ const Seating = ({ data, navigateTo, initialView, classId, periodId }) => {
                 React.createElement(
                   "button",
                   {
-                    className: "btn btn-sm btn-outline-secondary",
+                    className: "btn btn-sm btn-primary",
                     onClick: (e) => { e.stopPropagation(); handleEditChart(classItem.id); }
                   },
                   "Edit"
@@ -401,7 +409,7 @@ const Seating = ({ data, navigateTo, initialView, classId, periodId }) => {
                 React.createElement(
                   "button",
                   {
-                    className: "btn btn-sm btn-outline-success",
+                    className: "btn btn-sm btn-ghost",
                     onClick: (e) => { e.stopPropagation(); handleNewChart(classItem.id); }
                   },
                   "New"

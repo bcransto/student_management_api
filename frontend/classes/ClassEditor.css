@@ -109,54 +109,6 @@ textarea.form-input {
   border: 1px solid #86efac;
 }
 
-/* Buttons */
-.btn {
-  padding: 0.625rem 1.25rem;
-  border-radius: 8px;
-  font-size: 1rem;
-  font-weight: 600;
-  border: none;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  min-width: 120px;
-}
-
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn-primary {
-  background-color: #6366f1;
-  color: white;
-}
-
-.btn-primary:hover:not(:disabled) {
-  background-color: #4f46e5;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
-}
-
-.btn-secondary {
-  background-color: #6b7280;
-  color: white;
-}
-
-.btn-secondary:hover:not(:disabled) {
-  background-color: #4b5563;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(107, 114, 128, 0.2);
-}
-
-.btn-block {
-  width: 100%;
-  justify-content: center;
-}
-
 /* Mobile form actions */
 .form-actions-mobile {
   display: none;

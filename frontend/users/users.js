@@ -135,12 +135,12 @@
       // Header
       React.createElement(
         "div",
-        { className: "users-header" },
-        React.createElement("h2", null, "User Management"),
+        { className: "page-header-row" },
+        React.createElement("h1", { className: "page-title" }, "User Management"),
         React.createElement(
           "button",
-          { 
-            className: "btn btn-primary",
+          {
+            className: "btn btn-primary btn-lg",
             onClick: handleCreateUser
           },
           "Add New User"

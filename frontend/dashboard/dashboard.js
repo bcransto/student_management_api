@@ -7,21 +7,16 @@ const Dashboard = ({ data, navigateTo }) => {
   // Get formatDateLong from shared utils for dashboard date display
   const formatDate = window.SharedUtils.formatDateLong;
 
-  // Local state for data that needs to be fetched
-  const [students, setStudents] = React.useState(data?.students || []);
-  const [layouts, setLayouts] = React.useState(data?.layouts || []);
+  // Stat counts fetched from the lightweight stats endpoint (three COUNT
+  // queries server-side) instead of pulling the full student/layout lists
+  const [stats, setStats] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
 
-  // Fetch students and layouts for dashboard stats
   React.useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const [studentsRes, layoutsRes] = await Promise.all([
-          window.ApiModule.request('/students/'),
-          window.ApiModule.request('/layouts/')
-        ]);
-        setStudents(studentsRes.results || studentsRes || []);
-        setLayouts(layoutsRes.results || layoutsRes || []);
+        const statsRes = await window.ApiModule.request('/dashboard/stats/');
+        setStats(statsRes);
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
       } finally {
@@ -38,11 +33,10 @@ const Dashboard = ({ data, navigateTo }) => {
 
   // Add null checks and default to empty arrays
   const classesArray = Array.isArray(classes) ? classes : [];
-  const studentsArray = Array.isArray(students) ? students : [];
-  const layoutsArray = Array.isArray(layouts) ? layouts : [];
 
   const totalEnrollment = classesArray.reduce((sum, cls) => sum + (cls.current_enrollment || 0), 0);
-  const activeStudents = studentsArray.filter((s) => s.is_active).length;
+  const activeStudents = stats?.active_students || 0;
+  const layoutCount = stats?.layouts || 0;
 
   // Get recent classes (last 5)
   const recentClasses = [...classesArray]
@@ -148,7 +142,7 @@ const Dashboard = ({ data, navigateTo }) => {
         React.createElement(
           "div",
           { className: "dashboard-stat-content" },
-          React.createElement("div", { className: "dashboard-stat-value" }, layoutsArray.length),
+          React.createElement("div", { className: "dashboard-stat-value" }, layoutCount),
           React.createElement("div", { className: "dashboard-stat-label" }, "Classroom Layouts")
         )
       )
@@ -165,7 +159,7 @@ const Dashboard = ({ data, navigateTo }) => {
         React.createElement(
           "button",
           {
-            className: "btn btn-secondary",
+            className: "btn btn-sm btn-ghost",
             onClick: () => nav?.toClasses ? nav.toClasses() : navigateTo("classes"),
           },
           React.createElement("i", { className: "fas fa-arrow-right" }),
@@ -182,7 +176,7 @@ const Dashboard = ({ data, navigateTo }) => {
                 "div",
                 {
                   key: cls.id,
-                  className: "recent-class-card",
+                  className: "list-card recent-class-card",
                   onClick: () => nav?.toClassView ? nav.toClassView(cls.id) : navigateTo("classes", { action: "view", classId: cls.id }),
                 },
                 React.createElement(

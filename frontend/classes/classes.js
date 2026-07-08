@@ -72,10 +72,10 @@ const Classes = ({ data, refreshData, navigateTo, currentParams }) => {
     // Page Header with New Class button
     React.createElement(
       "div",
-      { className: "classes-header" },
+      { className: "page-header-row" },
       React.createElement(
         "div",
-        { className: "classes-header-content" },
+        { className: "page-header" },
         React.createElement("h1", { className: "page-title" }, "Classes"),
         React.createElement(
           "p",
@@ -86,7 +86,7 @@ const Classes = ({ data, refreshData, navigateTo, currentParams }) => {
       React.createElement(
         "button",
         {
-          className: "btn btn-primary btn-new-class",
+          className: "btn btn-primary btn-lg",
           onClick: handleNewClass,
         },
         React.createElement("i", { className: "fas fa-plus" }),
@@ -97,101 +97,90 @@ const Classes = ({ data, refreshData, navigateTo, currentParams }) => {
     // Classes Grid
     React.createElement(
       "div",
-      { className: "classes-grid" },
+      { className: "list-grid" },
       classes.map((cls) => {
-        const enrollmentPercent = cls.max_enrollment 
+        const enrollmentPercent = cls.max_enrollment
           ? Math.round((cls.current_enrollment / cls.max_enrollment) * 100)
           : 0;
-        
+
         return React.createElement(
           "div",
-          { 
-            key: cls.id, 
-            className: "classes-list-card",
+          {
+            key: cls.id,
+            className: "list-card classes-list-card",
             onClick: () => handleClassClick(cls),
             style: { cursor: "pointer" }
           },
           // Card Header
           React.createElement(
             "div",
-            { className: "classes-list-card-header" },
-            React.createElement("h3", { className: "classes-list-card-title" }, cls.name),
+            { className: "list-card-header" },
+            React.createElement(
+              "div",
+              { className: "list-card-title" },
+              React.createElement("i", { className: "fas fa-chalkboard-teacher" }),
+              cls.name
+            ),
             React.createElement(
               "span",
-              { className: `classes-list-card-badge ${cls.subject ? cls.subject.toLowerCase().replace(/\s+/g, '-') : ''}` },
+              { className: "badge badge-info" },
               cls.subject || "General"
             )
           ),
-          
-          // Card Body
+
+          cls.description && React.createElement(
+            "p",
+            { className: "classes-list-card-description" },
+            cls.description
+          ),
+
+          // Class Info rows
           React.createElement(
             "div",
-            { className: "classes-list-card-body" },
-            cls.description && React.createElement(
-              "p",
-              { className: "classes-list-card-description" },
-              cls.description
-            ),
-            
-            // Class Info Grid
+            { className: "list-card-meta" },
+            // Grade Level
             React.createElement(
               "div",
-              { className: "class-info-grid" },
-              // Grade Level
-              React.createElement(
-                "div",
-                { className: "class-info-item" },
-                React.createElement("i", { className: "fas fa-graduation-cap" }),
-                React.createElement(
-                  "div",
-                  null,
-                  React.createElement("span", { className: "class-info-label" }, "Grade"),
-                  React.createElement("span", { className: "class-info-value" }, cls.grade_level || "N/A")
-                )
-              ),
-              
-              // Enrollment
-              React.createElement(
-                "div",
-                { className: "class-info-item" },
-                React.createElement("i", { className: "fas fa-users" }),
-                React.createElement(
-                  "div",
-                  null,
-                  React.createElement("span", { className: "class-info-label" }, "Students"),
-                  React.createElement(
-                    "span",
-                    { className: "class-info-value" },
-                    cls.current_enrollment || 0,
-                    cls.max_enrollment && ` / ${cls.max_enrollment}`
-                  )
-                )
-              ),
-              
-              // Layout Status
-              // Layout field removed - layouts are selected per seating period
+              null,
+              React.createElement("i", { className: "fas fa-graduation-cap" }),
+              React.createElement("span", null, " Grade ", cls.grade_level || "N/A")
             ),
-            
-            // Enrollment Progress Bar (if max_enrollment is set)
-            cls.max_enrollment && React.createElement(
+
+            // Enrollment
+            React.createElement(
               "div",
-              { className: "class-enrollment-progress" },
-              React.createElement(
-                "div",
-                { className: "class-enrollment-bar" },
-                React.createElement(
-                  "div",
-                  {
-                    className: "class-enrollment-fill",
-                    style: { width: `${enrollmentPercent}%` }
-                  }
-                )
-              ),
+              null,
+              React.createElement("i", { className: "fas fa-users" }),
               React.createElement(
                 "span",
-                { className: "class-enrollment-text" },
-                `${enrollmentPercent}% Full`
+                null,
+                " ",
+                cls.current_enrollment || 0,
+                cls.max_enrollment ? ` / ${cls.max_enrollment}` : "",
+                " Students"
               )
+            )
+          ),
+
+          // Enrollment Progress Bar (if max_enrollment is set)
+          cls.max_enrollment && React.createElement(
+            "div",
+            { className: "class-enrollment-progress" },
+            React.createElement(
+              "div",
+              { className: "class-enrollment-bar" },
+              React.createElement(
+                "div",
+                {
+                  className: "class-enrollment-fill",
+                  style: { width: `${enrollmentPercent}%` }
+                }
+              )
+            ),
+            React.createElement(
+              "span",
+              { className: "class-enrollment-text" },
+              `${enrollmentPercent}% Full`
             )
           )
         );
@@ -353,33 +342,15 @@ const ClassView = ({ classId, data, navigateTo }) => {
     React.createElement(
       "div",
       {
-        style: {
-          marginBottom: "20px",
-          padding: "0 20px",
-          display: "flex",
-          alignItems: "center",
-          gap: "10px",
-          flexWrap: "wrap"
-        }
+        className: "toolbar",
+        style: { padding: "0 20px" }
       },
       // Back button
       React.createElement(
         "button",
         {
           onClick: handleBack,
-          style: {
-            padding: "6px 12px",
-            backgroundColor: "#6b7280",
-            color: "white",
-            border: "none",
-            borderRadius: "6px",
-            cursor: "pointer",
-            fontSize: "14px",
-            fontWeight: "500",
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "6px"
-          }
+          className: "btn btn-secondary"
         },
         React.createElement("i", { className: "fas fa-arrow-left" }),
         " Back"
@@ -395,19 +366,7 @@ const ClassView = ({ classId, data, navigateTo }) => {
               window.location.hash = `#classes/edit/${classId}`;
             }
           },
-          style: {
-            padding: "6px 12px",
-            backgroundColor: "#667eea",
-            color: "white",
-            border: "none",
-            borderRadius: "6px",
-            cursor: "pointer",
-            fontSize: "14px",
-            fontWeight: "500",
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "6px"
-          }
+          className: "btn btn-primary"
         },
         React.createElement("i", { className: "fas fa-edit" }),
         " Edit"
@@ -425,19 +384,7 @@ const ClassView = ({ classId, data, navigateTo }) => {
               window.location.hash = Router?.buildHash ? Router.buildHash('classAddStudents', {id: classId}) : `#classes/${classId}/add-students`;
             }
           },
-          style: {
-            padding: "6px 12px",
-            backgroundColor: "#10b981",
-            color: "white",
-            border: "none",
-            borderRadius: "6px",
-            cursor: "pointer",
-            fontSize: "14px",
-            fontWeight: "500",
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "6px"
-          }
+          className: "btn btn-success"
         },
         React.createElement("i", { className: "fas fa-user-plus" }),
         " Add Students"
@@ -522,8 +469,7 @@ const ClassView = ({ classId, data, navigateTo }) => {
                       e.stopPropagation();
                       handleUnenroll(entry);
                     },
-                    title: "Unenroll student",
-                    style: { padding: "4px 8px", fontSize: "12px" }
+                    title: "Unenroll student"
                   },
                   React.createElement("i", { className: "fas fa-user-minus" }),
                   " Unenroll"

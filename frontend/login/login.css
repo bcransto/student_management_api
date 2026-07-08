@@ -212,7 +212,7 @@
    SUBMIT BUTTON
    ========================================================================== */
 
-.btn.btn-primary {
+.login-container .btn.btn-primary {
   width: 100%;
   padding: 1rem 2rem;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -232,7 +232,7 @@
   overflow: hidden;
 }
 
-.btn.btn-primary::before {
+.login-container .btn.btn-primary::before {
   content: "";
   position: absolute;
   top: 0;
@@ -244,28 +244,28 @@
   transition: opacity 0.3s ease;
 }
 
-.btn.btn-primary:hover:not(:disabled) {
+.login-container .btn.btn-primary:hover:not(:disabled) {
   transform: translateY(-2px);
   box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
 }
 
-.btn.btn-primary:hover:not(:disabled)::before {
+.login-container .btn.btn-primary:hover:not(:disabled)::before {
   opacity: 1;
 }
 
-.btn.btn-primary:active:not(:disabled) {
+.login-container .btn.btn-primary:active:not(:disabled) {
   transform: translateY(0);
 }
 
-.btn.btn-primary:disabled {
+.login-container .btn.btn-primary:disabled {
   cursor: not-allowed;
   opacity: 0.7;
   transform: none;
 }
 
-.btn.btn-primary i,
-.btn.btn-primary .spinner,
-.btn.btn-primary span {
+.login-container .btn.btn-primary i,
+.login-container .btn.btn-primary .spinner,
+.login-container .btn.btn-primary span {
   position: relative;
   z-index: 1;
 }
@@ -336,7 +336,7 @@
     padding: 0.75rem 1rem;
   }
 
-  .btn.btn-primary {
+  .login-container .btn.btn-primary {
     padding: 0.875rem 1.5rem;
     font-size: 1rem;
   }

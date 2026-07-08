@@ -201,7 +201,7 @@ const PasswordResetConfirm = ({ uid, token, onSuccess }) => {
           "button",
           {
             type: "submit",
-            className: "btn btn-primary",
+            className: "btn btn-primary btn-block",
             disabled: loading,
             style: { width: "100%" }
           },
@@ -237,7 +237,7 @@ const PasswordResetConfirm = ({ uid, token, onSuccess }) => {
               window.location.hash = "";
               window.location.reload();
             },
-            className: "btn btn-primary",
+            className: "btn btn-primary btn-block",
             style: { display: "inline-block", textDecoration: "none" }
           },
           "Return to Login"

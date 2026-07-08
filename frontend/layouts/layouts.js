@@ -125,21 +125,21 @@ const Layouts = ({ data, navigateTo }) => {
     // Header
     React.createElement(
       "div",
-      { className: "layouts-header" },
+      { className: "page-header-row" },
       React.createElement(
         "div",
-        { className: "layouts-header-content" },
-        React.createElement("h2", null, "Classroom Layouts"),
+        { className: "page-header" },
+        React.createElement("h1", { className: "page-title" }, "Classroom Layouts"),
         React.createElement(
           "p",
-          { className: "layouts-subtitle" },
+          { className: "page-subtitle" },
           "Design and manage physical classroom configurations"
         )
       ),
       React.createElement(
         "button",
         {
-          className: "btn btn-primary",
+          className: "btn btn-primary btn-lg",
           onClick: handleNewLayout,
         },
         React.createElement("i", { className: "fas fa-plus" }),
@@ -150,7 +150,7 @@ const Layouts = ({ data, navigateTo }) => {
     // Layouts grid
     React.createElement(
       "div",
-      { className: "layouts-list" },
+      { className: "list-grid" },
 
       layouts.length === 0
         ? React.createElement(
@@ -177,62 +177,68 @@ const Layouts = ({ data, navigateTo }) => {
                 "div",
                 {
                   key: layout.id,
-                  className: "layout-card",
+                  className: "list-card layout-card",
                   style: { cursor: "pointer" },
                   onClick: () => handleEditLayout(layout.id, layout.name),
                 },
 
-                // Layout info
+                // Header: title + badges
                 React.createElement(
                   "div",
-                  { className: "layout-card-info" },
-                  React.createElement("h3", { className: "layout-card-title" }, layout.name),
-                  layout.description &&
-                    React.createElement(
-                      "p",
-                      { className: "layout-card-description" },
-                      layout.description
-                    ),
+                  { className: "list-card-header" },
                   React.createElement(
                     "div",
-                    { className: "layout-card-meta" },
+                    { className: "list-card-title" },
+                    React.createElement("i", { className: "fas fa-th-large" }),
+                    layout.name
+                  ),
+                  React.createElement(
+                    "div",
+                    { className: "layout-card-badges" },
+                    layout.is_default &&
+                      React.createElement("span", { className: "badge badge-info" }, "DEFAULT"),
                     React.createElement(
                       "span",
-                      { className: "layout-meta-item" },
-                      React.createElement("i", { className: "fas fa-expand" }),
-                      `${layout.room_width}×${layout.room_height} grid`
-                    ),
-                    React.createElement(
-                      "span",
-                      { className: "layout-meta-item" },
-                      React.createElement("i", { className: "fas fa-th" }),
-                      `${layout.table_count || 0} tables`
-                    ),
-                    React.createElement(
-                      "span",
-                      { className: "layout-meta-item" },
-                      React.createElement("i", { className: "fas fa-users" }),
-                      `${layout.total_capacity || 0} seats`
+                      {
+                        className: `badge ${layout.used_by_classes > 0 ? "badge-success" : "badge-neutral"}`,
+                      },
+                      layout.used_by_classes > 0
+                        ? `Used by ${layout.used_by_classes} ${
+                            layout.used_by_classes === 1 ? "class" : "classes"
+                          }`
+                        : "Not in use"
                     )
                   )
                 ),
 
-                // Status badges
+                layout.description &&
+                  React.createElement(
+                    "p",
+                    { className: "layout-card-description" },
+                    layout.description
+                  ),
+
+                // Meta rows
                 React.createElement(
                   "div",
-                  { className: "layout-card-badges" },
-                  layout.is_default &&
-                    React.createElement("span", { className: "layout-badge default" }, "DEFAULT"),
+                  { className: "list-card-meta" },
                   React.createElement(
-                    "span",
-                    {
-                      className: `layout-badge ${layout.used_by_classes > 0 ? "in-use" : "unused"}`,
-                    },
-                    layout.used_by_classes > 0
-                      ? `Used by ${layout.used_by_classes} ${
-                          layout.used_by_classes === 1 ? "class" : "classes"
-                        }`
-                      : "Not in use"
+                    "div",
+                    null,
+                    React.createElement("i", { className: "fas fa-expand" }),
+                    `${layout.room_width}×${layout.room_height} grid`
+                  ),
+                  React.createElement(
+                    "div",
+                    null,
+                    React.createElement("i", { className: "fas fa-th" }),
+                    `${layout.table_count || 0} tables`
+                  ),
+                  React.createElement(
+                    "div",
+                    null,
+                    React.createElement("i", { className: "fas fa-users" }),
+                    `${layout.total_capacity || 0} seats`
                   )
                 ),
 
@@ -251,12 +257,12 @@ const Layouts = ({ data, navigateTo }) => {
                     React.createElement(
                       "button",
                       {
-                        className: "action-icon-btn delete",
+                        className: "btn btn-sm btn-ghost layout-delete-btn",
                         onClick: (e) => {
                           e.stopPropagation();
                           handleDeleteLayout(layout.id, layout.name);
                         },
-                        "data-tooltip": "Delete Layout",
+                        title: "Delete Layout",
                         style: { marginLeft: "auto" }
                       },
                       React.createElement("i", { className: "fas fa-trash" })

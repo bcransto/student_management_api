@@ -75,133 +75,128 @@ const Attendance = ({ data, refreshData, navigateTo, currentParams }) => {
     // Page Header
     React.createElement(
       "div",
-      { className: "attendance-header" },
+      { className: "page-header" },
+      React.createElement("h1", { className: "page-title" }, "Attendance"),
       React.createElement(
-        "div",
-        { className: "attendance-header-content" },
-        React.createElement("h1", { className: "page-title" }, "Attendance"),
-        React.createElement(
-          "p",
-          { className: "page-subtitle" },
-          `Take attendance for ${today}`
-        )
+        "p",
+        { className: "page-subtitle" },
+        `Take attendance for ${today}`
       )
     ),
 
     // Classes Grid
     React.createElement(
       "div",
-      { className: "attendance-grid" },
+      { className: "list-grid" },
       classes.map((cls) => {
         return React.createElement(
           "div",
-          { 
-            key: cls.id, 
-            className: "attendance-card",
+          {
+            key: cls.id,
+            className: "list-card",
             onClick: () => handleClassClick(cls),
             style: { cursor: "pointer" }
           },
           // Card Header
           React.createElement(
             "div",
-            { className: "attendance-card-header" },
-            React.createElement("h3", { className: "attendance-card-title" }, cls.name),
+            { className: "list-card-header" },
+            React.createElement(
+              "div",
+              { className: "list-card-title" },
+              React.createElement("i", { className: "fas fa-clipboard-check" }),
+              cls.name
+            ),
             React.createElement(
               "span",
-              { className: `attendance-card-badge ${cls.subject ? cls.subject.toLowerCase().replace(/\s+/g, '-') : ''}` },
+              { className: "badge badge-info" },
               cls.subject || "General"
             )
           ),
-          
-          // Card Body
+
+          // Class Info
           React.createElement(
             "div",
-            { className: "attendance-card-body" },
-            
-            // Class Info
+            { className: "list-card-meta" },
+
+            // Grade Level
             React.createElement(
               "div",
-              { className: "attendance-info-grid" },
-              
-              // Grade Level
+              null,
+              React.createElement("i", { className: "fas fa-graduation-cap" }),
               React.createElement(
-                "div",
-                { className: "attendance-info-item" },
-                React.createElement("i", { className: "fas fa-graduation-cap" }),
-                React.createElement(
-                  "span",
-                  null,
-                  " Grade ",
-                  cls.grade_level || "N/A"
-                )
-              ),
-              
-              // Enrollment Count
-              React.createElement(
-                "div",
-                { className: "attendance-info-item" },
-                React.createElement("i", { className: "fas fa-users" }),
-                React.createElement(
-                  "span",
-                  null,
-                  " ",
-                  cls.current_enrollment || 0,
-                  " Students"
-                )
+                "span",
+                null,
+                " Grade ",
+                cls.grade_level || "N/A"
               )
             ),
-            
-            // Attendance Action Buttons
+
+            // Enrollment Count
             React.createElement(
               "div",
-              { className: "attendance-card-footer" },
-              // List Mode Button
+              null,
+              React.createElement("i", { className: "fas fa-users" }),
               React.createElement(
-                "button",
-                { 
-                  className: "attendance-action-btn attendance-list-mode",
-                  onClick: (e) => {
-                    e.stopPropagation();
-                    handleClassClick(cls);
-                  },
-                  title: "Take attendance (list view)"
+                "span",
+                null,
+                " ",
+                cls.current_enrollment || 0,
+                " Students"
+              )
+            )
+          ),
+
+          // Attendance Action Buttons
+          React.createElement(
+            "div",
+            { className: "list-card-actions" },
+            // List Mode Button
+            React.createElement(
+              "button",
+              {
+                className: "btn btn-sm btn-primary",
+                onClick: (e) => {
+                  e.stopPropagation();
+                  handleClassClick(cls);
                 },
-                React.createElement("i", { className: "fas fa-list" }),
-                React.createElement(
-                  "span",
-                  null,
-                  " List Mode"
-                )
-              ),
-              // Visual Mode Button
+                title: "Take attendance (list view)"
+              },
+              React.createElement("i", { className: "fas fa-list" }),
               React.createElement(
-                "button",
-                { 
-                  className: "attendance-action-btn attendance-visual-mode",
-                  onClick: (e) => handleVisualMode(e, cls),
-                  title: "Take attendance (visual seating view)"
-                },
-                React.createElement("i", { className: "fas fa-th" }),
-                React.createElement(
-                  "span",
-                  null,
-                  " Visual Mode"
-                )
-              ),
-              // Report Button
+                "span",
+                null,
+                " List Mode"
+              )
+            ),
+            // Visual Mode Button
+            React.createElement(
+              "button",
+              {
+                className: "btn btn-sm btn-ghost",
+                onClick: (e) => handleVisualMode(e, cls),
+                title: "Take attendance (visual seating view)"
+              },
+              React.createElement("i", { className: "fas fa-th" }),
               React.createElement(
-                "button",
-                { 
-                  className: "attendance-action-btn attendance-report-mode",
-                  onClick: (e) => handleReportMode(e, cls),
-                  title: "View attendance report"
-                },
-                React.createElement("i", { className: "fas fa-chart-bar" }),
-                React.createElement(
-                  "span",
-                  null,
-                  " Report"
-                )
+                "span",
+                null,
+                " Visual Mode"
+              )
+            ),
+            // Report Button
+            React.createElement(
+              "button",
+              {
+                className: "btn btn-sm btn-ghost",
+                onClick: (e) => handleReportMode(e, cls),
+                title: "View attendance report"
+              },
+              React.createElement("i", { className: "fas fa-chart-bar" }),
+              React.createElement(
+                "span",
+                null,
+                " Report"
               )
             )
           )

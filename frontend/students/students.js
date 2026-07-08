@@ -92,14 +92,9 @@ const Students = ({ data, navigateTo, apiModule }) => {
     React.createElement(
       "div",
       {
-        className: "students-search-container",
+        className: "students-search-container toolbar",
         style: {
-          marginBottom: "20px",
-          padding: "0 20px",
-          display: "flex",
-          alignItems: "center",
-          gap: "12px",
-          flexWrap: "wrap"
+          padding: "0 20px"
         }
       },
       React.createElement("input", {
@@ -119,22 +114,7 @@ const Students = ({ data, navigateTo, apiModule }) => {
         "button",
         {
           onClick: handleAddStudent,
-          style: {
-            padding: "8px 16px",
-            backgroundColor: "#667eea",
-            color: "white",
-            border: "none",
-            borderRadius: "6px",
-            cursor: "pointer",
-            fontSize: "14px",
-            fontWeight: "500",
-            display: "flex",
-            alignItems: "center",
-            gap: "6px",
-            transition: "background-color 0.2s ease"
-          },
-          onMouseOver: (e) => e.target.style.backgroundColor = "#5a6fd6",
-          onMouseOut: (e) => e.target.style.backgroundColor = "#667eea"
+          className: "btn btn-primary"
         },
         React.createElement("i", { className: "fas fa-plus" }),
         "Add Student"
@@ -143,22 +123,7 @@ const Students = ({ data, navigateTo, apiModule }) => {
         "button",
         {
           onClick: () => setWorkspaceModalOpen(true),
-          style: {
-            padding: "8px 16px",
-            backgroundColor: "#10b981",
-            color: "white",
-            border: "none",
-            borderRadius: "6px",
-            cursor: "pointer",
-            fontSize: "14px",
-            fontWeight: "500",
-            display: "flex",
-            alignItems: "center",
-            gap: "6px",
-            transition: "background-color 0.2s ease"
-          },
-          onMouseOver: (e) => e.target.style.backgroundColor = "#059669",
-          onMouseOut: (e) => e.target.style.backgroundColor = "#10b981"
+          className: "btn btn-success"
         },
         React.createElement("i", { className: "fab fa-google" }),
         "Import from Workspace"
@@ -167,22 +132,7 @@ const Students = ({ data, navigateTo, apiModule }) => {
         "button",
         {
           onClick: () => setBulkUpdateModalOpen(true),
-          style: {
-            padding: "8px 16px",
-            backgroundColor: "#6b7280",
-            color: "white",
-            border: "none",
-            borderRadius: "6px",
-            cursor: "pointer",
-            fontSize: "14px",
-            fontWeight: "500",
-            display: "flex",
-            alignItems: "center",
-            gap: "6px",
-            transition: "background-color 0.2s ease"
-          },
-          onMouseOver: (e) => e.target.style.backgroundColor = "#4b5563",
-          onMouseOut: (e) => e.target.style.backgroundColor = "#6b7280"
+          className: "btn btn-secondary"
         },
         React.createElement("i", { className: "fas fa-file-csv" }),
         "Bulk Update"
