@@ -37,7 +37,13 @@ if PRODUCTION:
         "100.75.94.59",
         "localhost",
         "127.0.0.1",
+        "student-management.938752.xyz",
     ]
+    # Cloudflare tunnel terminates TLS and forwards plain HTTP with
+    # X-Forwarded-Proto: https; without this, build_absolute_uri() would
+    # generate http:// OAuth redirect URIs that Google rejects
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    CSRF_TRUSTED_ORIGINS = ["https://student-management.938752.xyz"]
 else:
     ALLOWED_HOSTS = ["localhost", "127.0.0.1", "*"]
 
