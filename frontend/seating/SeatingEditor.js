@@ -2538,6 +2538,12 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
           "button",
           {
             onClick: () => {
+              if (
+                hasUnsavedChanges &&
+                !window.confirm("You have unsaved changes. Do you want to continue without saving?")
+              ) {
+                return;
+              }
               if (onBack) {
                 onBack();
               }

@@ -228,6 +228,16 @@ const ClassStudentManager = ({ classId, navigateTo }) => {
     }
   };
 
+  // Closes the Google import modal. If an import already completed, return
+  // to the class view (roster refetch happens naturally on that view)
+  // instead of reloading the whole page.
+  const closeGoogleModal = () => {
+    setGoogleModalOpen(false);
+    if (importResult) {
+      handleBack();
+    }
+  };
+
   const handleToggleStudent = (studentId) => {
     const newSelected = new Set(selectedStudents);
     if (newSelected.has(studentId)) {
@@ -705,8 +715,7 @@ const ClassStudentManager = ({ classId, navigateTo }) => {
         },
         onClick: (e) => {
           if (e.target === e.currentTarget && !googleLoading) {
-            setGoogleModalOpen(false);
-            if (importResult) window.location.reload();
+            closeGoogleModal();
           }
         }
       },
@@ -745,10 +754,7 @@ const ClassStudentManager = ({ classId, navigateTo }) => {
           React.createElement(
             "button",
             {
-              onClick: () => {
-                setGoogleModalOpen(false);
-                if (importResult) window.location.reload();
-              },
+              onClick: closeGoogleModal,
               style: {
                 border: "none",
                 background: "none",
@@ -825,7 +831,7 @@ const ClassStudentManager = ({ classId, navigateTo }) => {
             {
               className: "btn btn-primary",
               style: { width: "100%" },
-              onClick: () => window.location.reload()
+              onClick: handleBack
             },
             "Done"
           )
