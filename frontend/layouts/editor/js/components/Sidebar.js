@@ -6,6 +6,7 @@ const Sidebar = ({
   setSelectedTool,
   onSave,
   onDelete,
+  onBack,
   showGrid,
   setShowGrid,
   selectedItem,
@@ -33,6 +34,23 @@ const Sidebar = ({
     fontWeight: 'bold',
     color: '#1f2937',
     marginBottom: '16px'
+  };
+
+  // Back button style
+  const backButtonStyle = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
+    padding: '6px 12px',
+    fontSize: '14px',
+    fontWeight: '500',
+    color: '#6b7280',
+    backgroundColor: '#f9fafb',
+    border: '1px solid #e5e7eb',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    marginBottom: '12px',
+    outline: 'none'
   };
 
   // Label style
@@ -148,11 +166,26 @@ const Sidebar = ({
   return React.createElement(
     "div",
     { style: sidebarStyle },
-    
+
     // Header
     React.createElement(
       "div",
       { style: headerStyle },
+      // Back to Layouts button
+      React.createElement(
+        "button",
+        {
+          onClick: onBack,
+          style: backButtonStyle,
+          onMouseEnter: (e) => {
+            e.target.style.backgroundColor = '#f3f4f6';
+          },
+          onMouseLeave: (e) => {
+            e.target.style.backgroundColor = '#f9fafb';
+          }
+        },
+        "← Back to Layouts"
+      ),
       React.createElement(
         "h2",
         { style: titleStyle },

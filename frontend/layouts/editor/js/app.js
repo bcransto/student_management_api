@@ -6,6 +6,16 @@ const LayoutEditor = () => {
   const [loading, setLoading] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
 
+  // Dirty tracking: snapshot of the last-saved/loaded layout, used to detect
+  // unsaved changes for the beforeunload warning and the Back button.
+  const savedSnapshotRef = useRef(null);
+  const leavingIntentionallyRef = useRef(false);
+
+  const isDirty = () => {
+    if (savedSnapshotRef.current === null) return false;
+    return JSON.stringify(layout) !== savedSnapshotRef.current;
+  };
+
   // Load layout from URL parameter
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -13,8 +23,26 @@ const LayoutEditor = () => {
 
     if (layoutId) {
       loadLayout(layoutId);
+    } else {
+      // New layout - baseline snapshot is the initial default state
+      savedSnapshotRef.current = JSON.stringify(layout);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Warn before closing/reloading the tab (also covers browser back, since
+  // this editor is a full page navigation rather than an SPA route).
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (leavingIntentionallyRef.current) return;
+      if (!isDirty()) return;
+      e.preventDefault();
+      e.returnValue = "";
+      return "";
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  });
 
   const loadLayout = async (layoutId) => {
     try {
@@ -23,7 +51,7 @@ const LayoutEditor = () => {
       const layoutData = await ApiHelper.request(`/layouts/${layoutId}/`);
       console.log("Layout data received:", layoutData);
 
-      setLayout({
+      const loadedLayout = {
         id: layoutData.id,
         name: layoutData.name,
         description: layoutData.description || "",
@@ -52,7 +80,10 @@ const LayoutEditor = () => {
           height: obstacle.height,
           color: obstacle.color,
         })),
-      });
+      };
+
+      setLayout(loadedLayout);
+      savedSnapshotRef.current = JSON.stringify(loadedLayout);
 
       console.log("Layout state set successfully");
       document.title = `Edit Layout: ${layoutData.name}`;
@@ -110,12 +141,17 @@ const LayoutEditor = () => {
           method: "PUT",
           body: JSON.stringify(apiLayout),
         });
+        // No fields change locally beyond what's already in `layout` -
+        // the current state is now the saved state.
+        savedSnapshotRef.current = JSON.stringify(layout);
       } else {
         savedLayout = await ApiHelper.request("/layouts/create_from_editor/", {
           method: "POST",
           body: JSON.stringify(apiLayout),
         });
-        setLayout((prev) => ({ ...prev, id: savedLayout.id }));
+        const updatedLayout = { ...layout, id: savedLayout.id };
+        setLayout(updatedLayout);
+        savedSnapshotRef.current = JSON.stringify(updatedLayout);
       }
 
       alert(layout.id ? "✅ Layout updated successfully!" : "✅ Layout created successfully!");
@@ -144,7 +180,9 @@ const LayoutEditor = () => {
         method: "DELETE",
       });
       alert("✅ Layout deleted successfully!");
-      // Redirect to layouts page after deletion
+      // Redirect to layouts page after deletion (intentional navigation,
+      // so don't let the beforeunload handler prompt on the way out)
+      leavingIntentionallyRef.current = true;
       window.location.href = "/#layouts";
     } catch (error) {
       console.error("Delete error:", error);
@@ -152,6 +190,18 @@ const LayoutEditor = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleBack = () => {
+    if (isDirty()) {
+      const confirmLeave = confirm("You have unsaved changes. Leave without saving?");
+      if (!confirmLeave) {
+        return;
+      }
+    }
+    // Intentional navigation - suppress the beforeunload prompt
+    leavingIntentionallyRef.current = true;
+    window.location.href = "/#layouts";
   };
 
   // Loading state
@@ -203,7 +253,7 @@ const LayoutEditor = () => {
   console.log("Rendering with layout:", layout);
   console.log("Tables count:", layout.tables.length);
   console.log("Loading state:", loading);
-  
+
   return React.createElement(
     "div",
     {
@@ -216,6 +266,7 @@ const LayoutEditor = () => {
     React.createElement(Sidebar, {
       layout,
       setLayout,
+      onBack: handleBack,
       selectedTool,
       setSelectedTool,
       onSave: handleSave,

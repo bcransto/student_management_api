@@ -4,7 +4,7 @@
 const Layouts = ({ data, navigateTo }) => {
   // Use NavigationService if available, fallback to navigateTo prop
   const nav = window.NavigationService || null;
-  
+
   // Get formatDateLong from shared utils for layouts date display
   const formatDate = window.SharedUtils.formatDateLong;
 
@@ -15,6 +15,21 @@ const Layouts = ({ data, navigateTo }) => {
   React.useEffect(() => {
     console.log("Layouts component mounted");
     fetchLayouts();
+  }, []);
+
+  // Refetch when restored from the browser back-forward cache (bfcache) -
+  // e.g. navigating back from the layout editor after a save leaves this
+  // page's data stale otherwise, since bfcache restores it without re-running
+  // the mount effect.
+  React.useEffect(() => {
+    const handlePageShow = (event) => {
+      if (event.persisted) {
+        console.log("Layouts page restored from bfcache - refetching");
+        fetchLayouts();
+      }
+    };
+    window.addEventListener("pageshow", handlePageShow);
+    return () => window.removeEventListener("pageshow", handlePageShow);
   }, []);
 
   const fetchLayouts = async () => {
