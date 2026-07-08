@@ -56,6 +56,9 @@ urlpatterns = [
     path("password-reset/confirm/", password_reset.password_reset_confirm, name="password_reset_confirm"),
     path("password-reset/validate/", password_reset.password_reset_validate, name="password_reset_validate"),
     
+    # Dashboard stat counts (cheap COUNTs, no list payloads)
+    path("dashboard/stats/", views.dashboard_stats, name="dashboard_stats"),
+
     # API endpoints
     path("", include(router.urls)),
 ]

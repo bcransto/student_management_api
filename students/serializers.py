@@ -397,9 +397,17 @@ class StudentSerializer(serializers.ModelSerializer):
 
 class ClassListSerializer(serializers.ModelSerializer):
     """Lightweight serializer for class list view - no roster, periods, or assignments"""
+
+    # Reads the ClassViewSet list queryset's student_count annotation; named
+    # current_enrollment to match the detail serializer's field. The source
+    # alias also keeps the model property (which fires its own COUNT query)
+    # from shadowing the annotation.
+    current_enrollment = serializers.IntegerField(source="student_count", read_only=True)
+
     class Meta:
         model = Class
-        fields = ["id", "name", "subject", "grade_level", "description"]
+        fields = ["id", "name", "subject", "grade_level", "description",
+                  "current_enrollment", "updated_at"]
 
 
 class ClassSerializer(serializers.ModelSerializer):

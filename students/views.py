@@ -9,7 +9,7 @@ from django.http import HttpResponse
 from django.shortcuts import render
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import permissions, status, viewsets
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
@@ -449,9 +449,15 @@ class ClassViewSet(viewsets.ModelViewSet):
         # All users (including superusers) only see their own classes
         base_qs = Class.objects.filter(teacher=self.request.user)
 
-        # For list action, no need for heavy prefetching
+        # For list action, no heavy prefetching - just an efficient student
+        # count computed in the same query (the current_enrollment model
+        # property would otherwise fire a COUNT query per class)
         if self.action == 'list':
-            return base_qs
+            return base_qs.annotate(
+                student_count=models.Count(
+                    "roster", filter=models.Q(roster__is_active=True)
+                )
+            )
 
         # For detail/other actions, prefetch related data
         return base_qs.select_related(
@@ -897,6 +903,26 @@ class ClassRosterViewSet(viewsets.ModelViewSet):
         """Filter roster entries to only show those for user's classes"""
         # All users (including superusers) only see their own class rosters
         return ClassRoster.objects.filter(class_assigned__teacher=self.request.user)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def dashboard_stats(request):
+    """
+    Lightweight counts for the dashboard stat cards.
+
+    Replaces the frontend fetching the full /students/ and /layouts/ lists
+    just to count them - three COUNT queries instead of two full payloads.
+    Layout count mirrors ClassroomLayoutViewSet filtering (own, active only);
+    student counts are global to match the students list view.
+    """
+    return Response({
+        "active_students": Student.objects.filter(is_active=True).count(),
+        "total_students": Student.objects.count(),
+        "layouts": ClassroomLayout.objects.filter(
+            created_by=request.user, is_active=True
+        ).count(),
+    })
 
 
 # Layout ViewSets
