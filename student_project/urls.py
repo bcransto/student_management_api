@@ -22,6 +22,7 @@ from students.google_classroom_service import (
     google_test_directory,
     google_test_connection,
     google_disconnect,
+    google_status,
     create_test_assignment,
     test_fetch_assignment_details,
 )
@@ -105,6 +106,7 @@ urlpatterns = [
     path("api/google/create-test-assignment/", create_test_assignment, name="create_test_assignment"),
     path("api/google/test-assignment-details/", test_fetch_assignment_details, name="test_assignment_details"),
     path("api/google/disconnect/", google_disconnect, name="google_disconnect"),
+    path("api/google/status/", google_status, name="google_status"),
 
     # Single layout editor route - serves the frontend editor
     path("layout-editor/", lambda request: serve_frontend_file(request, "layouts/editor/index.html"), name="layout_editor"),

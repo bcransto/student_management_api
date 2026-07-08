@@ -29,7 +29,7 @@ const App = () => {
 
   // Navigation state - initialize from URL hash
   const getInitialView = () => {
-    const hash = window.location.hash.slice(1); // Remove the #
+    const hash = window.location.hash.slice(1).split("?")[0]; // Remove the # and any query marker (e.g. ?google=connected)
 
     // Check for password reset pattern
     if (hash.startsWith("password-reset/")) {
@@ -182,7 +182,7 @@ const App = () => {
 
   // Parse student ID from hash on initial load
   useEffect(() => {
-    const hash = window.location.hash.slice(1);
+    const hash = window.location.hash.slice(1).split("?")[0];
     if (hash === "students/new") {
       setEditingStudentId("new");
     } else if (hash.startsWith("students/edit/")) {
@@ -194,7 +194,7 @@ const App = () => {
   // Handle hash changes (browser back/forward)
   useEffect(() => {
     const handleHashChange = () => {
-      const hash = window.location.hash.slice(1);
+      const hash = window.location.hash.slice(1).split("?")[0]; // strip any query marker (e.g. ?google=connected)
 
       // Check for password reset pattern
       if (hash.startsWith("password-reset/")) {

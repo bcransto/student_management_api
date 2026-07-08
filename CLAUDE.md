@@ -348,8 +348,15 @@ await ApiModule.request('/api/endpoint/')   // ❌ Double /api/ prefix
 # local part, suffixed on collision); enrolls/reactivates roster entries.
 # Returns {total, created, enrolled, reenrolled, already_enrolled, skipped}
 
-# GET /api/google/disconnect/
-# Removes stored Google Classroom credentials
+# POST /api/google/disconnect/
+# JWT-authenticated. Removes stored Google Classroom credentials for
+# request.user (state-changing, so POST rather than GET)
+
+# GET /api/google/status/
+# JWT-authenticated. Cheap connection check - only reads the local
+# GoogleClassroomCredentials row, no Google API call. Never returns tokens.
+# {"connected": false} or
+# {"connected": true, "token_expiry": ..., "scopes": [...], "updated_at": ...}
 
 # --- Workspace directory import (Admin SDK, whole-cohort) ---
 # Needs admin.directory.user.readonly scope; readable by a normal teacher
@@ -638,7 +645,8 @@ Frontend auto-detects environment via hostname (pinto.local uses current origin 
 - `/api/google/import-directory-students/` - Bulk-create a cohort's students
 - `/api/students/bulk-update-info/` - Paste CSV/TSV to set nickname/gender
 - `/api/google/test/` - Test Google Classroom connection
-- `/api/google/disconnect/` - Remove Google credentials
+- `/api/google/disconnect/` - Remove Google credentials (POST, JWT-authenticated)
+- `/api/google/status/` - Cheap Google Classroom connection status (JWT-authenticated)
 - `/api/special-points/fetch/` - Proxy: get point totals from Cranston Commons
 - `/api/special-points/award/batch/` - Proxy: award/deduct points via Cranston Commons
 

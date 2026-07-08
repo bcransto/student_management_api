@@ -203,6 +203,21 @@ const ClassStudentManager = ({ classId, navigateTo }) => {
     }
   }, [classId]);
 
+  // After returning from the Google OAuth connect redirect, the backend
+  // appends "?google=connected" to the hash on success. Detect it, clean up
+  // the URL (no reload), and auto-reopen the import modal so the user isn't
+  // dumped back onto a closed modal after already granting access.
+  React.useEffect(() => {
+    if (window.location.hash.includes("google=connected")) {
+      const cleanHash = window.location.hash.split("?")[0];
+      window.history.replaceState(null, "", cleanHash);
+      openGoogleImport();
+    }
+    // Run once on mount - the marker is only ever present on initial load
+    // right after the OAuth redirect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleBack = () => {
     if (nav?.toClassView) {
       nav.toClassView(classId);

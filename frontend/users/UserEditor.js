@@ -21,6 +21,12 @@
       is_active: true
     });
 
+    // Google Classroom connection status (own profile only)
+    const [googleStatus, setGoogleStatus] = React.useState(null);
+    const [googleStatusLoading, setGoogleStatusLoading] = React.useState(true);
+    const [googleActionLoading, setGoogleActionLoading] = React.useState(false);
+    const [googleActionError, setGoogleActionError] = React.useState(null);
+
     // Get current user info and load user data
     React.useEffect(() => {
       const loadUser = async () => {
@@ -81,6 +87,72 @@
 
       loadUser();
     }, [userId]);
+
+    // Only the current user can manage their own Google Classroom connection
+    const isOwnProfileForGoogle = userId === "me" || (currentUser && parseInt(userId) === currentUser.id);
+
+    const fetchGoogleStatus = async () => {
+      setGoogleStatusLoading(true);
+      try {
+        const response = await ApiModule.request("/google/status/", { method: "GET" });
+        setGoogleStatus(response);
+      } catch (err) {
+        console.error("Error fetching Google Classroom status:", err);
+        setGoogleStatus(null);
+      } finally {
+        setGoogleStatusLoading(false);
+      }
+    };
+
+    React.useEffect(() => {
+      if (isOwnProfileForGoogle) {
+        fetchGoogleStatus();
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isOwnProfileForGoogle]);
+
+    // If we just landed back here after a successful OAuth connect, the
+    // backend appended "?google=connected" to the hash - clean the URL and
+    // refresh the status so it reflects the new connection immediately.
+    React.useEffect(() => {
+      if (window.location.hash.includes("google=connected")) {
+        const cleanHash = window.location.hash.split("?")[0];
+        window.history.replaceState(null, "", cleanHash);
+        fetchGoogleStatus();
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    const connectGoogleClassroom = async () => {
+      setGoogleActionError(null);
+      try {
+        const response = await ApiModule.request(
+          `/google/oauth-url/?next=${encodeURIComponent("profile")}`,
+          { method: "GET" }
+        );
+        window.location.href = response.auth_url;
+      } catch (err) {
+        console.error("Error starting Google connection:", err);
+        setGoogleActionError("Failed to start Google connection.");
+      }
+    };
+
+    const disconnectGoogleClassroom = async () => {
+      if (!window.confirm("Disconnect Google Classroom? You'll need to reconnect to import rosters again.")) {
+        return;
+      }
+      setGoogleActionLoading(true);
+      setGoogleActionError(null);
+      try {
+        await ApiModule.request("/google/disconnect/", { method: "POST" });
+        await fetchGoogleStatus();
+      } catch (err) {
+        console.error("Error disconnecting Google Classroom:", err);
+        setGoogleActionError("Failed to disconnect Google Classroom.");
+      } finally {
+        setGoogleActionLoading(false);
+      }
+    };
 
     // Handle form submission
     const handleSubmit = async (e) => {
@@ -240,6 +312,85 @@
             isOwnProfile ? "Change My Password" : "Reset User Password"
           )
         ),
+
+        isOwnProfileForGoogle &&
+          React.createElement(
+            "div",
+            { className: "form-section" },
+            React.createElement("h3", null, "Google Classroom"),
+            googleActionError &&
+              React.createElement("div", { className: "error", style: { marginBottom: "10px" } }, googleActionError),
+            googleStatusLoading
+              ? React.createElement("p", null, "Checking connection...")
+              : React.createElement(
+                  "div",
+                  { style: { display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" } },
+                  React.createElement(
+                    "span",
+                    {
+                      style: {
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        fontWeight: 500,
+                        color: googleStatus?.connected ? "#059669" : "#6b7280",
+                      },
+                    },
+                    googleStatus?.connected ? "Connected" : "Not connected"
+                  ),
+                  googleStatus?.connected
+                    ? React.createElement(
+                        "button",
+                        {
+                          type: "button",
+                          disabled: googleActionLoading,
+                          onClick: disconnectGoogleClassroom,
+                          style: {
+                            padding: "6px 12px",
+                            fontSize: "14px",
+                            fontWeight: 500,
+                            borderRadius: "6px",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "6px",
+                            backgroundColor: "#ef4444",
+                            color: "white",
+                            border: "none",
+                            cursor: googleActionLoading ? "default" : "pointer",
+                          },
+                        },
+                        googleActionLoading ? "Disconnecting..." : "Disconnect"
+                      )
+                    : React.createElement(
+                        "button",
+                        {
+                          type: "button",
+                          onClick: connectGoogleClassroom,
+                          style: {
+                            padding: "6px 12px",
+                            fontSize: "14px",
+                            fontWeight: 500,
+                            borderRadius: "6px",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "6px",
+                            backgroundColor: "#667eea",
+                            color: "white",
+                            border: "none",
+                            cursor: "pointer",
+                          },
+                        },
+                        "Connect Google Classroom"
+                      )
+                ),
+            googleStatus?.connected &&
+              googleStatus?.token_expiry &&
+              React.createElement(
+                "p",
+                { style: { fontSize: "13px", color: "#6b7280", marginTop: "8px" } },
+                `Token expires: ${new Date(googleStatus.token_expiry).toLocaleString()}`
+              )
+          ),
 
         user && React.createElement(
           "div",

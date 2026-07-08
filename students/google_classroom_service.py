@@ -11,7 +11,6 @@ from googleapiclient.discovery import build
 from django.shortcuts import redirect
 from django.http import JsonResponse
 from django.urls import reverse
-from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import update_last_login
 from django.conf import settings
 from django.utils import timezone
@@ -240,9 +239,12 @@ def google_auth_callback(request):
 
         logger.info(f"Successfully connected Google Classroom for user {user.email}")
 
-        # Redirect back into the SPA where the user started
+        # Redirect back into the SPA where the user started. The
+        # ?google=connected marker lets the frontend know the connection just
+        # succeeded (e.g. to auto-reopen the import modal) without changing
+        # route-matching logic, which strips any trailing query string.
         next_hash = str(state_data.get('next') or 'dashboard').lstrip('#/')
-        return redirect(f"/#{next_hash}")
+        return redirect(f"/#{next_hash}?google=connected")
 
     except Exception as e:
         logger.error(f"Error in OAuth callback: {str(e)}")
@@ -390,11 +392,13 @@ def google_test_connection(request):
         }, status=500)
 
 
-@login_required
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
 def google_disconnect(request):
     """
-    Disconnect Google Classroom (remove stored credentials)
-    URL: /api/google/disconnect/
+    Disconnect Google Classroom (remove stored credentials) for the current
+    (JWT) user.
+    URL: /api/google/disconnect/ (POST - state-changing)
     """
     try:
         # Delete user's credentials
@@ -402,16 +406,40 @@ def google_disconnect(request):
 
         logger.info(f"Disconnected Google Classroom for user {request.user.email}")
 
-        return JsonResponse({
+        return Response({
             'status': 'disconnected',
             'message': 'Successfully disconnected from Google Classroom'
         })
     except Exception as e:
         logger.error(f"Error disconnecting: {str(e)}")
-        return JsonResponse({
+        return Response({
             'error': 'Failed to disconnect',
             'details': str(e)
         }, status=500)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def google_status(request):
+    """
+    Lightweight connection status for the current (JWT) user - only checks
+    the local GoogleClassroomCredentials row, never calls out to Google.
+    URL: /api/google/status/
+
+    Returns {"connected": false} or
+    {"connected": true, "token_expiry": ..., "scopes": [...], "updated_at": ...}
+    Never returns token values.
+    """
+    creds = GoogleClassroomCredentials.objects.filter(user=request.user).first()
+    if not creds:
+        return Response({"connected": False})
+
+    return Response({
+        "connected": True,
+        "token_expiry": creds.token_expiry,
+        "scopes": creds.scopes,
+        "updated_at": creds.updated_at,
+    })
 
 
 # ============================================================================

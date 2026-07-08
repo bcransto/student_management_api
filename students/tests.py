@@ -597,3 +597,65 @@ class GoogleDirectoryImportTests(TestCase):
         data = response.json()
         self.assertTrue(data["needs_reconnect"])
         self.assertIn("auth_url", data)
+
+
+class GoogleStatusAndDisconnectTests(TestCase):
+    """JWT-authenticated status + disconnect endpoints (issue #10)."""
+
+    def setUp(self):
+        self.teacher = make_user()
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.teacher)
+
+    def test_status_reports_not_connected(self):
+        response = self.client.get("/api/google/status/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"connected": False})
+
+    def test_status_reports_connected_with_metadata(self):
+        from students.models import GoogleClassroomCredentials
+
+        GoogleClassroomCredentials.objects.create(
+            user=self.teacher,
+            access_token="t", refresh_token="r",
+            token_expiry="2030-01-01T00:00:00Z",
+            scopes=["https://www.googleapis.com/auth/classroom.courses.readonly"],
+        )
+        response = self.client.get("/api/google/status/")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data["connected"])
+        self.assertIn("token_expiry", data)
+        self.assertIn("scopes", data)
+        self.assertNotIn("access_token", data)
+        self.assertNotIn("refresh_token", data)
+
+    def test_status_requires_authentication(self):
+        self.client.force_authenticate(user=None)
+        response = self.client.get("/api/google/status/")
+        self.assertEqual(response.status_code, 401)
+
+    def test_disconnect_removes_credentials(self):
+        from students.models import GoogleClassroomCredentials
+
+        GoogleClassroomCredentials.objects.create(
+            user=self.teacher,
+            access_token="t", refresh_token="r",
+            token_expiry="2030-01-01T00:00:00Z",
+            scopes=[],
+        )
+        response = self.client.post("/api/google/disconnect/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["status"], "disconnected")
+        self.assertFalse(
+            GoogleClassroomCredentials.objects.filter(user=self.teacher).exists()
+        )
+
+    def test_disconnect_requires_authentication(self):
+        self.client.force_authenticate(user=None)
+        response = self.client.post("/api/google/disconnect/")
+        self.assertEqual(response.status_code, 401)
+
+    def test_disconnect_rejects_get(self):
+        response = self.client.get("/api/google/disconnect/")
+        self.assertEqual(response.status_code, 405)
