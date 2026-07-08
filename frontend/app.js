@@ -21,6 +21,7 @@ const App = () => {
   
   // Authentication state
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
   
   // Force update counter to trigger re-renders
@@ -110,10 +111,17 @@ const App = () => {
   // Loading state
   const [isLoading, setIsLoading] = useState(false);
 
-  // Check authentication on mount
+  // Check authentication on mount - validate (and refresh if needed) the
+  // stored token BEFORE rendering the app, so an expired session goes
+  // straight to the login screen instead of flashing the dashboard
   useEffect(() => {
-    const token = window.AuthModule?.getToken();
-    if (token) {
+    const checkSession = async () => {
+      const valid = await window.AuthModule.ensureValidSession();
+      if (!valid) {
+        setIsAuthChecking(false);
+        return;
+      }
+
       setIsLoggedIn(true);
 
       // Get user info from the token
@@ -142,8 +150,34 @@ const App = () => {
         setCurrentUser("Teacher");
       }
 
+      setIsAuthChecking(false);
       fetchData();
-    }
+    };
+
+    checkSession();
+  }, []);
+
+  // Let AuthModule swap to the login view via state instead of reloading
+  // (covers mid-session auth failures surfaced by ApiModule's 401 handling)
+  useEffect(() => {
+    window.AuthModule.onLogout = () => {
+      setIsLoggedIn(false);
+      setIsAuthChecking(false);
+      setCurrentUser(null);
+      setCurrentView("dashboard");
+      window.location.hash = "";
+      setAppData({
+        classes: [],
+        students: [],
+        layouts: [],
+        periods: [],
+        assignments: [],
+        roster: [],
+      });
+    };
+    return () => {
+      window.AuthModule.onLogout = null;
+    };
   }, []);
 
   // Parse student ID from hash on initial load
@@ -283,8 +317,10 @@ const App = () => {
       });
     } catch (error) {
       console.error("Error fetching data:", error);
-      // Show user-friendly error message
-      alert("Unable to load data. Please check your connection and try again.");
+      // Auth failures already switch to the login view - no alert needed
+      if (error.message !== "Authentication failed") {
+        alert("Unable to load data. Please check your connection and try again.");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -316,22 +352,9 @@ const App = () => {
     fetchData();
   };
 
-  // Handle logout
+  // Handle logout (AuthModule.logout invokes onLogout, which resets state)
   const handleLogout = () => {
     window.AuthModule.logout();
-    setIsLoggedIn(false);
-    setCurrentUser(null);
-    setCurrentView("dashboard");
-    // Clear hash on logout
-    window.location.hash = "";
-    setAppData({
-      classes: [],
-      students: [],
-      layouts: [],
-      periods: [],
-      assignments: [],
-      roster: [],
-    });
   };
 
   // Handle navigation
@@ -662,6 +685,16 @@ const App = () => {
         }
       });
     }
+  }
+
+  // While validating/refreshing the stored session, show a brief spinner
+  // instead of optimistically rendering the dashboard
+  if (isAuthChecking) {
+    return React.createElement(
+      "div",
+      { className: "loading-container", style: { height: "100vh" } },
+      React.createElement("div", { className: "spinner" })
+    );
   }
 
   // Show login screen if not authenticated

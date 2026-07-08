@@ -43,6 +43,25 @@ const AuthModule = {
     return !!this.getToken();
   },
 
+  // Check whether a JWT is expired (30s buffer for clock skew)
+  isTokenExpired(token) {
+    const decoded = this.decodeToken(token);
+    if (!decoded || !decoded.exp) return true;
+    return decoded.exp * 1000 <= Date.now() + 30 * 1000;
+  },
+
+  // Validate the stored session before rendering the app.
+  // Returns true if the access token is usable (refreshing it if expired);
+  // clears tokens and returns false otherwise.
+  async ensureValidSession() {
+    const token = this.getToken();
+    if (!token) return false;
+    if (!this.isTokenExpired(token)) return true;
+
+    const result = await this.refreshToken();
+    return result.success;
+  },
+
   // Helper function to decode JWT token
   decodeToken(token) {
     try {
@@ -161,9 +180,15 @@ const AuthModule = {
   },
 
   // Logout function
+  // The app registers onLogout so the SPA can swap to the login view via
+  // state; the reload is only a fallback if no handler is registered.
   logout() {
     this.clearTokens();
-    window.location.reload();
+    if (typeof this.onLogout === "function") {
+      this.onLogout();
+    } else {
+      window.location.reload();
+    }
   },
 
   // Get headers for authenticated requests

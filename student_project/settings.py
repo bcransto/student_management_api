@@ -50,6 +50,9 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "rest_framework_simplejwt",
+    # Required for ROTATE_REFRESH_TOKENS / BLACKLIST_AFTER_ROTATION -
+    # without it /api/token/refresh/ 500s and silent re-login never works
+    "rest_framework_simplejwt.token_blacklist",
     "corsheaders",
     "django_filters",
     "students",
