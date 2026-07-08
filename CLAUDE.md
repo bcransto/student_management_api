@@ -580,12 +580,25 @@ CRANSTON_COMMONS_API_KEY=your-api-key-here
 
 ## Deployment to pinto (Production)
 
-Production runs on **pinto** (10.0.0.200), a local server accessible externally via Tailscale.
+Production runs on **pinto** (10.0.0.200), a local server accessible externally via Tailscale and publicly via a Cloudflare tunnel.
+
+**Public access (Cloudflare tunnel, set up 2026-07-08):**
+- Public URL: https://student-management.938752.xyz
+- Token-managed `cloudflared` service runs on pinto; public-hostname config
+  lives in the Cloudflare Zero Trust dashboard (not a local config file)
+- Origin service MUST be HTTP `localhost:1081` — an HTTPS origin causes 502s
+- **Google OAuth only works from this HTTPS origin** (Classroom/Workspace
+  connect and the Sign-In button) — Google rejects http/raw-IP redirect URIs,
+  so the Tailscale IP (100.75.94.59:1081) cannot do the OAuth connect
+- `settings.py` (commit 0b25f64) adds the tunnel domain to ALLOWED_HOSTS plus
+  SECURE_PROXY_SSL_HEADER and CSRF_TRUSTED_ORIGINS
 
 **Server setup:**
 - Gunicorn bound to `0.0.0.0:1081` with 2 workers
 - Managed by systemd: `student-management.service`
 - Env file: `/home/bcransto/student_management_api/.env` (`DJANGO_ENV=pi`)
+- Google OAuth needs `~/student_management_api/credentials.json` (not in git —
+  copy from local repo root if missing)
 - Static files served via `staticfiles/` (run `collectstatic` when static files change)
 
 **Deploy steps:**
