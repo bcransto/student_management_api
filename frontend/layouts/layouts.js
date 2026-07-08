@@ -195,8 +195,6 @@ const Layouts = ({ data, navigateTo }) => {
                   React.createElement(
                     "div",
                     { className: "layout-card-badges" },
-                    layout.is_default &&
-                      React.createElement("span", { className: "badge badge-info" }, "DEFAULT"),
                     React.createElement(
                       "span",
                       {
@@ -232,13 +230,13 @@ const Layouts = ({ data, navigateTo }) => {
                     "div",
                     null,
                     React.createElement("i", { className: "fas fa-th" }),
-                    `${layout.table_count || 0} tables`
+                    `${layout.table_count || 0} ${layout.table_count === 1 ? "table" : "tables"}`
                   ),
                   React.createElement(
                     "div",
                     null,
                     React.createElement("i", { className: "fas fa-users" }),
-                    `${layout.total_capacity || 0} seats`
+                    `${layout.seat_count || 0} ${layout.seat_count === 1 ? "seat" : "seats"}`
                   )
                 ),
 
@@ -252,8 +250,7 @@ const Layouts = ({ data, navigateTo }) => {
                     React.createElement("i", { className: "fas fa-calendar" }),
                     `Modified: ${formatDate(layout.updated_at)}`
                   ),
-                  !layout.is_default &&
-                    layout.used_by_classes === 0 &&
+                  (layout.used_by_classes || 0) === 0 &&
                     React.createElement(
                       "button",
                       {

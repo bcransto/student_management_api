@@ -181,6 +181,11 @@ class ClassroomLayoutSerializer(serializers.ModelSerializer):
     total_seats = serializers.ReadOnlyField()
     total_tables = serializers.ReadOnlyField()
     created_by_name = serializers.CharField(source="created_by.get_full_name", read_only=True)
+    # From the ClassroomLayoutViewSet queryset annotations; default=0 covers
+    # instances serialized outside that queryset (e.g. create_from_editor)
+    table_count = serializers.IntegerField(read_only=True, default=0)
+    seat_count = serializers.IntegerField(read_only=True, default=0)
+    used_by_classes = serializers.IntegerField(read_only=True, default=0)
 
     class Meta:
         model = ClassroomLayout
@@ -195,6 +200,9 @@ class ClassroomLayoutSerializer(serializers.ModelSerializer):
             "is_template",
             "total_seats",
             "total_tables",
+            "table_count",
+            "seat_count",
+            "used_by_classes",
             "tables",
             "obstacles",
             "created_at",

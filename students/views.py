@@ -971,9 +971,25 @@ class ClassroomLayoutViewSet(viewsets.ModelViewSet):
         """Filter layouts to show only those created by the current user"""
         # All users (including superusers) only see their own layouts
         # Filter out soft-deleted layouts
+        # Counts feed the layouts list cards: tables only count if students
+        # can sit there (>=1 seat; obstacles are a separate model), and
+        # used_by_classes counts distinct classes with any seating period
+        # (current or historical) on this layout. distinct=True on each
+        # Count is required - the three joins otherwise multiply rows.
         return ClassroomLayout.objects.filter(
             created_by=self.request.user,
             is_active=True
+        ).annotate(
+            table_count=models.Count(
+                "tables",
+                filter=models.Q(tables__seats__isnull=False),
+                distinct=True,
+            ),
+            seat_count=models.Count("tables__seats", distinct=True),
+            used_by_classes=models.Count(
+                "seating_periods_using_layout__class_assigned",
+                distinct=True,
+            ),
         )
 
     def perform_create(self, serializer):
