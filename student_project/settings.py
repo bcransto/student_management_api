@@ -334,6 +334,12 @@ LOGGING = {
     },
 }
 
+# Workspace directory sync (management command / daily timer on pinto).
+# Email of the Google-connected account whose stored OAuth credentials the
+# `sync_workspace_directory` command uses when no --user flag is passed. The
+# account must have connected Google with the Directory scope.
+DIRECTORY_SYNC_USER_EMAIL = os.environ.get("DIRECTORY_SYNC_USER_EMAIL", "")
+
 # Cranston Commons API (Special Points)
 CRANSTON_COMMONS_BASE_URL = os.environ.get(
     "CRANSTON_COMMONS_BASE_URL", "http://localhost:8002"

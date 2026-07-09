@@ -12,6 +12,13 @@ const Students = ({ data, navigateTo, apiModule }) => {
   const [bulkUpdateModalOpen, setBulkUpdateModalOpen] = React.useState(false);
   const [pickerOpen, setPickerOpen] = React.useState(false);
 
+  // Workspace directory "Sync now" state
+  const [lastSynced, setLastSynced] = React.useState(null);
+  const [syncing, setSyncing] = React.useState(false);
+  const [syncSummary, setSyncSummary] = React.useState(null);
+  const [syncError, setSyncError] = React.useState(null);
+  const [syncReconnectUrl, setSyncReconnectUrl] = React.useState(null);
+
   // Fetch (or re-fetch after imports/updates) the student list
   const loadStudents = async () => {
     try {
@@ -26,10 +33,58 @@ const Students = ({ data, navigateTo, apiModule }) => {
     }
   };
 
+  // Fetch when the directory sync last ran (cheap aggregate)
+  const loadLastSynced = async () => {
+    try {
+      const response = await window.ApiModule.request('/students/last-synced/');
+      setLastSynced(response.last_synced || null);
+    } catch (error) {
+      console.error("Error fetching last-synced:", error);
+    }
+  };
+
+  // "Sync now": pull the latest Workspace directory into the global list
+  const handleSyncNow = async () => {
+    setSyncing(true);
+    setSyncError(null);
+    setSyncSummary(null);
+    setSyncReconnectUrl(null);
+    try {
+      const response = await window.ApiModule.request('/google/sync-directory/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      if (response.needs_reconnect) {
+        setSyncReconnectUrl(response.auth_url);
+      } else {
+        setSyncSummary(response);
+        if (response.last_synced) setLastSynced(response.last_synced);
+        loadStudents();
+      }
+    } catch (err) {
+      console.error("Error running directory sync:", err);
+      setSyncError(err.message || "Directory sync failed.");
+      // A not-connected response carries auth_url in its body; surface a
+      // reconnect path the same way the Workspace import modal does.
+      try {
+        const oauthResponse = await window.ApiModule.request(
+          `/google/oauth-url/?next=${encodeURIComponent('students')}`,
+          { method: 'GET' }
+        );
+        setSyncReconnectUrl(oauthResponse.auth_url);
+      } catch (oauthErr) {
+        console.error("Error fetching oauth url:", oauthErr);
+      }
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   // Fetch students if not provided
   React.useEffect(() => {
-    if (students.length > 0) return; // Already have data
-    loadStudents();
+    if (students.length === 0) loadStudents();
+    loadLastSynced();
   }, []);
 
   // Handle student row click - navigate to edit view
@@ -137,6 +192,19 @@ const Students = ({ data, navigateTo, apiModule }) => {
         React.createElement("i", { className: "fas fa-file-csv" }),
         "Bulk Update"
       ),
+      React.createElement(
+        "button",
+        {
+          onClick: handleSyncNow,
+          disabled: syncing,
+          className: "btn btn-secondary",
+          title: "Pull the latest Google Workspace directory into the school list"
+        },
+        React.createElement("i", {
+          className: syncing ? "fas fa-sync fa-spin" : "fas fa-sync"
+        }),
+        syncing ? "Syncing..." : "Sync Now"
+      ),
       searchTerm && React.createElement(
         "span",
         {
@@ -147,6 +215,77 @@ const Students = ({ data, navigateTo, apiModule }) => {
           }
         },
         `Found ${filteredStudents.length} student${filteredStudents.length !== 1 ? 's' : ''}`
+      )
+    ),
+
+    // Last-synced line + sync result / error / reconnect banner
+    React.createElement(
+      "div",
+      { style: { padding: "0 20px", marginTop: "8px" } },
+      React.createElement(
+        "div",
+        { style: { color: "#6b7280", fontSize: "13px" } },
+        lastSynced
+          ? `Last synced: ${new Date(lastSynced).toLocaleString()}`
+          : "Never synced"
+      ),
+      syncSummary && React.createElement(
+        "div",
+        {
+          style: {
+            marginTop: "8px",
+            padding: "8px 12px",
+            backgroundColor: "#d1fae5",
+            border: "1px solid #6ee7b7",
+            borderRadius: "6px",
+            color: "#065f46",
+            fontSize: "13px"
+          }
+        },
+        `Sync complete: ${syncSummary.created} created, ${syncSummary.updated} updated, ` +
+          `${syncSummary.reactivated} reactivated, ${syncSummary.archived} archived` +
+          (syncSummary.skipped ? `, ${syncSummary.skipped} skipped` : "") +
+          (syncSummary.safety_valve_triggered
+            ? " (archiving skipped - directory returned too few students)"
+            : "")
+      ),
+      syncError && !syncReconnectUrl && React.createElement(
+        "div",
+        {
+          style: {
+            marginTop: "8px",
+            padding: "8px 12px",
+            backgroundColor: "#fef2f2",
+            border: "1px solid #fca5a5",
+            borderRadius: "6px",
+            color: "#dc2626",
+            fontSize: "13px"
+          }
+        },
+        syncError
+      ),
+      syncReconnectUrl && React.createElement(
+        "div",
+        {
+          style: {
+            marginTop: "8px",
+            padding: "8px 12px",
+            backgroundColor: "#fffbeb",
+            border: "1px solid #fcd34d",
+            borderRadius: "6px",
+            color: "#92400e",
+            fontSize: "13px"
+          }
+        },
+        "Google needs directory access before syncing. ",
+        React.createElement(
+          "a",
+          {
+            href: syncReconnectUrl,
+            style: { color: "#2563eb", fontWeight: 600, cursor: "pointer" }
+          },
+          "Reconnect Google"
+        )
       )
     ),
 

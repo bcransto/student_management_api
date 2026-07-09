@@ -1,0 +1,12 @@
+[Unit]
+Description=Run the Workspace directory sync daily
+
+[Timer]
+# Daily at 05:30 local time (before the school day).
+OnCalendar=*-*-* 05:30:00
+# If the machine was off at 05:30, run as soon as it's back up.
+Persistent=true
+Unit=sync-workspace-directory.service
+
+[Install]
+WantedBy=timers.target

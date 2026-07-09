@@ -449,29 +449,42 @@ def google_status(request):
 DIRECTORY_SCOPE = "https://www.googleapis.com/auth/admin.directory.user.readonly"
 
 
-def _get_directory_service(request):
+class DirectoryAuthError(Exception):
     """
-    Build an Admin SDK Directory service for the current user.
+    Raised when a user's stored credentials can't build a Directory service.
 
-    Returns (service, error_response) - exactly one is non-None. Error
-    responses carry auth_url so the frontend can offer a (re)connect button;
-    the signed state routes the user back to the Students page.
+    ``reason`` is one of ``not_connected`` / ``scope_missing`` /
+    ``refresh_failed`` so request-coupled callers can reproduce the exact
+    needs_reconnect Response shape while request-free callers (the sync
+    command) get a plain message.
+    """
+
+    def __init__(self, reason, message):
+        super().__init__(message)
+        self.reason = reason
+        self.message = message
+
+
+def _build_directory_service_for_user(user):
+    """
+    Build an Admin SDK Directory service from a User's stored credentials,
+    WITHOUT a request. Raises :class:`DirectoryAuthError` when credentials are
+    missing, lack the Directory scope, or fail to refresh. Refreshed tokens are
+    persisted back to the stored credentials row.
+
+    This is the shared credential/refresh core used by both the request-coupled
+    ``_get_directory_service`` wrapper and the directory sync job.
     """
     try:
-        creds_obj = GoogleClassroomCredentials.objects.get(user=request.user)
+        creds_obj = GoogleClassroomCredentials.objects.get(user=user)
     except GoogleClassroomCredentials.DoesNotExist:
-        return None, Response({
-            "error": "Google not connected.",
-            "needs_reconnect": True,
-            "auth_url": _build_oauth_authorization_url(request, request.user, "students"),
-        }, status=400)
+        raise DirectoryAuthError("not_connected", "Google not connected.")
 
     if DIRECTORY_SCOPE not in (creds_obj.scopes or []):
-        return None, Response({
-            "needs_reconnect": True,
-            "message": "Stored credentials lack the Directory scope - re-consent via auth_url.",
-            "auth_url": _build_oauth_authorization_url(request, request.user, "students"),
-        })
+        raise DirectoryAuthError(
+            "scope_missing",
+            "Stored credentials lack the Directory scope - re-consent via auth_url.",
+        )
 
     creds = Credentials(
         token=creds_obj.access_token,
@@ -489,14 +502,49 @@ def _get_directory_service(request):
             creds_obj.token_expiry = creds.expiry
             creds_obj.save(update_fields=['access_token', 'token_expiry', 'updated_at'])
         except Exception as e:
-            logger.warning(f"Google token refresh failed for {request.user.email}: {e}")
-            return None, Response({
-                "needs_reconnect": True,
-                "message": "Google credentials expired - reconnect via auth_url.",
-                "auth_url": _build_oauth_authorization_url(request, request.user, "students"),
-            })
+            logger.warning(f"Google token refresh failed for {user.email}: {e}")
+            raise DirectoryAuthError(
+                "refresh_failed",
+                "Google credentials expired - reconnect via auth_url.",
+            )
 
-    return build('admin', 'directory_v1', credentials=creds), None
+    return build('admin', 'directory_v1', credentials=creds)
+
+
+def _directory_auth_error_response(request, error):
+    """
+    Convert a :class:`DirectoryAuthError` into the needs_reconnect Response the
+    frontend already understands (carries an auth_url routing back to the
+    Students page). Preserves the original status/keys: not_connected is a 400
+    with an ``error`` key; scope/refresh problems are a 200 with a ``message``.
+    """
+    auth_url = _build_oauth_authorization_url(request, request.user, "students")
+    if error.reason == "not_connected":
+        return Response({
+            "error": error.message,
+            "needs_reconnect": True,
+            "auth_url": auth_url,
+        }, status=400)
+    return Response({
+        "needs_reconnect": True,
+        "message": error.message,
+        "auth_url": auth_url,
+    })
+
+
+def _get_directory_service(request):
+    """
+    Build an Admin SDK Directory service for the current user.
+
+    Returns (service, error_response) - exactly one is non-None. Error
+    responses carry auth_url so the frontend can offer a (re)connect button;
+    the signed state routes the user back to the Students page.
+    """
+    try:
+        service = _build_directory_service_for_user(request.user)
+    except DirectoryAuthError as error:
+        return None, _directory_auth_error_response(request, error)
+    return service, None
 
 
 def _fetch_domain_users(service, domain):
@@ -734,6 +782,48 @@ def google_import_directory_students(request):
         "existing": existing,
         "skipped": skipped,
     })
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def google_sync_directory(request):
+    """
+    Run the Workspace directory sync using the REQUESTING user's credentials.
+    URL: /api/google/sync-directory/  (POST - state-changing)
+
+    This is the "Sync now" escape hatch: it upserts the global Student list
+    from the directory, reactivates reappearing students, and archives students
+    who vanished (see students.directory_sync.sync_directory). Missing/expired
+    credentials or a missing Directory scope produce the same needs_reconnect
+    shape as the other directory endpoints.
+
+    Response: the sync summary dict plus ``last_synced`` (max Student.synced_at).
+    """
+    from django.db.models import Max
+
+    from . import directory_sync
+    from .models import Student
+
+    try:
+        summary = directory_sync.sync_directory(request.user, dry_run=False)
+    except DirectoryAuthError as error:
+        return _directory_auth_error_response(request, error)
+    except directory_sync.DirectorySyncError as e:
+        logger.error(f"Directory sync failed for {request.user.email}: {e}")
+        return Response({"error": str(e)}, status=502)
+    except Exception as e:
+        logger.error(f"Directory sync failed for {request.user.email}: {e}")
+        return Response(
+            {"error": "Directory sync failed.", "details": str(e)}, status=502
+        )
+
+    summary["last_synced"] = Student.objects.aggregate(v=Max("synced_at"))["v"]
+    logger.info(
+        f"Directory sync by {request.user.email}: "
+        f"{summary['created']} created, {summary['updated']} updated, "
+        f"{summary['reactivated']} reactivated, {summary['archived']} archived"
+    )
+    return Response(summary)
 
 
 @api_view(["GET"])

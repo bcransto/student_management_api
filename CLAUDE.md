@@ -405,6 +405,38 @@ await ApiModule.request('/api/endpoint/')   // ❌ Double /api/ prefix
 # Creates only missing students with REAL district IDs; matches by
 # google id -> student_id -> email, backfilling google id/email WITHOUT
 # overwriting student_id. No enrollment. {total, created, existing, skipped}
+
+# --- Workspace directory SYNC (issue #14 phase 3) ---
+# Core: students/directory_sync.py :: sync_directory(user, dry_run=False) and
+# apply_directory_sync(raw_users, dry_run) (the latter is fixture-testable, no
+# Google calls). Credential/refresh core shared with the endpoints via
+# google_classroom_service._build_directory_service_for_user(user) (request-free;
+# raises DirectoryAuthError, which _get_directory_service wraps into the
+# needs_reconnect Response). The two-digit cohort helper is the single canonical
+# _cohort_prefix (migration 0021 keeps its own frozen copy).
+#
+# Behavior: upsert every student-cohort directory user (match google_user_id ->
+# student_id -> email iexact; backfill google id/email if blank; NEVER overwrite
+# student_id; create missing with real district IDs), setting cohort, synced_at,
+# is_active=True on each. Then ARCHIVE (is_active=False) any Student with a
+# non-empty google_user_id NOT seen in the fetch (reappearing students
+# reactivate); students with no google_user_id are left alone. NEVER touches
+# TeacherStudent rows or date_of_birth. Safety valve: if the fetch yields fewer
+# than MIN_DIRECTORY_STUDENTS (=1, i.e. zero) student users, archiving is skipped
+# so a flaky response can't archive the school. dry_run runs the whole thing in a
+# rolled-back transaction (exact counts, no writes).
+# Returns {created, updated, reactivated, archived, unchanged, skipped,
+#   total_directory, dry_run, safety_valve_triggered, details:{...names...}}.
+
+# Management command (daily timer on pinto; see deploy/):
+#   python manage.py sync_workspace_directory [--user <email>] [--dry-run]
+# Sync user: --user, else settings.DIRECTORY_SYNC_USER_EMAIL, else CommandError.
+# Non-zero exit on failure so cron/systemd flags it.
+
+# POST /api/google/sync-directory/  (JWT) — "Sync now"; runs sync_directory with
+# request.user's creds; needs_reconnect shape on missing creds/scope; 502 on
+# fetch failure. Response is the summary dict + last_synced.
+# GET /api/students/last-synced/  (JWT) — {"last_synced": <ISO ts>|null}
 ```
 
 **Bulk Student Update (CSV/TSV)**:
@@ -682,6 +714,12 @@ FIELD_ENCRYPTION_KEY=your-encryption-key  # Generate with Fernet
 # Student Management runs on port 8000, Cranston Commons on port 8002
 CRANSTON_COMMONS_BASE_URL=http://localhost:8002
 CRANSTON_COMMONS_API_KEY=your-api-key-here
+
+# Workspace directory sync (issue #14 phase 3): email of the Google-connected
+# account whose stored OAuth credentials `sync_workspace_directory` uses when
+# no --user flag is passed. The account must have connected Google with the
+# Directory scope (admin.directory.user.readonly).
+DIRECTORY_SYNC_USER_EMAIL=bcranston@carlisle.k12.ma.us
 ```
 
 ## Deployment to pinto (Production)
@@ -723,6 +761,22 @@ Production runs on **pinto** (10.0.0.200), a local server accessible externally 
 
 Frontend auto-detects environment via hostname (pinto.local uses current origin for API).
 
+**Daily Workspace directory sync (issue #14 phase 3):**
+- A systemd service+timer pair (`deploy/sync-workspace-directory.{service,timer}`)
+  runs `python manage.py sync_workspace_directory` daily at 05:30, mirroring the
+  Google Workspace directory into the global `Student` list (upsert / reactivate
+  / archive). Install steps + troubleshooting are in `deploy/README.md`
+  (cp units to `/etc/systemd/system/`, `daemon-reload`,
+  `systemctl enable --now sync-workspace-directory.timer`; check
+  `systemctl list-timers`, `systemctl status`, and
+  `journalctl -u sync-workspace-directory.service`).
+- Requires the `DIRECTORY_SYNC_USER_EMAIL` env var (see the `.env` section) — the
+  named account must have connected Google with the Directory scope
+  (`admin.directory.user.readonly`). Run `python manage.py sync_workspace_directory
+  --dry-run` first to confirm credentials/scope before enabling the timer.
+- The sync NEVER touches `TeacherStudent` rows or `date_of_birth`, and a safety
+  valve aborts archiving if the directory fetch returns implausibly few students.
+
 ## URL Structure
 
 **Django URLs**:
@@ -742,8 +796,10 @@ Frontend auto-detects environment via hostname (pinto.local uses current origin 
 - `/api/google/directory-cohorts/` - Workspace cohorts (by email prefix)
 - `/api/google/directory-students/` - Workspace cohort roster preview
 - `/api/google/import-directory-students/` - Bulk-create a cohort's students
+- `/api/google/sync-directory/` - "Sync now": run the Workspace directory sync with the requesting user's credentials (POST, JWT)
 - `/api/students/bulk-update-info/` - Paste CSV/TSV to set nickname/gender
-- `/api/students/school-list/` - School-wide picker feed (cohort filter, on_my_list)
+- `/api/students/school-list/` - School-wide picker feed (cohort filter, on_my_list, last_synced)
+- `/api/students/last-synced/` - Cheap GET of max(Student.synced_at)
 - `/api/students/add-to-my-list/` - Add students (by ids and/or cohort) to my list
 - `/api/students/remove-from-my-list/` - Remove students (by ids and/or cohort) from my list
 - `/api/google/test/` - Test Google Classroom connection

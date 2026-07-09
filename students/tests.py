@@ -1158,3 +1158,266 @@ class SchoolListPickerTests(TestCase):
             ).status_code,
             401,
         )
+
+
+# ---------------------------------------------------------------------------
+# Phase 3: Workspace directory sync
+# ---------------------------------------------------------------------------
+
+SYNC_FIXTURE = [
+    # Matches an existing student by student_id; backfills google id + email.
+    {
+        "primaryEmail": "28abrenn@school.edu",
+        "name": {"givenName": "Anika", "familyName": "Brenne"},
+        "externalIds": [{"value": "2887", "type": "organization"}],
+        "id": "g-2887",
+    },
+    # Matches an archived student by google id -> should reactivate.
+    {
+        "primaryEmail": "28reappear@school.edu",
+        "name": {"givenName": "Reap", "familyName": "Pear"},
+        "externalIds": [{"value": "2777", "type": "organization"}],
+        "id": "g-2777",
+    },
+    # Brand new student.
+    {
+        "primaryEmail": "28newkid@school.edu",
+        "name": {"givenName": "New", "familyName": "Kid"},
+        "externalIds": [{"value": "2999", "type": "organization"}],
+        "id": "g-2999",
+    },
+    # Staff (no digit prefix) -> excluded from the mirror.
+    {
+        "primaryEmail": "teacher@school.edu",
+        "name": {"givenName": "Staff", "familyName": "Member"},
+        "id": "g-staff",
+    },
+]
+
+
+class DirectorySyncCoreTests(TestCase):
+    """The shared sync engine: upsert, reactivate, archive, safety valve."""
+
+    def setUp(self):
+        from students import directory_sync
+
+        self.directory_sync = directory_sync
+        self.teacher = make_user()
+
+        # Existing, matched by student_id; blank google id/email/cohort.
+        self.existing = Student.objects.create(
+            student_id="2887", first_name="Anika", last_name="Brenne",
+            date_of_birth=date(2012, 3, 4),
+        )
+        # A teacher annotation the sync must never touch.
+        self.annotation = TeacherStudent.objects.create(
+            teacher=self.teacher, student=self.existing,
+            nickname="Ani", gender="female",
+        )
+        # Archived, reappears in the directory by google id -> reactivate.
+        self.reappearing = Student.objects.create(
+            student_id="2777", first_name="Reap", last_name="Pear",
+            email="28reappear@school.edu", google_user_id="g-2777",
+            cohort="28", is_active=False,
+        )
+        # Active with a google id NOT in the directory -> archive.
+        self.gone = Student.objects.create(
+            student_id="2666", first_name="Gone", last_name="Away",
+            google_user_id="g-gone", cohort="28", is_active=True,
+        )
+        # Active with NO google id -> left alone (conservative).
+        self.nogoogle = Student.objects.create(
+            student_id="2555", first_name="No", last_name="Google",
+            is_active=True,
+        )
+
+    def test_upsert_reactivate_and_archive(self):
+        summary = self.directory_sync.apply_directory_sync(SYNC_FIXTURE)
+
+        self.assertEqual(summary["created"], 1)
+        self.assertEqual(summary["updated"], 1)
+        self.assertEqual(summary["reactivated"], 1)
+        self.assertEqual(summary["archived"], 1)
+        self.assertEqual(summary["skipped"], 0)
+        self.assertEqual(summary["total_directory"], 3)  # staff excluded
+        self.assertFalse(summary["safety_valve_triggered"])
+
+        # Match backfilled but student_id NEVER overwritten; cohort + synced_at set.
+        self.existing.refresh_from_db()
+        self.assertEqual(self.existing.student_id, "2887")
+        self.assertEqual(self.existing.google_user_id, "g-2887")
+        self.assertEqual(self.existing.email, "28abrenn@school.edu")
+        self.assertEqual(self.existing.cohort, "28")
+        self.assertIsNotNone(self.existing.synced_at)
+
+        # New student created with the real district ID.
+        newkid = Student.objects.get(student_id="2999")
+        self.assertEqual(newkid.google_user_id, "g-2999")
+        self.assertEqual(newkid.cohort, "28")
+        self.assertTrue(newkid.is_active)
+        self.assertIsNotNone(newkid.synced_at)
+
+        # Reappearing archived student reactivated.
+        self.reappearing.refresh_from_db()
+        self.assertTrue(self.reappearing.is_active)
+        self.assertIsNotNone(self.reappearing.synced_at)
+
+        # Vanished student archived; no-google-id student untouched.
+        self.gone.refresh_from_db()
+        self.assertFalse(self.gone.is_active)
+        self.nogoogle.refresh_from_db()
+        self.assertTrue(self.nogoogle.is_active)
+
+    def test_teacher_annotation_and_dob_untouched(self):
+        self.directory_sync.apply_directory_sync(SYNC_FIXTURE)
+        self.annotation.refresh_from_db()
+        self.assertEqual(self.annotation.nickname, "Ani")
+        self.assertEqual(self.annotation.gender, "female")
+        self.existing.refresh_from_db()
+        self.assertEqual(str(self.existing.date_of_birth), "2012-03-04")
+
+    def test_empty_directory_safety_valve_skips_archiving(self):
+        summary = self.directory_sync.apply_directory_sync([])
+        self.assertTrue(summary["safety_valve_triggered"])
+        self.assertEqual(summary["archived"], 0)
+        self.gone.refresh_from_db()
+        self.assertTrue(self.gone.is_active)  # NOT archived
+
+    def test_staff_only_fetch_triggers_safety_valve(self):
+        staff_only = [SYNC_FIXTURE[-1]]  # just the staff record
+        summary = self.directory_sync.apply_directory_sync(staff_only)
+        self.assertTrue(summary["safety_valve_triggered"])
+        self.gone.refresh_from_db()
+        self.assertTrue(self.gone.is_active)
+
+    def test_dry_run_writes_nothing(self):
+        summary = self.directory_sync.apply_directory_sync(SYNC_FIXTURE, dry_run=True)
+        # Counts still computed...
+        self.assertEqual(summary["created"], 1)
+        self.assertEqual(summary["archived"], 1)
+        self.assertTrue(summary["dry_run"])
+        # ...but nothing persisted.
+        self.assertFalse(Student.objects.filter(student_id="2999").exists())
+        self.gone.refresh_from_db()
+        self.assertTrue(self.gone.is_active)
+        self.existing.refresh_from_db()
+        self.assertIsNone(self.existing.google_user_id)
+        self.assertIsNone(self.existing.synced_at)
+
+    def test_no_name_record_is_skipped(self):
+        fixture = SYNC_FIXTURE + [
+            {"primaryEmail": "28noname@school.edu", "name": {}, "id": "g-noname"}
+        ]
+        summary = self.directory_sync.apply_directory_sync(fixture)
+        self.assertEqual(summary["skipped"], 1)
+        self.assertEqual(summary["details"]["skipped"][0]["reason"],
+                         "No name in directory profile")
+
+    def test_sync_directory_wires_fetch(self):
+        with patch(
+            "students.google_classroom_service._build_directory_service_for_user",
+            return_value=object(),
+        ), patch(
+            "students.google_classroom_service._fetch_domain_users",
+            return_value=SYNC_FIXTURE,
+        ):
+            summary = self.directory_sync.sync_directory(self.teacher)
+        self.assertEqual(summary["created"], 1)
+        self.assertEqual(summary["archived"], 1)
+
+    def test_sync_directory_wraps_fetch_failure(self):
+        with patch(
+            "students.google_classroom_service._build_directory_service_for_user",
+            return_value=object(),
+        ), patch(
+            "students.google_classroom_service._fetch_domain_users",
+            side_effect=Exception("boom"),
+        ):
+            with self.assertRaises(self.directory_sync.DirectorySyncError):
+                self.directory_sync.sync_directory(self.teacher)
+
+
+class SyncDirectoryEndpointTests(TestCase):
+    """POST /api/google/sync-directory/ (Sync now)."""
+
+    def setUp(self):
+        self.teacher = make_user()
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.teacher)
+
+    def test_requires_authentication(self):
+        self.client.force_authenticate(user=None)
+        response = self.client.post("/api/google/sync-directory/")
+        self.assertEqual(response.status_code, 401)
+
+    def test_needs_reconnect_when_not_connected(self):
+        # No GoogleClassroomCredentials -> DirectoryAuthError(not_connected).
+        response = self.client.post("/api/google/sync-directory/")
+        self.assertEqual(response.status_code, 400)
+        data = response.json()
+        self.assertTrue(data["needs_reconnect"])
+        self.assertIn("auth_url", data)
+
+    def test_summary_shape_on_success(self):
+        Student.objects.create(
+            student_id="2887", first_name="Anika", last_name="Brenne",
+        )
+        with patch(
+            "students.google_classroom_service._build_directory_service_for_user",
+            return_value=object(),
+        ), patch(
+            "students.google_classroom_service._fetch_domain_users",
+            return_value=SYNC_FIXTURE,
+        ):
+            response = self.client.post("/api/google/sync-directory/")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        for key in ("created", "updated", "reactivated", "archived",
+                    "unchanged", "skipped", "total_directory", "last_synced"):
+            self.assertIn(key, data)
+        self.assertIsNotNone(data["last_synced"])
+
+    def test_last_synced_endpoint(self):
+        response = self.client.get("/api/students/last-synced/")
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.json()["last_synced"])
+
+
+class DashboardStatsScopeTests(TestCase):
+    """dashboard_stats counts are scoped to the requesting teacher's list."""
+
+    def setUp(self):
+        self.teacher = make_user()
+        self.other = make_user(email="other@school.edu", username="other")
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.teacher)
+
+        # On my list, active global student.
+        self.s1 = Student.objects.create(
+            student_id="1", first_name="A", last_name="A", is_active=True,
+        )
+        # On my list, but archived globally (still counts toward total, not active).
+        self.s2 = Student.objects.create(
+            student_id="2", first_name="B", last_name="B", is_active=False,
+        )
+        # Was on my list but removed (inactive TeacherStudent) -> excluded.
+        self.s3 = Student.objects.create(
+            student_id="3", first_name="C", last_name="C", is_active=True,
+        )
+        # On the OTHER teacher's list only -> excluded.
+        self.s4 = Student.objects.create(
+            student_id="4", first_name="D", last_name="D", is_active=True,
+        )
+        TeacherStudent.objects.create(teacher=self.teacher, student=self.s1)
+        TeacherStudent.objects.create(teacher=self.teacher, student=self.s2)
+        TeacherStudent.objects.create(
+            teacher=self.teacher, student=self.s3, is_active=False,
+        )
+        TeacherStudent.objects.create(teacher=self.other, student=self.s4)
+
+    def test_counts_are_scoped_to_my_students(self):
+        response = self.client.get("/api/dashboard/stats/")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["total_students"], 2)   # s1 + s2
+        self.assertEqual(data["active_students"], 1)  # s1 only

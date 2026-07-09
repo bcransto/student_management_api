@@ -377,7 +377,28 @@ class StudentViewSet(viewsets.ModelViewSet):
             for s in students_qs
         ]
 
-        return Response({"students": students, "cohorts": cohorts})
+        return Response({
+            "students": students,
+            "cohorts": cohorts,
+            "last_synced": self._last_synced(),
+        })
+
+    @staticmethod
+    def _last_synced():
+        """Most recent Student.synced_at across the whole school, or None."""
+        from django.db.models import Max
+
+        return Student.objects.aggregate(v=Max("synced_at"))["v"]
+
+    @action(detail=False, methods=["get"], url_path="last-synced")
+    def last_synced(self, request):
+        """
+        Cheap read of when the Workspace directory sync last ran.
+
+        GET /api/students/last-synced/
+        Response: {"last_synced": "<ISO timestamp>" | null}
+        """
+        return Response({"last_synced": self._last_synced()})
 
     def _resolve_add_students(self, request):
         """
@@ -1170,11 +1191,16 @@ def dashboard_stats(request):
     Replaces the frontend fetching the full /students/ and /layouts/ lists
     just to count them - three COUNT queries instead of two full payloads.
     Layout count mirrors ClassroomLayoutViewSet filtering (own, active only);
-    student counts are global to match the students list view.
+    student counts are scoped to the requesting teacher's "my students" list so
+    they match the #students page (active TeacherStudent rows). total_students
+    is that whole list; active_students excludes archived global students.
     """
+    my_students = TeacherStudent.objects.filter(
+        teacher=request.user, is_active=True
+    )
     return Response({
-        "active_students": Student.objects.filter(is_active=True).count(),
-        "total_students": Student.objects.count(),
+        "active_students": my_students.filter(student__is_active=True).count(),
+        "total_students": my_students.count(),
         "layouts": ClassroomLayout.objects.filter(
             created_by=request.user, is_active=True
         ).count(),

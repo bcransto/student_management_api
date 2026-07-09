@@ -1,0 +1,22 @@
+[Unit]
+Description=Sync the global Student list from the Google Workspace directory
+# Only meaningful with a network; don't block boot on it.
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=bcransto
+Group=bcransto
+WorkingDirectory=/home/bcransto/student_management_api
+# Same env file the gunicorn service uses (DJANGO_ENV=pi, SECRET_KEY,
+# GOOGLE_* , FIELD_ENCRYPTION_KEY, and DIRECTORY_SYNC_USER_EMAIL).
+EnvironmentFile=/home/bcransto/student_management_api/.env
+# Uses the sync account from DIRECTORY_SYNC_USER_EMAIL (or pass --user <email>).
+ExecStart=/home/bcransto/student_management_api/myenv/bin/python manage.py sync_workspace_directory
+
+# A non-zero exit (e.g. auth error, directory fetch failure) is recorded by
+# systemd and surfaced by `systemctl status` / OnFailure hooks.
+
+[Install]
+WantedBy=multi-user.target
