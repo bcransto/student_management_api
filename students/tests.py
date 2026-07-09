@@ -357,6 +357,125 @@ class UntrackedSeatingPeriodTests(TestCase):
         self.assertIsNone(self.current.end_date)  # current period untouched
 
 
+class SeatingPeriodCreateWithAssignmentsTests(TestCase):
+    """Atomic create-period-with-assignments endpoint (GH issue #15 draft save)."""
+
+    def setUp(self):
+        self.teacher = make_user()
+        self.other_teacher = make_user(email="other@school.edu", username="other")
+        self.klass = Class.objects.create(name="Math", subject="Math", teacher=self.teacher)
+        self.layout = ClassroomLayout.objects.create(
+            name="Room 1", room_width=10, room_height=8, created_by=self.teacher
+        )
+        table = ClassroomTable.objects.create(
+            layout=self.layout,
+            table_number=1,
+            table_name="Table 1",
+            x_position=0,
+            y_position=0,
+            width=2,
+            height=2,
+            max_seats=2,
+        )
+        for seat_number in (1, 2):
+            TableSeat.objects.create(
+                table=table,
+                seat_number=seat_number,
+                relative_x=0.25 * seat_number,
+                relative_y=0.5,
+            )
+        self.current = SeatingPeriod.objects.create(
+            class_assigned=self.klass,
+            layout=self.layout,
+            name="Chart 1",
+            start_date=date.today() - timedelta(days=10),
+            end_date=None,
+        )
+        self.roster_entries = []
+        for i in range(2):
+            student = Student.objects.create(
+                student_id=f"cwa{i}", first_name=f"Kid{i}", last_name="Test", nickname=""
+            )
+            self.roster_entries.append(
+                ClassRoster.objects.create(class_assigned=self.klass, student=student)
+            )
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.teacher)
+
+    def test_creates_period_ends_previous_and_creates_assignments(self):
+        response = self.client.post(
+            "/api/seating-periods/create-with-assignments/",
+            {
+                "class_assigned": self.klass.id,
+                "layout": self.layout.id,
+                "name": "Chart 2",
+                "start_date": str(date.today() + timedelta(days=1)),
+                "assignments": [
+                    {"roster_entry": self.roster_entries[0].id, "seat_id": "1-1"},
+                    {"roster_entry": self.roster_entries[1].id, "seat_id": "1-2"},
+                ],
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.content)
+        body = response.json()
+        self.assertEqual(body["created"], 2)
+        new_period_id = body["period"]["id"]
+
+        self.current.refresh_from_db()
+        self.assertIsNotNone(self.current.end_date)  # previous period auto-ended
+
+        new_period = SeatingPeriod.objects.get(id=new_period_id)
+        self.assertIsNone(new_period.end_date)
+        self.assertTrue(new_period.is_tracked)
+        self.assertEqual(new_period.seating_assignments.count(), 2)
+
+    def test_rollback_on_bad_assignment_data(self):
+        before_count = SeatingPeriod.objects.filter(class_assigned=self.klass).count()
+
+        response = self.client.post(
+            "/api/seating-periods/create-with-assignments/",
+            {
+                "class_assigned": self.klass.id,
+                "layout": self.layout.id,
+                "name": "Chart 2",
+                "start_date": str(date.today() + timedelta(days=1)),
+                "assignments": [
+                    {"roster_entry": self.roster_entries[0].id, "seat_id": "1-1"},
+                    {"roster_entry": self.roster_entries[1].id, "seat_id": "1-99"},  # no such seat
+                ],
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+
+        # Nothing committed: no new period, previous period still current
+        self.assertEqual(
+            SeatingPeriod.objects.filter(class_assigned=self.klass).count(), before_count
+        )
+        self.assertFalse(SeatingPeriod.objects.filter(name="Chart 2").exists())
+        self.current.refresh_from_db()
+        self.assertIsNone(self.current.end_date)
+
+    def test_rejects_class_not_owned_by_requester(self):
+        other_class = Class.objects.create(
+            name="Other Class", subject="Science", teacher=self.other_teacher
+        )
+        response = self.client.post(
+            "/api/seating-periods/create-with-assignments/",
+            {
+                "class_assigned": other_class.id,
+                "layout": self.layout.id,
+                "name": "Chart X",
+                "start_date": str(date.today() + timedelta(days=1)),
+                "assignments": [],
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(SeatingPeriod.objects.filter(name="Chart X").exists())
+
+
 class BulkUpdateInfoTests(TestCase):
     def setUp(self):
         self.teacher = make_user()

@@ -1458,8 +1458,133 @@ class SeatingPeriodViewSet(viewsets.ModelViewSet):
             })
         
         data["assignments"] = assignment_data
-        
+
         return Response(data)
+
+    @action(detail=False, methods=["post"], url_path="create-with-assignments")
+    def create_with_assignments(self, request):
+        """
+        Atomically create a new tracked seating period together with its
+        seating assignments.
+
+        Backs the SeatingEditor "New Chart" draft flow (GH issue #15): New
+        Period no longer writes to the DB immediately. The editor keeps the
+        new chart as a client-side draft, and only this endpoint - called
+        from Save - actually creates the period. Creating the period with
+        end_date=None and is_tracked=True relies on SeatingPeriod.save() to
+        end the previous current tracked period as part of the same call;
+        wrapping everything in transaction.atomic() means a bad assignment
+        rolls back the period (and the auto-ended previous period) too, so
+        the previous chart is never left ended with no replacement.
+
+        POST /api/seating-periods/create-with-assignments/
+        Body: {
+            "class_assigned": <id>,
+            "layout": <id>,
+            "name": "Chart 2",
+            "start_date": "2026-07-10",
+            "notes": "" (optional),
+            "assignments": [{"roster_entry": <id>, "seat_id": "1-2"}, ...]
+        }
+
+        Returns:
+            201: {"period": <serialized period>, "created": <assignment count>}
+            400: validation error (nothing is created)
+            403: class does not belong to the requesting teacher
+            404: class not found
+        """
+        from django.core.exceptions import ValidationError as DjangoValidationError
+        from django.db import IntegrityError, transaction
+
+        class_id = request.data.get("class_assigned")
+        layout_id = request.data.get("layout")
+        name = request.data.get("name")
+        start_date = request.data.get("start_date")
+        notes = request.data.get("notes", "") or ""
+        assignments_data = request.data.get("assignments", [])
+
+        if not class_id or not layout_id or not name or not start_date:
+            return Response(
+                {"error": "class_assigned, layout, name, and start_date are required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not isinstance(assignments_data, list):
+            return Response(
+                {"error": "assignments must be a list"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            class_obj = Class.objects.get(id=class_id)
+        except Class.DoesNotExist:
+            return Response({"error": "Class not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        if class_obj.teacher != request.user:
+            return Response(
+                {"error": "You don't have permission to modify this class"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        try:
+            layout_obj = ClassroomLayout.objects.get(id=layout_id)
+        except ClassroomLayout.DoesNotExist:
+            return Response({"error": "Layout not found"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            with transaction.atomic():
+                period = SeatingPeriod(
+                    class_assigned=class_obj,
+                    layout=layout_obj,
+                    name=name,
+                    start_date=start_date,
+                    end_date=None,
+                    is_tracked=True,
+                    notes=notes,
+                )
+                period.full_clean()
+                period.save()  # auto-ends the previous current tracked period
+
+                created_count = 0
+                for item in assignments_data:
+                    roster_entry_id = item.get("roster_entry")
+                    seat_id = item.get("seat_id")
+                    if not roster_entry_id or not seat_id:
+                        raise DjangoValidationError(
+                            "Each assignment needs roster_entry and seat_id"
+                        )
+                    try:
+                        roster_entry = ClassRoster.objects.get(
+                            id=roster_entry_id, class_assigned=class_obj
+                        )
+                    except ClassRoster.DoesNotExist:
+                        raise DjangoValidationError(
+                            f"roster_entry {roster_entry_id} does not belong to this class"
+                        )
+                    assignment = SeatingAssignment(
+                        seating_period=period,
+                        roster_entry=roster_entry,
+                        seat_id=seat_id,
+                    )
+                    assignment.full_clean()
+                    assignment.save()
+                    created_count += 1
+        except (DjangoValidationError, IntegrityError) as e:
+            if hasattr(e, "message_dict"):
+                detail = "; ".join(
+                    f"{field}: {', '.join(msgs) if isinstance(msgs, list) else msgs}"
+                    for field, msgs in e.message_dict.items()
+                )
+            elif hasattr(e, "messages"):
+                detail = "; ".join(e.messages)
+            else:
+                detail = str(e)
+            return Response({"error": detail}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = self.get_serializer(period)
+        return Response(
+            {"period": serializer.data, "created": created_count},
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class SeatingAssignmentViewSet(viewsets.ModelViewSet):

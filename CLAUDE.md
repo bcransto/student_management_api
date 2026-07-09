@@ -510,8 +510,33 @@ element.style.removeProperty('color');
 - Model's save() method enforces single current tracked period
 - **CRITICAL**: Period navigation (Previous/Next buttons) must NEVER modify end_dates
 - Navigation is view-only - historical periods never become active again
-- Only "New Period" button should modify database state
 - Auto-naming: New periods are named "Chart N" where N increments (tracked only)
+
+**New Chart is a draft until Save (GH issue #15)**:
+- In `SeatingEditor.js`, clicking **New Period** makes ZERO database writes.
+  It only resolves a layout (current layout, else the user's most recent) and
+  flips client-side `isDraftMode` on: assignments/undo history reset, and an
+  untouched draft counts as no unsaved changes (silently discardable via
+  Back/navigation, matching the existing `hasUnsavedChanges` guards)
+- While `isDraftMode` is true, `classInfo.current_seating_period` still
+  refers to the OLD (still-active) chart - it has NOT been touched. The bolt
+  one-off toggle, Make Active, and the PATCH-based layout-change path are all
+  guarded/disabled in draft mode since there is no real period id yet; the
+  title shows "New Chart (unsaved)" with an amber "Draft" pill
+- Only **Save** commits a draft: it computes the "Chart N" name (tracked
+  periods only, counted at save-time, not at New-Period-time) and calls
+  `POST /api/seating-periods/create-with-assignments/`, which atomically
+  creates the period, auto-ends the previous current tracked period (via the
+  model's existing `save()` behavior), and bulk-creates the assignments - all
+  in one `transaction.atomic()` block, so a bad assignment rolls back the
+  whole thing and the old chart is never left ended with nothing to replace
+  it. On success the editor exits draft mode and reloads
+- The pre-existing "class has no seating period at all yet" Save path (first
+  chart ever) also routes through `create-with-assignments` now, for the same
+  atomicity; it keeps its own naming/date convention (`Seating Chart - <date>`,
+  start date today) rather than "Chart N" / tomorrow
+- `SeatingViewer.js` has its own separate (still immediate-commit) New Period
+  flow - out of scope for issue #15, not modified
 
 **Untracked One-Off Charts** (`is_tracked=False`):
 - Bolt TOGGLE in SeatingEditor marks/unmarks the VIEWED chart in place

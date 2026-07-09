@@ -13,6 +13,12 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
   const [saving, setSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isCreatingPeriod, setIsCreatingPeriod] = useState(false);
+  // GH #15: "New Period" is a pure client-side draft until Save. While true,
+  // classInfo.current_seating_period still refers to the last-loaded chart
+  // (nothing has been created/ended in the DB yet) and assignments/history
+  // reflect the empty draft. Only handleSave's create-with-assignments call
+  // commits anything.
+  const [isDraftMode, setIsDraftMode] = useState(false);
 
   // Data state
   const [classInfo, setClassInfo] = useState(null);
@@ -47,6 +53,7 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
 
   // Load initial data when classId or periodId changes
   useEffect(() => {
+    setIsDraftMode(false); // navigating to an explicit class/period exits any draft
     loadClassData();
     // Clear deactivated seats when class or period changes
     setDeactivatedSeats(new Set());
@@ -1426,30 +1433,36 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
     try {
       // Close modal immediately for better UX
       setShowLayoutSelector(false);
-      
-      // Stage 3: Update the seating period with new layout
-      if (!classInfo?.current_seating_period?.id) {
-        console.error("No current seating period found!");
-        alert("No current seating period to update");
-        return;
-      }
-      
-      const periodId = classInfo.current_seating_period.id;
-      console.log(`Updating period ${periodId} with new layout ${layoutId}`);
-      
-      // PATCH the seating period with new layout
-      const response = await window.ApiModule.request(
-        `/seating-periods/${periodId}/`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ layout: layoutId }),
+
+      if (isDraftMode) {
+        // Draft chart has no period row yet - nothing to PATCH. The old
+        // (still-current) period must NOT be touched here.
+        console.log(`Draft mode: switching draft layout to ${layoutId} (no DB write)`);
+      } else {
+        // Stage 3: Update the seating period with new layout
+        if (!classInfo?.current_seating_period?.id) {
+          console.error("No current seating period found!");
+          alert("No current seating period to update");
+          return;
         }
-      );
-      
-      console.log("PATCH response:", response);
-      console.log("Layout updated successfully");
-      
+
+        const periodId = classInfo.current_seating_period.id;
+        console.log(`Updating period ${periodId} with new layout ${layoutId}`);
+
+        // PATCH the seating period with new layout
+        const response = await window.ApiModule.request(
+          `/seating-periods/${periodId}/`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ layout: layoutId }),
+          }
+        );
+
+        console.log("PATCH response:", response);
+        console.log("Layout updated successfully");
+      }
+
       // Stage 5: Collect current assignments before reload
       const oldAssignments = [];
       const preservedAssignments = { ...assignments }; // Save a copy
@@ -1489,16 +1502,19 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
         console.log("Collected assignments to remap:", oldAssignments);
       }
       
-      // Get the new layout data to build remapped assignments
+      // Get the new layout data to build remapped assignments. Draft mode
+      // always needs it (to setLayout locally); the saved-period path only
+      // needs it when there's something to remap (matches prior behavior).
       let remappedAssignments = {};
-      
-      if (oldAssignments.length > 0) {
-        const newLayoutData = await window.ApiModule.request(`/layouts/${layoutId}/`);
+      let newLayoutData = null;
+
+      if (oldAssignments.length > 0 || isDraftMode) {
+        newLayoutData = await window.ApiModule.request(`/layouts/${layoutId}/`);
         console.log("New layout data for mapping:", newLayoutData);
-        
+
         // Collect all available seats in the new layout
         const availableSeats = [];
-        if (newLayoutData?.tables) {
+        if (newLayoutData?.tables && oldAssignments.length > 0) {
           newLayoutData.tables.forEach(table => {
             const seats = table.seats || [];
             seats.sort((a, b) => a.seat_number - b.seat_number);
@@ -1544,9 +1560,20 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
         }
       }
       
-      // Reload class data with the remapped assignments
-      await loadClassData(remappedAssignments);
-      
+      if (isDraftMode) {
+        // Apply locally - reloading from the server would fetch the OLD
+        // (still-current) period and clobber the draft.
+        setLayout(newLayoutData || layout);
+        setAssignments(remappedAssignments);
+        setInitialAssignments({});
+        setHistory([]);
+        setHistoryIndex(-1);
+        setHasUnsavedChanges(Object.keys(remappedAssignments).length > 0);
+      } else {
+        // Reload class data with the remapped assignments
+        await loadClassData(remappedAssignments);
+      }
+
       console.log("=== Layout Selection Complete ===");
       
     } catch (error) {
@@ -1563,6 +1590,41 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
     }
 
     const className = classInfo.name || "Unknown Class";
+
+    if (isDraftMode) {
+      // GH #15: nothing has been written to the DB yet - make that obvious
+      return React.createElement(
+        "div",
+        {
+          style: {
+            fontSize: "1.125rem",
+            fontWeight: "500",
+            color: "#1f2937",
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis"
+          }
+        },
+        `New Chart (unsaved) • ${className}`,
+        React.createElement(
+          "span",
+          {
+            style: {
+              marginLeft: "8px",
+              padding: "2px 8px",
+              fontSize: "0.75rem",
+              fontWeight: "600",
+              color: "#92400e",
+              backgroundColor: "#fef3c7",
+              border: "1px solid #f59e0b",
+              borderRadius: "9999px",
+              verticalAlign: "middle"
+            }
+          },
+          "Draft"
+        )
+      );
+    }
 
     if (classInfo.current_seating_period) {
       const period = classInfo.current_seating_period;
@@ -1687,8 +1749,20 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
   // Navigate to previous/next seating period (VIEW ONLY - does not modify database)
   const handlePeriodNavigation = async (direction) => {
     try {
-      // Check for unsaved changes
-      if (hasUnsavedChanges) {
+      // Leaving a new-chart draft: prompt only if it's actually been touched
+      // (an untouched draft is silently discarded, per GH #15).
+      if (isDraftMode) {
+        if (
+          hasUnsavedChanges &&
+          !window.confirm(
+            "You have an unsaved new chart. Discard it and navigate away?"
+          )
+        ) {
+          return;
+        }
+        setIsDraftMode(false);
+      } else if (hasUnsavedChanges) {
+        // Check for unsaved changes on a real (already-saved) period
         if (!window.confirm("You have unsaved changes. Do you want to continue without saving?")) {
           return;
         }
@@ -1808,20 +1882,25 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
     }
   };
 
-  // Simple save function that works with the fixed ApiModule
+  // Save function. Returns true on success, false if cancelled/failed (so
+  // callers like handleNewPeriod can tell whether it's safe to proceed).
+  //
+  // Two paths:
+  //   - Draft mode (isDraftMode) or no period at all yet: atomically create
+  //     the seating period + assignments via create-with-assignments (GH #15
+  //     - "New Period" no longer writes anything until Save).
+  //   - An existing current/historical period is loaded: update it in place
+  //     (delete + recreate its assignments), same as before.
   const handleSave = async () => {
     try {
       setSaving(true);
 
-      // Get or create seating period
-      let seatingPeriodId;
-      if (classInfo.current_seating_period) {
-        seatingPeriodId = classInfo.current_seating_period.id;
-      } else {
+      if (isDraftMode || !classInfo.current_seating_period) {
+        // ----- Atomic create path -----
+        let layoutForSave = layout;
 
-        // If no layout from class, need to select one
-        if (!layout || !layout.id) {
-          // Load available layouts if not already loaded
+        // If no layout resolved yet, need to select one
+        if (!layoutForSave || !layoutForSave.id) {
           if (availableLayouts.length === 0) {
             const layoutsResponse = await window.ApiModule.request("/layouts/");
             const layouts = layoutsResponse.results || [];
@@ -1829,7 +1908,7 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
             if (layouts.length === 0) {
               alert("No classroom layouts available. Please create a layout first.");
               setSaving(false);
-              return;
+              return false;
             }
 
             // Show layout selection dialog
@@ -1843,35 +1922,108 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
 
             if (!selectedIndex) {
               setSaving(false);
-              return;
+              return false;
             }
 
             const selectedLayout = layouts[parseInt(selectedIndex) - 1];
             if (!selectedLayout) {
               alert("Invalid selection");
               setSaving(false);
-              return;
+              return false;
             }
 
             setLayout(selectedLayout);
-            layout = selectedLayout;
+            layoutForSave = selectedLayout;
           }
         }
 
-        const newPeriod = await window.ApiModule.request("/seating-periods/", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            class_assigned: classId,
-            layout: layout.id, // Now required!
-            name: `Seating Chart - ${new Date().toLocaleDateString()}`,
-            start_date: new Date().toISOString().split("T")[0],
-            end_date: null,
-            notes: "Created from seating chart editor",
-          }),
+        // Auto-generate the period name. Draft charts get "Chart N" (tracked
+        // periods only, counted at save-time); the legacy "very first period
+        // for this class" path keeps its old dated name.
+        let periodName;
+        let startDate;
+        if (isDraftMode) {
+          let chartNumber = 1;
+          try {
+            const allPeriods = await window.ApiModule.request(
+              `/seating-periods/?class_assigned=${classId}`
+            );
+            const periodList = Array.isArray(allPeriods) ? allPeriods : allPeriods?.results;
+            if (Array.isArray(periodList)) {
+              chartNumber = periodList.filter((p) => p.is_tracked !== false).length + 1;
+            } else if (allPeriods && allPeriods.count !== undefined) {
+              chartNumber = allPeriods.count + 1;
+            }
+          } catch (error) {
+            console.error("Error fetching periods for chart numbering:", error);
+            chartNumber = 1;
+          }
+          periodName = `Chart ${chartNumber}`;
+
+          // Matches the old New Period convention: new chart starts tomorrow
+          const tomorrow = new Date();
+          tomorrow.setDate(tomorrow.getDate() + 1);
+          startDate = tomorrow.toISOString().split("T")[0];
+        } else {
+          periodName = `Seating Chart - ${new Date().toLocaleDateString()}`;
+          startDate = new Date().toISOString().split("T")[0];
+        }
+
+        // Build the assignments payload from the draft's in-memory assignments
+        const assignmentsToCreate = [];
+        Object.keys(assignments).forEach((tableId) => {
+          const tableAssignments = assignments[tableId];
+          const table = layoutForSave.tables.find((t) => t.id == tableId);
+          if (!table) {
+            console.warn(`Table with id ${tableId} not found in layout`);
+            return;
+          }
+
+          Object.keys(tableAssignments).forEach((seatNumber) => {
+            const studentId = tableAssignments[seatNumber];
+            const rosterEntry = classInfo.roster.find((r) => r.student == studentId);
+            if (!rosterEntry) {
+              console.warn(`Roster entry not found for student ${studentId}`);
+              return;
+            }
+
+            assignmentsToCreate.push({
+              roster_entry: rosterEntry.id,
+              seat_id: `${table.table_number}-${seatNumber}`,
+            });
+          });
         });
-        seatingPeriodId = newPeriod.id;
+
+        console.log(`Creating period "${periodName}" with ${assignmentsToCreate.length} assignments`);
+
+        const response = await window.ApiModule.request(
+          "/seating-periods/create-with-assignments/",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              class_assigned: classId,
+              layout: layoutForSave.id,
+              name: periodName,
+              start_date: startDate,
+              notes: isDraftMode ? "" : "Created from seating chart editor",
+              assignments: assignmentsToCreate,
+            }),
+          }
+        );
+
+        alert(`✅ Seating chart saved successfully! ${response.created} students assigned.`);
+
+        setIsDraftMode(false);
+        setHasUnsavedChanges(false);
+        // Reload so the editor now shows the newly-created chart as current
+        await loadClassData();
+
+        return true;
       }
+
+      // ----- Existing period: update assignments in place -----
+      const seatingPeriodId = classInfo.current_seating_period.id;
 
       // Clear existing assignments ONLY for the current period
       console.log(`Checking for existing assignments for period ${seatingPeriodId}`);
@@ -1950,8 +2102,10 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
       setInitialAssignments(assignments);
 
       // Stay in editor after saving - removed: if (onBack) onBack();
+      return true;
     } catch (error) {
       alert(`❌ Failed to save seating chart: ${error.message}`);
+      return false;
     } finally {
       setSaving(false);
     }
@@ -2008,6 +2162,11 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
 
   // Handle making an inactive period the current active period
   const handleMakeActive = async () => {
+    if (isDraftMode) {
+      alert("Save or discard the new chart draft first.");
+      return;
+    }
+
     // Check if we're viewing the current period (should not show button in this case)
     // (an open one-off chart is NOT active - Make Active promotes it)
     if (isViewingCurrentPeriod && classInfo?.current_seating_period?.is_tracked !== false) {
@@ -2092,24 +2251,32 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
     }
   };
 
-  // Handle creating a new seating period
+  // Handle starting a new seating period (GH #15: pure client-side draft).
+  // No DB writes happen here at all - the previous current period is left
+  // completely untouched (and stays the active chart) until the user Saves
+  // the new draft, which is when create-with-assignments actually creates
+  // the period and ends the old one, atomically.
   const handleNewPeriod = async () => {
-    // Check for unsaved changes
+    // Check for unsaved changes (same idiom as period navigation / Back)
     if (hasUnsavedChanges) {
       const saveFirst = confirm(
-        "You have unsaved changes. Save them before creating a new period?"
+        "You have unsaved changes. Save them before starting a new chart?"
       );
       if (saveFirst) {
-        await handleSave();
-      } else if (!confirm("Discard unsaved changes and create new period?")) {
+        const saved = await handleSave();
+        if (!saved) {
+          // Save was cancelled or failed - don't discard the user's work
+          return;
+        }
+      } else if (!confirm("Discard unsaved changes and start a new chart?")) {
         return;
       }
     }
 
-    // Confirmation dialog
+    // Confirmation dialog - reflects the new draft semantics
     const confirmMessage = classInfo?.current_seating_period
-      ? "Create a new seating period? This will end the current period as of today."
-      : "Create a new seating period?";
+      ? "Start a new chart? The current chart stays active until you save the new one."
+      : "Start a new chart?";
 
     if (!confirm(confirmMessage)) {
       return;
@@ -2118,104 +2285,43 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
     setIsCreatingPeriod(true);
 
     try {
-      // If there's a current TRACKED period, update its end date to today.
-      // (When viewing a one-off chart, current_seating_period is the one-off;
-      // it must not be ended - the backend ends the real current period.)
-      if (classInfo?.current_seating_period && classInfo.current_seating_period.is_tracked !== false) {
-        const today = new Date().toISOString().split("T")[0];
-        await window.ApiModule.request(`/seating-periods/${classInfo.current_seating_period.id}/`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            end_date: today,
-          }),
-        });
-      }
+      // Resolve a layout for the draft: current layout, else the user's most
+      // recent layout. Nothing is written to the DB by this resolution.
+      let draftLayout = layout;
 
-      // Calculate dates
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      const startDate = tomorrow.toISOString().split("T")[0];
-
-      // Get all periods for this class to determine the chart number
-      let chartNumber = 1;
-      try {
-        const allPeriods = await window.ApiModule.request(`/seating-periods/?class_assigned=${classId}`);
-        console.log("All periods response:", allPeriods);
-        
-        // Handle both array and object responses (count tracked charts only)
-        const periodList = Array.isArray(allPeriods) ? allPeriods : allPeriods?.results;
-        if (Array.isArray(periodList)) {
-          chartNumber = periodList.filter((p) => p.is_tracked !== false).length + 1;
-        } else if (allPeriods && allPeriods.count !== undefined) {
-          chartNumber = allPeriods.count + 1;
-        }
-      } catch (error) {
-        console.error("Error fetching periods for chart numbering:", error);
-        // Fall back to 1 if we can't get the count
-        chartNumber = 1;
-      }
-
-      // Auto-generate period name as "Chart N"
-      const periodName = `Chart ${chartNumber}`;
-
-      // Create new period with layout (use current layout or fetch user's most recent)
-      let layoutId = layout?.id;
-      
-      if (!layoutId) {
-        // Try to get the user's most recent layout
+      if (!draftLayout || !draftLayout.id) {
         try {
           const layoutsResponse = await window.ApiModule.request("/layouts/");
           const userLayouts = layoutsResponse.results || layoutsResponse;
           if (userLayouts.length > 0) {
-            layoutId = userLayouts[0].id;
+            draftLayout = userLayouts[0];
           }
         } catch (error) {
           console.error("Failed to fetch layouts:", error);
         }
       }
-      
-      if (!layoutId) {
+
+      if (!draftLayout || !draftLayout.id) {
         alert("No layout available. Please create a classroom layout first.");
         return;
       }
 
-      const newPeriod = await window.ApiModule.request("/seating-periods/", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          class_assigned: classId,
-          layout: layoutId,
-          name: periodName,
-          start_date: startDate,
-          end_date: null,
-        }),
-      });
+      setLayout(draftLayout);
 
-      console.log("New period created:", newPeriod);
-
-      // Reload data to show new period (will be empty seats)
-      await loadClassData();
-
-      // Clear any existing assignments for fresh start
+      // Enter draft mode: empty chart, fresh undo history, nothing dirty yet
+      // (an untouched draft should be silently discardable).
+      setIsDraftMode(true);
       setAssignments({});
-      setNewAssignments({});
+      setInitialAssignments({});
+      setHistory([]);
+      setHistoryIndex(-1);
+      setDeactivatedSeats(new Set());
       setHasUnsavedChanges(false);
-      
-      // Show success message
-      console.log(`Successfully created new period: ${periodName}`);
+
+      console.log("Entered new-chart draft mode (no DB writes yet)");
     } catch (error) {
-      console.error("Error in new period creation process:", error);
-      
-      // Check if the period was actually created despite the error
-      try {
-        await loadClassData();
-        // If we successfully reloaded and have a new period, don't show error
-        console.log("Period may have been created despite error, data reloaded");
-      } catch (reloadError) {
-        // Only show error if we truly failed
-        alert("Failed to create new seating period. Please try again.");
-      }
+      console.error("Error starting new chart draft:", error);
+      alert("Failed to start a new chart. Please try again.");
     } finally {
       setIsCreatingPeriod(false);
     }
@@ -2225,6 +2331,12 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
   // Marks/unmarks it in place - no navigation, no new chart. One-off charts
   // are excluded from partnership history and the current-period rules.
   const handleToggleOneOff = async () => {
+    if (isDraftMode) {
+      // Draft has no period id yet (classInfo.current_seating_period still
+      // refers to the OLD chart) - there's nothing real to toggle.
+      alert("Save this new chart before marking it one-off.");
+      return;
+    }
     const period = classInfo?.current_seating_period;
     if (!period?.id) {
       alert("No chart loaded.");
@@ -2677,8 +2789,12 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
           {
             className: "btn-icon btn-gray",
             onClick: handleNewPeriod,
-            disabled: isCreatingPeriod || !layout,
-            title: layout ? "Start a new seating period" : "No layout available",
+            disabled: isCreatingPeriod || !layout || isDraftMode,
+            title: isDraftMode
+              ? "Save or discard the current draft first"
+              : layout
+                ? "Start a new seating chart (draft until saved)"
+                : "No layout available",
             style: {
               width: "36px",
               height: "36px",
@@ -2688,8 +2804,8 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              cursor: isCreatingPeriod || !layout ? "not-allowed" : "pointer",
-              opacity: isCreatingPeriod || !layout ? 0.5 : 1,
+              cursor: isCreatingPeriod || !layout || isDraftMode ? "not-allowed" : "pointer",
+              opacity: isCreatingPeriod || !layout || isDraftMode ? 0.5 : 1,
               transition: "all 0.15s"
             }
           },
@@ -2698,21 +2814,24 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
 
         // One-Off toggle: marks/unmarks the viewed chart as one-off in place.
         // Orange = this chart is a one-off; gray = tracked.
+        // Disabled in draft mode - there's no real period to toggle yet.
         (() => {
           const period = classInfo?.current_seating_period;
           const viewingOneOff = period?.is_tracked === false;
-          const disabled = isCreatingPeriod || !period?.id;
+          const disabled = isCreatingPeriod || !period?.id || isDraftMode;
           return React.createElement(
             "button",
             {
               className: "btn-icon",
               onClick: handleToggleOneOff,
               disabled: disabled,
-              title: !period?.id
-                ? "No chart loaded"
-                : viewingOneOff
-                  ? "One-off chart - click to make it a tracked chart"
-                  : "Mark this chart as one-off (excluded from partnership history)",
+              title: isDraftMode
+                ? "Save this new chart first"
+                : !period?.id
+                  ? "No chart loaded"
+                  : viewingOneOff
+                    ? "One-off chart - click to make it a tracked chart"
+                    : "Mark this chart as one-off (excluded from partnership history)",
               style: {
                 width: "36px",
                 height: "36px",
@@ -2732,6 +2851,8 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
         })(),
 
         // Make Active button - show for inactive periods and one-off charts
+        // (never during a draft - there's no real period id to activate)
+        !isDraftMode &&
         ((!isViewingCurrentPeriod && classInfo?.current_seating_period?.end_date !== null) ||
           classInfo?.current_seating_period?.is_tracked === false) &&
           React.createElement(
