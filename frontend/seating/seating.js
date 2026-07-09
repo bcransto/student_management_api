@@ -1,5 +1,12 @@
 // frontend/seating/seating.js - Updated Seating Charts Management Component
 
+// GH #15: pending "open the editor in new-chart draft mode" handoff, set by
+// the list's "New" button and the viewer's New Period button. Module-scoped
+// (not component state) because the Seating component remounts during hash
+// navigation, which would drop state. Consumed once by SeatingEditor via
+// onDraftConsumed; nothing is written to the DB until the draft is saved.
+const seatingDraftHandoff = { pending: false };
+
 const Seating = ({ data, navigateTo, initialView, classId, periodId }) => {
   // Use NavigationService if available, fallback to navigateTo prop
   const nav = window.NavigationService || null;
@@ -49,7 +56,12 @@ const Seating = ({ data, navigateTo, initialView, classId, periodId }) => {
     setCurrentView(initialView || "list");
     setSelectedClassId(classId || null);
     setSelectedPeriodId(periodId || null);
-    
+
+    // A pending draft handoff only makes sense while entering the editor
+    if (initialView !== "editor") {
+      seatingDraftHandoff.pending = false;
+    }
+
     // If we're going back to list view, ensure we refresh the list
     if (initialView === "list" || (!initialView && !classId)) {
       fetchClassesWithSeatingCharts();
@@ -134,7 +146,7 @@ const Seating = ({ data, navigateTo, initialView, classId, periodId }) => {
     }
   };
 
-  const handleNewChart = async (classId) => {
+  const handleNewChart = (classId) => {
     console.log("Create new chart for class:", classId);
 
     // Check if user has any layouts
@@ -143,55 +155,11 @@ const Seating = ({ data, navigateTo, initialView, classId, periodId }) => {
       return;
     }
 
-    try {
-      // Get all periods for this class to determine the chart number
-      let chartNumber = 1;
-      try {
-        const allPeriods = await window.ApiModule.request(`/seating-periods/?class_assigned=${classId}`);
-        console.log("All periods for numbering:", allPeriods);
-
-        if (Array.isArray(allPeriods)) {
-          chartNumber = allPeriods.length + 1;
-        } else if (allPeriods?.results && Array.isArray(allPeriods.results)) {
-          chartNumber = allPeriods.results.length + 1;
-        } else if (allPeriods?.count !== undefined) {
-          chartNumber = allPeriods.count + 1;
-        }
-      } catch (error) {
-        console.error("Error fetching periods for chart numbering:", error);
-        chartNumber = 1;
-      }
-
-      // Auto-generate period name as "Chart N"
-      const periodName = `Chart ${chartNumber}`;
-
-      // Use the most recent layout
-      const layoutId = userLayouts[0].id;
-
-      // Create new period (backend auto-ends current period)
-      const today = new Date();
-      const startDate = today.toISOString().split("T")[0];
-
-      const newPeriod = await window.ApiModule.request("/seating-periods/", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          class_assigned: classId,
-          layout: layoutId,
-          name: periodName,
-          start_date: startDate,
-          end_date: null,
-        }),
-      });
-
-      console.log("New period created:", newPeriod);
-
-      // Navigate to editor with new period
-      handleEditChart(classId);
-    } catch (error) {
-      console.error("Error creating seating period:", error);
-      alert("Failed to create seating period. Please try again.");
-    }
+    // GH #15: don't create the period here. Open the editor in draft mode -
+    // the period is only created (and the old one ended) when the draft is
+    // saved there, atomically.
+    seatingDraftHandoff.pending = true;
+    handleEditChart(classId);
   };
 
   const handleBackToList = () => {
@@ -240,6 +208,9 @@ const Seating = ({ data, navigateTo, initialView, classId, periodId }) => {
         classId: selectedClassId,
         periodId: selectedPeriodId,
         onEdit: () => handleEditChart(selectedClassId, "Edit"),
+        // GH #15: New Period in the viewer opens the editor in draft mode
+        // instead of creating/ending periods itself
+        onNewChart: () => handleNewChart(selectedClassId),
         onBack: handleBackToList,
         navigateTo: navigateTo,
       });
@@ -274,6 +245,12 @@ const Seating = ({ data, navigateTo, initialView, classId, periodId }) => {
         onBack: handleBackToList,
         onView: () => handleViewChart(selectedClassId, "View"),
         navigateTo: navigateTo,
+        // GH #15: open in new-chart draft mode when handed off from the
+        // viewer's New Period button or the list's "New" button
+        startInDraft: seatingDraftHandoff.pending,
+        onDraftConsumed: () => {
+          seatingDraftHandoff.pending = false;
+        },
       });
     } else {
       // Try loading again

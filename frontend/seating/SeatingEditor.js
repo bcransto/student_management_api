@@ -3,7 +3,7 @@
 
 const { useState, useEffect, useMemo } = React;
 
-const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
+const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo, startInDraft, onDraftConsumed }) => {
   // Use NavigationService if available
   const nav = window.NavigationService || null;
   // Get utility functions from shared module
@@ -59,6 +59,23 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
     setDeactivatedSeats(new Set());
     console.log("Cleared deactivated seats - class or period changed");
   }, [classId, periodId]);
+
+  // GH #15 handoff: SeatingViewer's New Period button and the seating list's
+  // "New" button route here with startInDraft set instead of creating a
+  // period themselves. Once the initial data load resolves (the draft needs
+  // the loaded layout/roster), enter the same client-side draft that the
+  // editor's own New Period button uses. Consumed exactly once per handoff.
+  const startInDraftConsumedRef = React.useRef(false);
+  useEffect(() => {
+    if (!startInDraft) {
+      startInDraftConsumedRef.current = false;
+      return;
+    }
+    if (loading || isDraftMode || startInDraftConsumedRef.current) return;
+    startInDraftConsumedRef.current = true;
+    enterDraftMode();
+    if (onDraftConsumed) onDraftConsumed();
+  }, [startInDraft, loading]);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -2251,6 +2268,48 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
     }
   };
 
+  // Enter the client-side draft state (GH #15). Shared by the editor's own
+  // New Period button and the startInDraft handoff from SeatingViewer / the
+  // seating list, so the draft flow lives in one place. No DB writes -
+  // resolves a layout, then resets the chart to empty with fresh history.
+  const enterDraftMode = async () => {
+    // Resolve a layout for the draft: current layout, else the user's most
+    // recent layout. Nothing is written to the DB by this resolution.
+    let draftLayout = layout;
+
+    if (!draftLayout || !draftLayout.id) {
+      try {
+        const layoutsResponse = await window.ApiModule.request("/layouts/");
+        const userLayouts = layoutsResponse.results || layoutsResponse;
+        if (userLayouts.length > 0) {
+          draftLayout = userLayouts[0];
+        }
+      } catch (error) {
+        console.error("Failed to fetch layouts:", error);
+      }
+    }
+
+    if (!draftLayout || !draftLayout.id) {
+      alert("No layout available. Please create a classroom layout first.");
+      return false;
+    }
+
+    setLayout(draftLayout);
+
+    // Enter draft mode: empty chart, fresh undo history, nothing dirty yet
+    // (an untouched draft should be silently discardable).
+    setIsDraftMode(true);
+    setAssignments({});
+    setInitialAssignments({});
+    setHistory([]);
+    setHistoryIndex(-1);
+    setDeactivatedSeats(new Set());
+    setHasUnsavedChanges(false);
+
+    console.log("Entered new-chart draft mode (no DB writes yet)");
+    return true;
+  };
+
   // Handle starting a new seating period (GH #15: pure client-side draft).
   // No DB writes happen here at all - the previous current period is left
   // completely untouched (and stays the active chart) until the user Saves
@@ -2285,40 +2344,7 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
     setIsCreatingPeriod(true);
 
     try {
-      // Resolve a layout for the draft: current layout, else the user's most
-      // recent layout. Nothing is written to the DB by this resolution.
-      let draftLayout = layout;
-
-      if (!draftLayout || !draftLayout.id) {
-        try {
-          const layoutsResponse = await window.ApiModule.request("/layouts/");
-          const userLayouts = layoutsResponse.results || layoutsResponse;
-          if (userLayouts.length > 0) {
-            draftLayout = userLayouts[0];
-          }
-        } catch (error) {
-          console.error("Failed to fetch layouts:", error);
-        }
-      }
-
-      if (!draftLayout || !draftLayout.id) {
-        alert("No layout available. Please create a classroom layout first.");
-        return;
-      }
-
-      setLayout(draftLayout);
-
-      // Enter draft mode: empty chart, fresh undo history, nothing dirty yet
-      // (an untouched draft should be silently discardable).
-      setIsDraftMode(true);
-      setAssignments({});
-      setInitialAssignments({});
-      setHistory([]);
-      setHistoryIndex(-1);
-      setDeactivatedSeats(new Set());
-      setHasUnsavedChanges(false);
-
-      console.log("Entered new-chart draft mode (no DB writes yet)");
+      await enterDraftMode();
     } catch (error) {
       console.error("Error starting new chart draft:", error);
       alert("Failed to start a new chart. Please try again.");

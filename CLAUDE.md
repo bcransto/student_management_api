@@ -652,8 +652,15 @@ element.style.removeProperty('color');
   chart ever) also routes through `create-with-assignments` now, for the same
   atomicity; it keeps its own naming/date convention (`Seating Chart - <date>`,
   start date today) rather than "Chart N" / tomorrow
-- `SeatingViewer.js` has its own separate (still immediate-commit) New Period
-  flow - out of scope for issue #15, not modified
+- ALL New-Chart entry points route into this one draft flow now (no
+  immediate-commit copies remain): `SeatingViewer.js`'s New Period button and
+  the seating list's "New" card button (`seating.js` `handleNewChart`) just
+  confirm and open the editor with a pending-draft handoff. The flag lives in
+  module scope in `seating.js` (`seatingDraftHandoff`) because the Seating
+  component REMOUNTS during hash navigation (component state would be lost);
+  SeatingEditor consumes it once via its `startInDraft`/`onDraftConsumed`
+  props after the initial data load (`enterDraftMode()`, the same helper its
+  own New Period button uses)
 
 **Untracked One-Off Charts** (`is_tracked=False`):
 - Bolt TOGGLE in SeatingEditor marks/unmarks the VIEWED chart in place

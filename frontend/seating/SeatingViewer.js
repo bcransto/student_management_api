@@ -1,5 +1,5 @@
 // SeatingViewer.js - Read-only seating chart viewer using standard app layout
-const SeatingViewer = ({ classId, periodId, onEdit, onBack, navigateTo }) => {
+const SeatingViewer = ({ classId, periodId, onEdit, onBack, onNewChart, navigateTo }) => {
   // Use NavigationService if available
   const nav = window.NavigationService || null;
   // Get utility functions from shared module
@@ -11,7 +11,6 @@ const SeatingViewer = ({ classId, periodId, onEdit, onBack, navigateTo }) => {
   const [layout, setLayout] = React.useState(null);
   const [students, setStudents] = React.useState([]);
   const [assignments, setAssignments] = React.useState({});
-  const [isCreatingPeriod, setIsCreatingPeriod] = React.useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
   const [isDeleting, setIsDeleting] = React.useState(false);
   const [viewMode, setViewMode] = React.useState("teacher"); // "teacher", "student", or "print"
@@ -373,117 +372,28 @@ const SeatingViewer = ({ classId, periodId, onEdit, onBack, navigateTo }) => {
     }
   };
 
-  // Handle creating a new seating period
-  const handleNewPeriod = async () => {
-    console.log("handleNewPeriod called");
-    console.log("Current classInfo:", classInfo);
-    console.log("Current layout:", layout);
-
-    // Find the actual current period (end_date = null)
-    let currentActivePeriod = null;
-    try {
-      const response = await window.ApiModule.request(
-        `/seating-periods/?class_assigned=${classId}`
-      );
-      const periods = response.results || [];
-      currentActivePeriod = periods.find(p => p.end_date === null && p.is_tracked !== false);
-    } catch (error) {
-      console.error("Error fetching periods:", error);
-    }
-
-    // Confirmation dialog
-    const confirmMessage = currentActivePeriod
-      ? "Create a new seating period? This will end the current period as of today."
-      : "Create a new seating period?";
+  // Handle starting a new seating period (GH #15: draft until saved).
+  // The viewer no longer creates/ends periods itself - it confirms, then
+  // hands off to SeatingEditor's client-side draft flow via onNewChart.
+  // Nothing is written to the DB until the user saves the draft there;
+  // the current chart stays active in the meantime.
+  const handleNewPeriod = () => {
+    const hasTrackedCurrent =
+      classInfo?.current_seating_period &&
+      classInfo.current_seating_period.is_tracked !== false;
+    const confirmMessage = hasTrackedCurrent
+      ? "Start a new chart? The current chart stays active until you save the new one."
+      : "Start a new chart?";
 
     if (!confirm(confirmMessage)) {
       return;
     }
 
-    setIsCreatingPeriod(true);
-
-    try {
-      // If there's a current active period, update its end date to today
-      if (currentActivePeriod) {
-        const today = new Date().toISOString().split("T")[0];
-        console.log(
-          "Ending current period:",
-          currentActivePeriod.id,
-          "with date:",
-          today
-        );
-
-        const endResponse = await window.ApiModule.request(
-          `/seating-periods/${currentActivePeriod.id}/`,
-          {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              end_date: today,
-            }),
-          }
-        );
-        console.log("End period response:", endResponse);
-      }
-
-      // Calculate dates
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      const startDate = tomorrow.toISOString().split("T")[0];
-
-      // Get all periods for this class to determine the chart number
-      let chartNumber = 1;
-      try {
-        const allPeriods = await window.ApiModule.request(`/seating-periods/?class_assigned=${classId}`);
-        console.log("All periods for numbering:", allPeriods);
-        
-        // Handle both array and object responses (count tracked charts only)
-        const periodList = Array.isArray(allPeriods) ? allPeriods : allPeriods?.results;
-        if (Array.isArray(periodList)) {
-          chartNumber = periodList.filter((p) => p.is_tracked !== false).length + 1;
-        } else if (allPeriods && allPeriods.count !== undefined) {
-          chartNumber = allPeriods.count + 1;
-        }
-      } catch (error) {
-        console.error("Error fetching periods for chart numbering:", error);
-        // Fall back to 1 if we can't get the count
-        chartNumber = 1;
-      }
-      
-      // Auto-generate period name as "Chart N"
-      const periodName = `Chart ${chartNumber}`;
-
-      // Create new period with layout from previous period or class
-      const requestBody = {
-        class_assigned: classId,
-        layout: layout.id, // Use current layout (from previous period or class)
-        name: periodName,
-        start_date: startDate,
-        end_date: null,
-      };
-
-      console.log("Creating new period with data:", requestBody);
-
-      const newPeriod = await window.ApiModule.request("/seating-periods/", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestBody),
-      });
-
-      console.log("New period created:", newPeriod);
-
-      // Switch to edit mode for the new period
+    if (onNewChart) {
+      onNewChart();
+    } else {
+      // Fallback: at least land in the editor, where New Period starts a draft
       onEdit();
-
-      // Reload data to show new period
-      await loadClassData();
-    } catch (error) {
-      console.error("Error creating new period:", error);
-      console.error("Error details:", error.message);
-      console.error("Error stack:", error.stack);
-      alert(`Failed to create new seating period: ${error.message}`);
-    } finally {
-      setIsCreatingPeriod(false);
     }
   };
 
@@ -863,8 +773,8 @@ const SeatingViewer = ({ classId, periodId, onEdit, onBack, navigateTo }) => {
           {
             className: "btn-icon btn-gray",
             onClick: handleNewPeriod,
-            disabled: isCreatingPeriod || !layout,
-            title: layout ? "Start a new seating period" : "No layout available",
+            disabled: !layout,
+            title: layout ? "Start a new seating chart (draft until saved)" : "No layout available",
             style: {
               width: "36px",
               height: "36px",
@@ -874,8 +784,8 @@ const SeatingViewer = ({ classId, periodId, onEdit, onBack, navigateTo }) => {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              cursor: isCreatingPeriod || !layout ? "not-allowed" : "pointer",
-              opacity: isCreatingPeriod || !layout ? 0.5 : 1,
+              cursor: !layout ? "not-allowed" : "pointer",
+              opacity: !layout ? 0.5 : 1,
               transition: "all 0.15s"
             }
           },
