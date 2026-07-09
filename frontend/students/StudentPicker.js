@@ -1,4 +1,4 @@
-// StudentPicker.js - "Add from School List" modal (issue #14 phase 2)
+// StudentPicker.js - "Add Student" modal (issue #14 phase 2)
 // Browse the school-wide (Workspace-synced) student list, filter by cohort,
 // and add students to (or remove cohorts from) the teacher's "my students"
 // list. Manual student creation is disabled by design - students only ever
@@ -248,7 +248,7 @@ const StudentPicker = ({ onClose, onChanged }) => {
           "h2",
           { style: { margin: 0, fontSize: "1.25rem" } },
           React.createElement("i", { className: "fas fa-user-plus", style: { marginRight: "8px" } }),
-          "Add from School List"
+          "Add Student"
         ),
         React.createElement(
           "button",

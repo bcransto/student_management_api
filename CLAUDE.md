@@ -162,14 +162,21 @@ React.createElement("div", { className: "example" }, children)
      `TeacherStudent` rows) - the list `/api/students/` endpoint filters
      automatically, so ClassStudentManager's enrollment picker and every other
      consumer see the same scoped list (#14 phase 2)
-   - **No manual student creation** (#14): the old "Add Student" button / route
-     is gone. Students only enter via the Workspace sync (phase 3) or a Google
-     import; a teacher adds an existing student with **"Add from School List"**
-     (`StudentPicker.js`)
-   - `StudentPicker.js` - modal picker over the school-wide list
+   - **No manual student creation** (#14): global Student rows only enter via
+     the Workspace sync (phase 3) or a Google import. The "Add Student" button
+     opens `StudentPicker.js` (adds EXISTING students from the app's school
+     list to my list - it does not create rows); the "Add Cohort" button opens
+     `AddCohortModal.js`. Neither talks to Google - the old teacher-facing
+     "Import from Workspace" modal (`WorkspaceImportModal.js`) was removed once
+     the sync owned the school list (the /api/google/directory-* endpoints
+     remain for the sync + any admin use)
+   - `StudentPicker.js` - "Add Student" modal picker over the school-wide list
      (`/api/students/school-list/`): filter by cohort dropdown, per-row Add /
      Remove, "Add all in cohort", "Remove cohort from my list". Excludes
      archived students. Registered in `index.html` like the other student modals
+   - `AddCohortModal.js` - "Add Cohort" modal: cohort dropdown with counts,
+     adds (or removes) the whole cohort to/from my list via
+     add-to-my-list/remove-from-my-list `{cohort}` - app's list only, no Google
    - `StudentEditor.js` - edit-only (no create mode). Sync-owned fields
      (student ID, first/last name, email, Google ID) are read-only display;
      editable fields are nickname/gender/preferential seating (per-teacher) plus
@@ -812,7 +819,7 @@ Frontend auto-detects environment via hostname (pinto.local uses current origin 
 
 **Frontend Hash Routes**:
 - `#dashboard` - Main view
-- `#students` - "My students" list with search + "Add from School List" picker
+- `#students` - "My students" list with search + "Add Student" picker + "Add Cohort" modal
 - `#students/edit/{id}` - Edit student (edit-only; sync fields read-only)
   (the legacy `#students/new` route is removed and redirects here-to `#students`)
 - `#classes` - Class list

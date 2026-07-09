@@ -8,7 +8,7 @@ const Students = ({ data, navigateTo, apiModule }) => {
   const [students, setStudents] = React.useState(data?.students || []);
   const [loading, setLoading] = React.useState(!data?.students?.length);
   const [searchTerm, setSearchTerm] = React.useState("");
-  const [workspaceModalOpen, setWorkspaceModalOpen] = React.useState(false);
+  const [cohortModalOpen, setCohortModalOpen] = React.useState(false);
   const [bulkUpdateModalOpen, setBulkUpdateModalOpen] = React.useState(false);
   const [pickerOpen, setPickerOpen] = React.useState(false);
 
@@ -136,7 +136,10 @@ const Students = ({ data, navigateTo, apiModule }) => {
     });
   }, [students, searchTerm]);
 
-  if (loading) {
+  // Full-page spinner only on the INITIAL load. On refreshes (e.g. after a
+  // picker/cohort-modal add) keep the current tree rendered - early-returning
+  // here would unmount any open modal and wipe its state mid-interaction.
+  if (loading && students.length === 0) {
     return React.createElement(
       "div",
       { className: "students-loading" },
@@ -189,16 +192,16 @@ const Students = ({ data, navigateTo, apiModule }) => {
           className: "btn btn-primary"
         },
         React.createElement("i", { className: "fas fa-user-plus" }),
-        "Add from School List"
+        "Add Student"
       ),
       React.createElement(
         "button",
         {
-          onClick: () => setWorkspaceModalOpen(true),
+          onClick: () => setCohortModalOpen(true),
           className: "btn btn-success"
         },
-        React.createElement("i", { className: "fab fa-google" }),
-        "Import from Workspace"
+        React.createElement("i", { className: "fas fa-users" }),
+        "Add Cohort"
       ),
       React.createElement(
         "button",
@@ -388,11 +391,11 @@ const Students = ({ data, navigateTo, apiModule }) => {
       )
     ),
 
-    // Workspace directory import modal
-    workspaceModalOpen && window.WorkspaceImportModal && React.createElement(window.WorkspaceImportModal, {
-      onClose: () => setWorkspaceModalOpen(false),
-      onImported: () => {
-        setWorkspaceModalOpen(false);
+    // "Add Cohort" modal (whole-cohort add/remove over the app's school list)
+    cohortModalOpen && window.AddCohortModal && React.createElement(window.AddCohortModal, {
+      onClose: () => setCohortModalOpen(false),
+      onChanged: () => {
+        // Refresh the my-students list after adds/removes (modal stays open)
         loadStudents();
       }
     }),
@@ -406,7 +409,7 @@ const Students = ({ data, navigateTo, apiModule }) => {
       }
     }),
 
-    // "Add from School List" picker (school-wide list, cohort add/remove)
+    // "Add Student" picker (school-wide list, individual add/remove)
     pickerOpen && window.StudentPicker && React.createElement(window.StudentPicker, {
       onClose: () => setPickerOpen(false),
       onChanged: () => {
