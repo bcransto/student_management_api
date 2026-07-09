@@ -1341,7 +1341,10 @@ class SyncDirectoryEndpointTests(TestCase):
     """POST /api/google/sync-directory/ (Sync now)."""
 
     def setUp(self):
+        # Sync Now is superuser-only (school-wide mutation).
         self.teacher = make_user()
+        self.teacher.is_superuser = True
+        self.teacher.save(update_fields=["is_superuser"])
         self.client = APIClient()
         self.client.force_authenticate(user=self.teacher)
 
@@ -1349,6 +1352,12 @@ class SyncDirectoryEndpointTests(TestCase):
         self.client.force_authenticate(user=None)
         response = self.client.post("/api/google/sync-directory/")
         self.assertEqual(response.status_code, 401)
+
+    def test_forbidden_for_regular_teacher(self):
+        regular = make_user(email="regular@school.edu", username="regular")
+        self.client.force_authenticate(user=regular)
+        response = self.client.post("/api/google/sync-directory/")
+        self.assertEqual(response.status_code, 403)
 
     def test_needs_reconnect_when_not_connected(self):
         # No GoogleClassroomCredentials -> DirectoryAuthError(not_connected).

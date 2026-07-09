@@ -12,6 +12,23 @@ const Students = ({ data, navigateTo, apiModule }) => {
   const [bulkUpdateModalOpen, setBulkUpdateModalOpen] = React.useState(false);
   const [pickerOpen, setPickerOpen] = React.useState(false);
 
+  // Sync Now is admin-only: the sync mutates the school-wide list (including
+  // archiving students for every teacher). Same JWT decode as sidebar.js.
+  const isSuperuser = React.useMemo(() => {
+    const token = localStorage.getItem("token");
+    if (!token) return false;
+    try {
+      let payload = token.split(".")[1];
+      payload = payload.replace(/-/g, "+").replace(/_/g, "/");
+      while (payload.length % 4) {
+        payload += "=";
+      }
+      return JSON.parse(atob(payload)).is_superuser === true;
+    } catch (e) {
+      return false;
+    }
+  }, []);
+
   // Workspace directory "Sync now" state
   const [lastSynced, setLastSynced] = React.useState(null);
   const [syncing, setSyncing] = React.useState(false);
@@ -192,7 +209,7 @@ const Students = ({ data, navigateTo, apiModule }) => {
         React.createElement("i", { className: "fas fa-file-csv" }),
         "Bulk Update"
       ),
-      React.createElement(
+      isSuperuser && React.createElement(
         "button",
         {
           onClick: handleSyncNow,

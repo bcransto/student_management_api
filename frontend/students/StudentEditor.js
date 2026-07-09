@@ -102,7 +102,7 @@ const StudentEditor = ({ studentId, navigateTo, apiModule }) => {
       // teacher-writable global field. Sync-owned fields are read-only on the
       // API and are intentionally omitted.
       const payload = {
-        nickname: formData.nickname || formData.first_name,
+        nickname: formData.nickname || "",
         gender: formData.gender || null,
         preferential_seating: formData.preferential_seating,
         date_of_birth: formData.date_of_birth || null,

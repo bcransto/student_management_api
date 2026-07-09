@@ -798,11 +798,19 @@ def google_sync_directory(request):
     shape as the other directory endpoints.
 
     Response: the sync summary dict plus ``last_synced`` (max Student.synced_at).
+
+    Superuser-only: the sync mutates the school-wide list (including archiving
+    students for every teacher), so regular teachers get 403.
     """
     from django.db.models import Max
 
     from . import directory_sync
     from .models import Student
+
+    if not request.user.is_superuser:
+        return Response(
+            {"error": "Directory sync is restricted to administrators."}, status=403
+        )
 
     try:
         summary = directory_sync.sync_directory(request.user, dry_run=False)

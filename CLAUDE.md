@@ -433,9 +433,11 @@ await ApiModule.request('/api/endpoint/')   // ❌ Double /api/ prefix
 # Sync user: --user, else settings.DIRECTORY_SYNC_USER_EMAIL, else CommandError.
 # Non-zero exit on failure so cron/systemd flags it.
 
-# POST /api/google/sync-directory/  (JWT) — "Sync now"; runs sync_directory with
-# request.user's creds; needs_reconnect shape on missing creds/scope; 502 on
-# fetch failure. Response is the summary dict + last_synced.
+# POST /api/google/sync-directory/  (JWT, SUPERUSER-ONLY — 403 otherwise; the
+# frontend hides the Sync Now button for non-admins via the JWT is_superuser
+# claim) — "Sync now"; runs sync_directory with request.user's creds;
+# needs_reconnect shape on missing creds/scope; 502 on fetch failure.
+# Response is the summary dict + last_synced.
 # GET /api/students/last-synced/  (JWT) — {"last_synced": <ISO ts>|null}
 ```
 
@@ -796,7 +798,7 @@ Frontend auto-detects environment via hostname (pinto.local uses current origin 
 - `/api/google/directory-cohorts/` - Workspace cohorts (by email prefix)
 - `/api/google/directory-students/` - Workspace cohort roster preview
 - `/api/google/import-directory-students/` - Bulk-create a cohort's students
-- `/api/google/sync-directory/` - "Sync now": run the Workspace directory sync with the requesting user's credentials (POST, JWT)
+- `/api/google/sync-directory/` - "Sync now": run the Workspace directory sync with the requesting user's credentials (POST, JWT, superuser-only)
 - `/api/students/bulk-update-info/` - Paste CSV/TSV to set nickname/gender
 - `/api/students/school-list/` - School-wide picker feed (cohort filter, on_my_list, last_synced)
 - `/api/students/last-synced/` - Cheap GET of max(Student.synced_at)
