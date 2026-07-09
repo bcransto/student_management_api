@@ -13,6 +13,7 @@ from .models import (
     SeatingPeriod,
     Student,
     TableSeat,
+    TeacherStudent,
     User,
 )
 
@@ -74,7 +75,6 @@ class GoogleImportStudentsTests(TestCase):
         alice = Student.objects.get(google_user_id="g-111")
         self.assertEqual(alice.first_name, "Alice")
         self.assertEqual(alice.student_id, "aanderson")  # email local part
-        self.assertEqual(alice.nickname, "Alice")  # auto-populated
         self.assertTrue(
             ClassRoster.objects.filter(
                 class_assigned=self.klass, student=alice, is_active=True
@@ -86,7 +86,6 @@ class GoogleImportStudentsTests(TestCase):
             student_id="1234",
             first_name="Alice",
             last_name="Anderson",
-            nickname="",
             email="AAnderson@School.edu",  # different case
         )
         response = self.run_import([GOOGLE_ROSTER[0]])
@@ -104,7 +103,6 @@ class GoogleImportStudentsTests(TestCase):
             student_id="1234",
             first_name="Alice",
             last_name="Anderson",
-            nickname="",
             email="aanderson@school.edu",
         )
         ClassRoster.objects.create(
@@ -130,7 +128,6 @@ class GoogleImportStudentsTests(TestCase):
             student_id="aanderson",
             first_name="Other",
             last_name="Person",
-            nickname="",
         )
         response = self.run_import([GOOGLE_ROSTER[0]])
         self.assertEqual(response.status_code, 200)
@@ -273,7 +270,7 @@ class UntrackedSeatingPeriodTests(TestCase):
         students = []
         for i in range(2):
             s = Student.objects.create(
-                student_id=f"s{i}", first_name=f"Kid{i}", last_name="Test", nickname=""
+                student_id=f"s{i}", first_name=f"Kid{i}", last_name="Test"
             )
             students.append(ClassRoster.objects.create(class_assigned=self.klass, student=s))
 
@@ -394,7 +391,7 @@ class SeatingPeriodCreateWithAssignmentsTests(TestCase):
         self.roster_entries = []
         for i in range(2):
             student = Student.objects.create(
-                student_id=f"cwa{i}", first_name=f"Kid{i}", last_name="Test", nickname=""
+                student_id=f"cwa{i}", first_name=f"Kid{i}", last_name="Test"
             )
             self.roster_entries.append(
                 ClassRoster.objects.create(class_assigned=self.klass, student=student)
@@ -483,12 +480,22 @@ class BulkUpdateInfoTests(TestCase):
         self.client.force_authenticate(user=self.teacher)
         self.alice = Student.objects.create(
             student_id="1001", first_name="Alice", last_name="Anderson",
-            nickname="", email="aanderson@school.edu", gender="female",
+            email="aanderson@school.edu",
         )
         self.bob = Student.objects.create(
             student_id="1002", first_name="Robert", last_name="Baker",
-            nickname="", email="rbaker@school.edu",
+            email="rbaker@school.edu",
         )
+        # Alice's gender is a per-teacher annotation, not a global Student field.
+        TeacherStudent.objects.create(
+            teacher=self.teacher, student=self.alice, gender="female"
+        )
+
+    def annotation(self, student):
+        """Fetch (or None) the requesting teacher's annotation for a student."""
+        return TeacherStudent.objects.filter(
+            teacher=self.teacher, student=student
+        ).first()
 
     def post_text(self, text, apply=False):
         return self.client.post(
@@ -510,10 +517,10 @@ class BulkUpdateInfoTests(TestCase):
             "student_id,gender\n1002,M\n1001,Female", apply=True
         )
         self.assertEqual(response.status_code, 200)
-        self.bob.refresh_from_db()
-        self.alice.refresh_from_db()
-        self.assertEqual(self.bob.gender, "male")
-        self.assertEqual(self.alice.gender, "female")  # unchanged (already female)
+        self.assertEqual(self.annotation(self.bob).gender, "male")
+        self.assertEqual(
+            self.annotation(self.alice).gender, "female"
+        )  # unchanged (already female)
         data = response.json()
         self.assertEqual(len(data["updated"]), 1)  # only Bob changed
         self.assertEqual(len(data["unchanged"]), 1)
@@ -527,17 +534,15 @@ class BulkUpdateInfoTests(TestCase):
     def test_dash_clears_gender(self):
         response = self.post_text("student_id,gender\n1001,-", apply=True)
         self.assertEqual(response.status_code, 200)
-        self.alice.refresh_from_db()
-        self.assertIsNone(self.alice.gender)
+        self.assertIsNone(self.annotation(self.alice).gender)
 
     def test_dry_run_leaves_db_untouched(self):
         response = self.post_text("student_id,nickname,gender\n1002,Bob,m", apply=False)
         data = response.json()
         self.assertFalse(data["applied"])
         self.assertEqual(len(data["updated"]), 1)
-        self.bob.refresh_from_db()
-        self.assertEqual(self.bob.nickname, "Robert")  # auto-filled, unchanged
-        self.assertIsNone(self.bob.gender)
+        # No annotation created for Bob on a dry run
+        self.assertIsNone(self.annotation(self.bob))
 
     def test_unknown_rows_reported_not_found(self):
         response = self.post_text("student_id\n9999")
@@ -555,24 +560,37 @@ class BulkUpdateInfoTests(TestCase):
         )
         data = response.json()
         self.assertEqual(len(data["conflicts"]), 1)
-        self.bob.refresh_from_db()
-        self.alice.refresh_from_db()
-        self.assertEqual(self.bob.nickname, "Bobby")  # updated by student_id
-        self.assertEqual(self.alice.nickname, "Alice")  # untouched
+        self.assertEqual(
+            self.annotation(self.bob).nickname, "Bobby"
+        )  # updated by student_id
+        # Alice untouched (no nickname annotation written)
+        alice_ann = self.annotation(self.alice)
+        self.assertFalse(alice_ann.nickname)
 
     def test_email_matching_is_case_insensitive(self):
         response = self.post_text("email,nickname\nRBaker@School.edu,Bob", apply=True)
         self.assertEqual(len(response.json()["updated"]), 1)
-        self.bob.refresh_from_db()
-        self.assertEqual(self.bob.nickname, "Bob")
+        self.assertEqual(self.annotation(self.bob).nickname, "Bob")
 
     def test_empty_cells_change_nothing(self):
         response = self.post_text("student_id,nickname,gender\n1001,,", apply=True)
         data = response.json()
         self.assertEqual(len(data["updated"]), 0)
         self.assertEqual(len(data["unchanged"]), 1)
-        self.alice.refresh_from_db()
-        self.assertEqual(self.alice.gender, "female")
+        self.assertEqual(self.annotation(self.alice).gender, "female")
+
+    def test_annotations_are_per_teacher(self):
+        """A second teacher's bulk update never touches the first teacher's rows."""
+        other = make_user(email="other@school.edu", username="other")
+        self.client.force_authenticate(user=other)
+        response = self.post_text("student_id,nickname\n1001,Ali", apply=True)
+        self.assertEqual(response.status_code, 200)
+        # The other teacher got their own annotation
+        self.assertEqual(
+            TeacherStudent.objects.get(teacher=other, student=self.alice).nickname, "Ali"
+        )
+        # The original teacher's annotation is unchanged (no nickname set)
+        self.assertFalse(self.annotation(self.alice).nickname)
 
     def test_bom_and_id_header_synonym_accepted(self):
         response = self.post_text("﻿id,nickname\n1002,Bob")
@@ -583,6 +601,73 @@ class BulkUpdateInfoTests(TestCase):
         self.client.force_authenticate(user=None)
         response = self.post_text("student_id,nickname\n1001,A")
         self.assertEqual(response.status_code, 401)
+
+
+class TeacherStudentAnnotationTests(TestCase):
+    """Serializer indirection through the per-teacher annotation layer."""
+
+    def setUp(self):
+        self.teacher = make_user()
+        self.other = make_user(email="other@school.edu", username="other")
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.teacher)
+        self.student = Student.objects.create(
+            student_id="1001", first_name="Alexander", last_name="Anderson",
+            email="aanderson@school.edu",
+        )
+
+    def test_nickname_falls_back_to_first_name_without_annotation(self):
+        response = self.client.get(f"/api/students/{self.student.id}/")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["nickname"], "Alexander")  # first_name fallback
+        self.assertIsNone(data["gender"])
+        self.assertFalse(data["preferential_seating"])
+
+    def test_student_serializer_round_trips_annotation_per_teacher(self):
+        response = self.client.patch(
+            f"/api/students/{self.student.id}/",
+            {"nickname": "Alex", "gender": "male", "preferential_seating": True},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["nickname"], "Alex")
+        self.assertEqual(data["gender"], "male")
+        self.assertTrue(data["preferential_seating"])
+
+        # Persisted to the requesting teacher's TeacherStudent row only
+        annotation = TeacherStudent.objects.get(teacher=self.teacher, student=self.student)
+        self.assertEqual(annotation.nickname, "Alex")
+        self.assertEqual(annotation.gender, "male")
+        self.assertTrue(annotation.preferential_seating)
+
+    def test_annotations_do_not_leak_between_teachers(self):
+        TeacherStudent.objects.create(
+            teacher=self.teacher, student=self.student,
+            nickname="Alex", gender="male", preferential_seating=True,
+        )
+        # The other teacher sees defaults, not the first teacher's annotation
+        self.client.force_authenticate(user=self.other)
+        response = self.client.get(f"/api/students/{self.student.id}/")
+        data = response.json()
+        self.assertEqual(data["nickname"], "Alexander")  # fallback, not "Alex"
+        self.assertIsNone(data["gender"])
+        self.assertFalse(data["preferential_seating"])
+
+    def test_class_roster_resolves_through_class_teacher(self):
+        """A class's roster uses the CLASS TEACHER's annotation, not the viewer's."""
+        klass = Class.objects.create(name="Science", subject="Science", teacher=self.teacher)
+        ClassRoster.objects.create(class_assigned=klass, student=self.student)
+        TeacherStudent.objects.create(
+            teacher=self.teacher, student=self.student, nickname="Alex", gender="female"
+        )
+        response = self.client.get(f"/api/classes/{klass.id}/")
+        self.assertEqual(response.status_code, 200)
+        roster = response.json()["roster"]
+        self.assertEqual(len(roster), 1)
+        self.assertEqual(roster[0]["student_nickname"], "Alex")
+        self.assertEqual(roster[0]["student_gender"], "female")
 
 
 DIRECTORY_FIXTURE = [
@@ -647,10 +732,10 @@ class GoogleDirectoryImportTests(TestCase):
 
     def test_directory_students_exists_flags(self):
         Student.objects.create(
-            student_id="2887", first_name="Anika", last_name="Brenne", nickname=""
+            student_id="2887", first_name="Anika", last_name="Brenne"
         )
         Student.objects.create(
-            student_id="x1", first_name="Zoe", last_name="G", nickname="",
+            student_id="x1", first_name="Zoe", last_name="G",
             email="28ZGomez@School.edu",  # case differs - email match
         )
         response = self.with_directory("get", "/api/google/directory-students/?cohort=28")
@@ -668,7 +753,7 @@ class GoogleDirectoryImportTests(TestCase):
     def test_import_creates_with_real_ids_and_backfills(self):
         existing = Student.objects.create(
             student_id="emailderived", first_name="Zoe", last_name="Gomez",
-            nickname="", email="28zgomez@school.edu",
+            email="28zgomez@school.edu",
         )
         response = self.with_directory(
             "post", "/api/google/import-directory-students/", {"cohort": "28"}
@@ -682,9 +767,9 @@ class GoogleDirectoryImportTests(TestCase):
 
         anika = Student.objects.get(student_id="2887")
         self.assertEqual(anika.first_name, "Anika")
-        self.assertEqual(anika.nickname, "Anika")  # model auto-fill
-        self.assertIsNone(anika.gender)
         self.assertEqual(anika.google_user_id, "g-2887")
+        # Import does not create per-teacher annotations in phase 1
+        self.assertFalse(anika.teacher_annotations.exists())
 
         existing.refresh_from_db()
         self.assertEqual(existing.student_id, "emailderived")  # never overwritten

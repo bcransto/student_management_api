@@ -67,9 +67,21 @@ SeatingPeriod → class_assigned (FK to Class)
 SeatingAssignment → seating_period (FK to SeatingPeriod)
 SeatingAssignment → roster_entry (FK to ClassRoster, not Student!)
 
-# Student fields
-Student.nickname  # Defaults to first_name if empty/whitespace
-Student.gender    # 'male', 'female', 'other' (lowercase in DB)
+# Student fields (global, Workspace-sync-owned - see GH issue #14 phase 1)
+Student.cohort    # Two-digit email-prefix grad year (e.g. "28"), indexed
+Student.synced_at # When the directory sync last touched the row
+# nickname/gender/preferential_seating moved OFF Student to the per-teacher
+# TeacherStudent layer (below). date_of_birth stays global + teacher-writable.
+
+# Per-teacher annotations (nickname/gender/preferential seating)
+TeacherStudent → teacher (FK User), student (FK Student)
+# unique_together [teacher, student]; nickname (blank→first_name fallback),
+# gender (nullable, same choices), preferential_seating (bool), is_active.
+# Strictly private per teacher, start blank, never seeded/shared. Serializers
+# resolve the flattened student_nickname/student_gender/
+# student_preferential_seating fields through the CLASS TEACHER's row
+# (ClassRoster/Attendance) or the REQUESTING user's row (StudentSerializer),
+# so the frontend API contract is unchanged.
 
 # Partnership tracking
 PartnershipRating → class_assigned, student1, student2
@@ -239,7 +251,8 @@ await ApiModule.request('/api/endpoint/')   // ❌ Double /api/ prefix
 
 **Critical Serializer Behaviors**:
 - SeatingAssignment expects `roster_entry` ID, not `student` ID
-- Student.nickname defaults to first_name when empty
+- student_nickname falls back to the student's first_name when the resolving
+  teacher's TeacherStudent.nickname is blank (resolution is per-teacher now)
 - API responses may be paginated: check for `results` key
 - ClassRoomLayout ViewSet filters by `created_by` user (except superusers)
 - ClassSerializer.roster only returns active entries (is_active=True)
@@ -387,12 +400,16 @@ await ApiModule.request('/api/endpoint/')   // ❌ Double /api/ prefix
 # stripped. Rows match by student_id then email (iexact). Only non-empty
 # cells change anything; gender m/f/o normalized, "-" clears to null,
 # other values -> invalid. apply=false is a dry run.
+# WRITES TO the requesting teacher's TeacherStudent row (update_or_create),
+# NOT the global Student (per GH issue #14). "current" values it diffs
+# against are that teacher's annotation (nickname falls back to first_name).
 # {applied, updated:[{id,name,changes}], not_found, invalid, unchanged, conflicts}
 ```
 
-**Blank gender**: `Student.gender` is nullable ("Not set" in StudentEditor).
-Seating editor Gender highlight renders null/unset gender as neutral GRAY
-(#9ca3af) - distinct from male/other blue and female green. Fill modes
+**Blank gender**: gender is a per-teacher `TeacherStudent.gender` (nullable,
+"Not set" in StudentEditor); a teacher who hasn't set it sees null for every
+student. Seating editor Gender highlight renders null/unset gender as neutral
+GRAY (#9ca3af) - distinct from male/other blue and female green. Fill modes
 already tolerate null (Match excludes them, Balance places them last).
 
 **Smart Pair Algorithm**:

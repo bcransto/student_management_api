@@ -14,8 +14,10 @@ from .models import (
     SeatingPeriod,
     Student,
     TableSeat,
+    TeacherStudent,
     User,
 )
+from .models import GENDER_CHOICES
 
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -308,10 +310,10 @@ class ClassRosterSerializer(serializers.ModelSerializer):
     student_id = serializers.CharField(source="student.student_id", read_only=True)
     student_first_name = serializers.CharField(source="student.first_name", read_only=True)
     student_last_name = serializers.CharField(source="student.last_name", read_only=True)
-    student_nickname = serializers.CharField(source="student.nickname", read_only=True)
+    student_nickname = serializers.SerializerMethodField()
     student_email = serializers.CharField(source="student.email", read_only=True)
-    student_gender = serializers.CharField(source="student.gender", read_only=True)
-    student_preferential_seating = serializers.BooleanField(source="student.preferential_seating", read_only=True)
+    student_gender = serializers.SerializerMethodField()
+    student_preferential_seating = serializers.SerializerMethodField()
     current_seating_assignment = serializers.SerializerMethodField()
     class_assigned_details = serializers.SerializerMethodField()
 
@@ -351,6 +353,47 @@ class ClassRosterSerializer(serializers.ModelSerializer):
             }
         return None
 
+    def _teacher_annotation(self, obj):
+        """
+        Resolve the class teacher's TeacherStudent row for this roster entry's
+        student. A Class has exactly one teacher, so no request context is
+        needed. Uses the prefetched ``teacher_annotations_list`` (see the
+        Prefetch in ClassSerializer.get_roster / ClassRosterViewSet) when
+        available to avoid N+1 queries; the result is cached on the instance.
+        """
+        if hasattr(obj, "_ts_annotation_cached"):
+            return obj._ts_annotation
+        teacher_id = obj.class_assigned.teacher_id
+        student = obj.student
+        annotations = getattr(student, "teacher_annotations_list", None)
+        result = None
+        if annotations is not None:
+            for annotation in annotations:
+                if annotation.teacher_id == teacher_id:
+                    result = annotation
+                    break
+        else:
+            result = TeacherStudent.objects.filter(
+                teacher_id=teacher_id, student=student
+            ).first()
+        obj._ts_annotation = result
+        obj._ts_annotation_cached = True
+        return result
+
+    def get_student_nickname(self, obj):
+        annotation = self._teacher_annotation(obj)
+        if annotation and annotation.nickname and annotation.nickname.strip():
+            return annotation.nickname
+        return obj.student.first_name
+
+    def get_student_gender(self, obj):
+        annotation = self._teacher_annotation(obj)
+        return annotation.gender if annotation else None
+
+    def get_student_preferential_seating(self, obj):
+        annotation = self._teacher_annotation(obj)
+        return annotation.preferential_seating if annotation else False
+
     def get_current_seating_assignment(self, obj):
         """Get current seating assignment for this student (uses prefetched data)"""
         # Use prefetched seating_assignments if available (from ClassSerializer.get_roster)
@@ -376,7 +419,20 @@ class ClassRosterSerializer(serializers.ModelSerializer):
 class StudentSerializer(serializers.ModelSerializer):
     active_classes = serializers.SerializerMethodField()
     current_enrollments = ClassRosterSerializer(source="enrollments", many=True, read_only=True)
+    # nickname / gender / preferential_seating are per-teacher annotations that
+    # live on TeacherStudent, not on Student. They are declared here (not as
+    # model fields) so the frontend contract is unchanged: on read they resolve
+    # from the REQUESTING user's TeacherStudent row (see to_representation), and
+    # on write they are stored via update_or_create in create()/update().
+    # required=False means DRF SkipFields them on read (Student has no such
+    # attribute), letting to_representation supply the resolved values.
     nickname = serializers.CharField(max_length=30, required=False, allow_blank=True)
+    gender = serializers.ChoiceField(
+        choices=GENDER_CHOICES, required=False, allow_blank=True, allow_null=True
+    )
+    preferential_seating = serializers.BooleanField(required=False)
+
+    ANNOTATION_FIELDS = ("nickname", "gender", "preferential_seating")
 
     class Meta:
         model = Student
@@ -401,6 +457,77 @@ class StudentSerializer(serializers.ModelSerializer):
     def get_active_classes(self, obj):
         active_classes = obj.active_classes
         return [{"id": cls.id, "name": cls.name} for cls in active_classes]
+
+    def _requesting_annotation(self, obj):
+        """
+        TeacherStudent row for the requesting user + this student, or None.
+        Uses the prefetched ``my_annotations`` list (see StudentViewSet
+        .get_queryset) when present to avoid N+1 queries.
+        """
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        if not user or not user.is_authenticated:
+            return None
+        annotations = getattr(obj, "my_annotations", None)
+        if annotations is not None:
+            return annotations[0] if annotations else None
+        return TeacherStudent.objects.filter(teacher=user, student=obj).first()
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        annotation = self._requesting_annotation(instance)
+        if annotation and annotation.nickname and annotation.nickname.strip():
+            data["nickname"] = annotation.nickname
+        else:
+            data["nickname"] = instance.first_name
+        data["gender"] = annotation.gender if annotation else None
+        data["preferential_seating"] = (
+            annotation.preferential_seating if annotation else False
+        )
+        return data
+
+    def _pop_annotation_fields(self, validated_data):
+        """Remove and return any annotation fields present in the payload."""
+        return {
+            field: validated_data.pop(field)
+            for field in self.ANNOTATION_FIELDS
+            if field in validated_data
+        }
+
+    def _write_annotation(self, student, annotation_fields):
+        """Persist per-teacher annotations to the requesting user's row."""
+        if not annotation_fields:
+            return
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        if not user or not user.is_authenticated:
+            return
+        defaults = {}
+        if "nickname" in annotation_fields:
+            defaults["nickname"] = annotation_fields["nickname"] or ""
+        if "gender" in annotation_fields:
+            defaults["gender"] = annotation_fields["gender"] or None
+        if "preferential_seating" in annotation_fields:
+            defaults["preferential_seating"] = annotation_fields["preferential_seating"]
+        TeacherStudent.objects.update_or_create(
+            teacher=user, student=student, defaults=defaults
+        )
+        # Drop the (now stale) prefetched annotations so to_representation
+        # re-reads the freshly written row instead of the pre-write cache.
+        if hasattr(student, "my_annotations"):
+            del student.my_annotations
+
+    def create(self, validated_data):
+        annotation_fields = self._pop_annotation_fields(validated_data)
+        student = super().create(validated_data)
+        self._write_annotation(student, annotation_fields)
+        return student
+
+    def update(self, instance, validated_data):
+        annotation_fields = self._pop_annotation_fields(validated_data)
+        student = super().update(instance, validated_data)
+        self._write_annotation(student, annotation_fields)
+        return student
 
 
 class ClassListSerializer(serializers.ModelSerializer):
@@ -448,9 +575,17 @@ class ClassSerializer(serializers.ModelSerializer):
                 queryset=SeatingAssignment.objects.none()
             )
 
+        # Prefetch the class teacher's annotations so the roster serializer can
+        # resolve nickname/gender/preferential_seating without N+1 queries.
+        annotation_prefetch = Prefetch(
+            'student__teacher_annotations',
+            queryset=TeacherStudent.objects.filter(teacher_id=obj.teacher_id),
+            to_attr='teacher_annotations_list',
+        )
+
         active_roster = obj.roster.filter(is_active=True).select_related(
             'student', 'class_assigned', 'class_assigned__teacher'
-        ).prefetch_related(seating_prefetch)
+        ).prefetch_related(seating_prefetch, annotation_prefetch)
 
         return ClassRosterSerializer(
             active_roster, many=True,
@@ -615,8 +750,10 @@ class AttendanceRecordSerializer(serializers.ModelSerializer):
     student_name = serializers.CharField(source='class_roster.student.get_full_name', read_only=True)
     student_first_name = serializers.CharField(source='class_roster.student.first_name', read_only=True)
     student_last_name = serializers.CharField(source='class_roster.student.last_name', read_only=True)
-    student_nickname = serializers.CharField(source='class_roster.student.nickname', read_only=True)
-    
+    # Nickname resolves through the class teacher's TeacherStudent annotation
+    # (falls back to first_name), matching the ClassRoster serializer.
+    student_nickname = serializers.SerializerMethodField()
+
     # Include class info
     class_id = serializers.IntegerField(source='class_roster.class_assigned.id', read_only=True)
     class_name = serializers.CharField(source='class_roster.class_assigned.name', read_only=True)
@@ -640,7 +777,17 @@ class AttendanceRecordSerializer(serializers.ModelSerializer):
             'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
-    
+
+    def get_student_nickname(self, obj):
+        student = obj.class_roster.student
+        teacher_id = obj.class_roster.class_assigned.teacher_id
+        annotation = TeacherStudent.objects.filter(
+            teacher_id=teacher_id, student=student
+        ).first()
+        if annotation and annotation.nickname and annotation.nickname.strip():
+            return annotation.nickname
+        return student.first_name
+
     def validate_class_roster(self, value):
         """Ensure the roster entry is active"""
         if not value.is_active:

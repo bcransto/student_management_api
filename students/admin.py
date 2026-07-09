@@ -13,6 +13,7 @@ from .models import (
     SeatingPeriod,
     Student,
     TableSeat,
+    TeacherStudent,
     User,
 )
 
@@ -238,20 +239,17 @@ class ClassAdmin(admin.ModelAdmin):
 
 @admin.register(Student)
 class StudentAdmin(admin.ModelAdmin):
-    list_display = ["student_id", "first_name", "last_name", "nickname", "email", "gender", "preferential_seating", "is_active", "enrollment_date", "class_count"]
-    list_filter = ["is_active", "gender", "preferential_seating", "enrollment_date"]
-    search_fields = ["student_id", "first_name", "last_name", "nickname", "email", "google_user_id"]
-    readonly_fields = ["enrollment_date", "class_count"]
+    list_display = ["student_id", "first_name", "last_name", "email", "cohort", "is_active", "enrollment_date", "class_count"]
+    list_filter = ["is_active", "cohort", "enrollment_date"]
+    search_fields = ["student_id", "first_name", "last_name", "email", "google_user_id"]
+    readonly_fields = ["enrollment_date", "class_count", "synced_at"]
 
     fieldsets = (
         ("Personal Information", {
-            "fields": ("student_id", "first_name", "last_name", "nickname", "email", "gender", "date_of_birth")
-        }),
-        ("Seating & Accommodations", {
-            "fields": ("preferential_seating",)
+            "fields": ("student_id", "first_name", "last_name", "email", "date_of_birth")
         }),
         ("Google Integration", {
-            "fields": ("google_user_id",),
+            "fields": ("google_user_id", "cohort", "synced_at"),
             "classes": ("collapse",)
         }),
         ("Status", {
@@ -420,3 +418,15 @@ class AttendanceRecordAdmin(admin.ModelAdmin):
             # Superusers still only see attendance for their own classes
             return qs.filter(class_roster__class_assigned__teacher=request.user)
         return qs.filter(class_roster__class_assigned__teacher=request.user)
+
+
+@admin.register(TeacherStudent)
+class TeacherStudentAdmin(admin.ModelAdmin):
+    list_display = ["teacher", "student", "nickname", "gender", "preferential_seating", "is_active", "updated_at"]
+    list_filter = ["is_active", "gender", "preferential_seating", "teacher"]
+    search_fields = [
+        "student__first_name", "student__last_name", "student__student_id",
+        "nickname", "teacher__email",
+    ]
+    autocomplete_fields = ["teacher", "student"]
+    readonly_fields = ["created_at", "updated_at"]

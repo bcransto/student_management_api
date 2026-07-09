@@ -714,7 +714,6 @@ def google_import_directory_students(request):
                 student_id=student_id,
                 first_name=gs["first_name"][:30],
                 last_name=gs["last_name"][:30],
-                nickname="",  # model auto-populates from first_name
                 email=gs["email"] or None,
                 google_user_id=gs["google_user_id"] or None,
             )
@@ -959,7 +958,6 @@ def google_import_students(request):
                 student_id=student_id,
                 first_name=gs["first_name"][:30],
                 last_name=gs["last_name"][:30],
-                nickname="",  # model auto-populates from first_name
                 email=gs["email"] or None,
                 google_user_id=gs["google_user_id"] or None,
             )

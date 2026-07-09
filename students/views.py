@@ -25,6 +25,7 @@ from .models import (
     SeatingPeriod,
     Student,
     TableSeat,
+    TeacherStudent,
     User,
 )
 from .permissions import HasExternalAPIKey, IsSpecialPointsUser, IsSuperuser, IsSuperuserOrOwner
@@ -254,9 +255,36 @@ class StudentViewSet(viewsets.ModelViewSet):
         - Search functionality includes nickname, first_name, last_name, student_id, and email
         - Students marked as inactive (is_active=False) are still returned but can be filtered
     """
-    queryset = Student.objects.prefetch_related('enrollments__class_assigned').all()
+    # Base queryset lets the DRF router infer the basename; get_queryset()
+    # below is what actually runs (adds per-request prefetching).
+    queryset = Student.objects.all()
     serializer_class = StudentSerializer
     permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        """
+        Prefetch the requesting teacher's own annotations (for the serializer's
+        nickname/gender/preferential_seating resolution) plus the class-teacher
+        annotations needed by the nested ClassRoster serializer, avoiding N+1
+        queries. Needs the request, hence get_queryset rather than a class attr.
+        """
+        from django.db.models import Prefetch
+
+        my_annotations = Prefetch(
+            "teacher_annotations",
+            queryset=TeacherStudent.objects.filter(teacher=self.request.user),
+            to_attr="my_annotations",
+        )
+        roster_annotations = Prefetch(
+            "enrollments__student__teacher_annotations",
+            queryset=TeacherStudent.objects.all(),
+            to_attr="teacher_annotations_list",
+        )
+        return Student.objects.prefetch_related(
+            my_annotations,
+            "enrollments__class_assigned__teacher",
+            roster_annotations,
+        ).all()
 
     GENDER_MAP = {
         "m": "male", "male": "male",
@@ -358,10 +386,24 @@ class StudentViewSet(viewsets.ModelViewSet):
                 })
                 continue
 
+            # Nickname/gender are per-teacher annotations; compare against and
+            # write to the requesting teacher's TeacherStudent row. The current
+            # nickname is the annotation's value if set, else the student's
+            # first name (the display fallback).
+            annotation = TeacherStudent.objects.filter(
+                teacher=request.user, student=student
+            ).first()
+            current_nickname = (
+                annotation.nickname
+                if annotation and annotation.nickname and annotation.nickname.strip()
+                else student.first_name
+            )
+            current_gender = annotation.gender if annotation else None
+
             changes = {}
             nickname = cell("nickname")
-            if nickname and nickname != student.nickname:
-                changes["nickname"] = {"from": student.nickname, "to": nickname[:30]}
+            if nickname and nickname != current_nickname:
+                changes["nickname"] = {"from": current_nickname, "to": nickname[:30]}
 
             raw_gender = cell("gender")
             if raw_gender:
@@ -372,8 +414,8 @@ class StudentViewSet(viewsets.ModelViewSet):
                     })
                     continue
                 new_gender = self.GENDER_MAP[raw_gender.lower()]
-                if new_gender != student.gender:
-                    changes["gender"] = {"from": student.gender, "to": new_gender}
+                if new_gender != current_gender:
+                    changes["gender"] = {"from": current_gender, "to": new_gender}
 
             name = f"{student.first_name} {student.last_name}"
             if not changes:
@@ -386,14 +428,14 @@ class StudentViewSet(viewsets.ModelViewSet):
         if apply_changes and pending:
             with transaction.atomic():
                 for student, changes in pending:
-                    fields = []
+                    defaults = {}
                     if "nickname" in changes:
-                        student.nickname = changes["nickname"]["to"]
-                        fields.append("nickname")
+                        defaults["nickname"] = changes["nickname"]["to"]
                     if "gender" in changes:
-                        student.gender = changes["gender"]["to"]
-                        fields.append("gender")
-                    student.save(update_fields=fields)
+                        defaults["gender"] = changes["gender"]["to"]
+                    TeacherStudent.objects.update_or_create(
+                        teacher=request.user, student=student, defaults=defaults
+                    )
 
         return Response({
             "applied": apply_changes,
@@ -679,7 +721,17 @@ class ClassViewSet(viewsets.ModelViewSet):
             
             students = [entry.student for entry in roster_entries]
             student_ids = [s.id for s in students]
-            
+
+            # Resolve nicknames through the class teacher's annotations (one
+            # query), falling back to first_name.
+            nickname_by_student = {
+                ts.student_id: ts.nickname
+                for ts in TeacherStudent.objects.filter(
+                    teacher=class_obj.teacher, student_id__in=student_ids
+                )
+                if ts.nickname and ts.nickname.strip()
+            }
+
             # Get all existing ratings for this class
             ratings = PartnershipRating.objects.filter(
                 class_assigned=class_obj,
@@ -713,7 +765,7 @@ class ClassViewSet(viewsets.ModelViewSet):
                     {
                         'id': s.id,
                         'name': f"{s.first_name} {s.last_name}",
-                        'nickname': s.nickname or s.first_name
+                        'nickname': nickname_by_student.get(s.id) or s.first_name
                     } for s in students
                 ],
                 'grid': grid_data
@@ -901,8 +953,21 @@ class ClassRosterViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         """Filter roster entries to only show those for user's classes"""
-        # All users (including superusers) only see their own class rosters
-        return ClassRoster.objects.filter(class_assigned__teacher=self.request.user)
+        from django.db.models import Prefetch
+
+        # All users (including superusers) only see their own class rosters.
+        # Prefetch the class teacher's annotations so the serializer resolves
+        # nickname/gender/preferential_seating without N+1 queries.
+        annotation_prefetch = Prefetch(
+            "student__teacher_annotations",
+            queryset=TeacherStudent.objects.filter(teacher=self.request.user),
+            to_attr="teacher_annotations_list",
+        )
+        return (
+            ClassRoster.objects.filter(class_assigned__teacher=self.request.user)
+            .select_related("student", "class_assigned", "class_assigned__teacher")
+            .prefetch_related(annotation_prefetch)
+        )
 
 
 @api_view(["GET"])
@@ -1710,7 +1775,19 @@ class AttendanceViewSet(viewsets.ModelViewSet):
                 class_assigned_id=class_id,
                 is_active=True
             ).select_related('student').order_by('student__last_name', 'student__first_name')
-            
+
+            # Nicknames resolve through the class teacher's annotations
+            # (fallback to first_name); one query for the whole roster.
+            roster_student_ids = [entry.student_id for entry in roster_entries]
+            nickname_by_student = {
+                ts.student_id: ts.nickname
+                for ts in TeacherStudent.objects.filter(
+                    teacher=class_obj.teacher,
+                    student_id__in=roster_student_ids,
+                )
+                if ts.nickname and ts.nickname.strip()
+            }
+
             # Get existing attendance records for this date
             attendance_records = AttendanceRecord.objects.filter(
                 class_roster__class_assigned_id=class_id,
@@ -1742,7 +1819,10 @@ class AttendanceViewSet(viewsets.ModelViewSet):
                         'student_name': roster_entry.student.get_full_name(),
                         'student_first_name': roster_entry.student.first_name,
                         'student_last_name': roster_entry.student.last_name,
-                        'student_nickname': roster_entry.student.nickname,
+                        'student_nickname': (
+                            nickname_by_student.get(roster_entry.student_id)
+                            or roster_entry.student.first_name
+                        ),
                         'class_id': class_obj.id,
                         'class_name': class_obj.name,
                         'created_at': None,
@@ -2022,6 +2102,27 @@ class ExternalReadViewSet(viewsets.ViewSet):
             .select_related("student")
             .order_by("student__last_name", "student__first_name")
         )
+
+        # nickname/gender are per-teacher; resolve through the class teacher's
+        # annotations (one query, fallbacks to first_name / None).
+        annotations_by_student = {
+            ts.student_id: ts
+            for ts in TeacherStudent.objects.filter(
+                teacher=klass.teacher,
+                student_id__in=[r.student_id for r in roster],
+            )
+        }
+
+        def _nickname(student):
+            ann = annotations_by_student.get(student.id)
+            if ann and ann.nickname and ann.nickname.strip():
+                return ann.nickname
+            return student.first_name
+
+        def _gender(student):
+            ann = annotations_by_student.get(student.id)
+            return ann.gender if ann else None
+
         roster_data = [
             {
                 "roster_id": r.id,
@@ -2029,9 +2130,9 @@ class ExternalReadViewSet(viewsets.ViewSet):
                 "student_number": r.student.student_id,
                 "first_name": r.student.first_name,
                 "last_name": r.student.last_name,
-                "nickname": r.student.nickname or r.student.first_name,
+                "nickname": _nickname(r.student),
                 "email": r.student.email,
-                "gender": r.student.gender,
+                "gender": _gender(r.student),
             }
             for r in roster
         ]
@@ -2057,10 +2158,7 @@ class ExternalReadViewSet(viewsets.ViewSet):
                     "student_id": a.roster_entry.student.id,
                     "first_name": a.roster_entry.student.first_name,
                     "last_name": a.roster_entry.student.last_name,
-                    "nickname": (
-                        a.roster_entry.student.nickname
-                        or a.roster_entry.student.first_name
-                    ),
+                    "nickname": _nickname(a.roster_entry.student),
                     "seat_id": a.seat_id,
                     "seat_number": a.seat_number,
                 })

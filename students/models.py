@@ -351,29 +351,29 @@ class Class(models.Model):
         return together_periods
 
 
+# Shared gender choices used by the per-teacher annotation layer
+GENDER_CHOICES = [
+    ("male", "Male"),
+    ("female", "Female"),
+    ("other", "Other"),
+]
+
+
 # Enhanced Student model with index
 class Student(models.Model):
-    """Model for students"""
+    """
+    Global, sync-owned student record.
+
+    This is a school-wide mirror of the Google Workspace directory. Only the
+    sync job (and the teacher-writable ``date_of_birth``) write to it. Per-
+    teacher annotations (nickname, gender, preferential seating) live on
+    :class:`TeacherStudent` instead.
+    """
 
     student_id = models.CharField(max_length=20, unique=True)
     first_name = models.CharField(max_length=30)
     last_name = models.CharField(max_length=30)
-    nickname = models.CharField(max_length=30)  # Required field, auto-populated from first_name if not provided
     email = models.EmailField(blank=True, null=True)
-    gender = models.CharField(
-        max_length=10,
-        choices=[
-            ('male', 'Male'),
-            ('female', 'Female'),
-            ('other', 'Other')
-        ],
-        blank=True,
-        null=True
-    )
-    preferential_seating = models.BooleanField(
-        default=False,
-        help_text="Student requires preferential seating (e.g., front of room, near teacher)"
-    )
     google_user_id = models.CharField(
         max_length=255,
         blank=True,
@@ -381,6 +381,11 @@ class Student(models.Model):
         help_text="Google Workspace User ID for Classroom integration"
     )
     date_of_birth = models.DateField(blank=True, null=True)
+    # Two-digit graduation-year prefix derived from the email local part at
+    # sync time (e.g. "28" for class of 2028); blank for staff / non-matching.
+    cohort = models.CharField(max_length=2, blank=True, default="", db_index=True)
+    # When the directory sync last touched this row.
+    synced_at = models.DateTimeField(null=True, blank=True)
     enrollment_date = models.DateField(auto_now_add=True)
     is_active = models.BooleanField(default=True)
 
@@ -388,7 +393,6 @@ class Student(models.Model):
         indexes = [
             models.Index(fields=["is_active"]),  # Fast lookup for active students
             models.Index(fields=["student_id"]),  # Fast lookup by student ID
-            models.Index(fields=["preferential_seating"]),  # Fast lookup for highlighting
         ]
 
     def __str__(self):
@@ -396,17 +400,54 @@ class Student(models.Model):
 
     def get_full_name(self):
         return f"{self.first_name} {self.last_name}"
-    
-    def save(self, *args, **kwargs):
-        """Override save to auto-set nickname if not provided"""
-        if not self.nickname or not self.nickname.strip():
-            self.nickname = self.first_name
-        super().save(*args, **kwargs)
 
     @property
     def active_classes(self):
         """Get all classes this student is actively enrolled in"""
         return [roster.class_assigned for roster in self.enrollments.filter(is_active=True)]
+
+
+class TeacherStudent(models.Model):
+    """
+    Per-teacher annotation layer over the global :class:`Student` list.
+
+    Each teacher maintains their own nickname, gender, and preferential-seating
+    values for the students on their list. These are strictly private to the
+    teacher, start blank, and never propagate to other teachers or up to the
+    global row.
+    """
+
+    teacher = models.ForeignKey(User, on_delete=models.CASCADE, related_name="my_students")
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="teacher_annotations")
+
+    # Display name; falls back to student.first_name when blank.
+    nickname = models.CharField(max_length=30, blank=True)
+    gender = models.CharField(max_length=10, choices=GENDER_CHOICES, blank=True, null=True)
+    preferential_seating = models.BooleanField(
+        default=False,
+        help_text="Student requires preferential seating (e.g., front of room, near teacher)",
+    )
+    # False = teacher removed this student from their list (history preserved).
+    is_active = models.BooleanField(default=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = [["teacher", "student"]]
+        indexes = [
+            models.Index(fields=["teacher", "is_active"]),
+        ]
+
+    def __str__(self):
+        return f"{self.teacher.email} -> {self.student.get_full_name()}"
+
+    @property
+    def display_nickname(self):
+        """Nickname if set, else the student's first name."""
+        if self.nickname and self.nickname.strip():
+            return self.nickname
+        return self.student.first_name
 
 
 # Enhanced ClassRoster model with additional indexes
