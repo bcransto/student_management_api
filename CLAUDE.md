@@ -23,13 +23,6 @@ python manage.py createsuperuser  # Create admin user
 python manage.py test                    # All Django app tests
 python manage.py test students.tests    # Students app tests (includes attendance)
 
-# Standalone test files (run from project root)
-python test_nickname_functionality.py   # Nickname handling tests
-python test_seating_api.py             # Seating API tests
-python test_chart_naming.py            # Chart auto-naming tests
-python test_partnership_endpoint.py    # Partnership rating tests
-python test_recent_attendance.py       # Recent attendance history
-
 # Linting and formatting
 npm run lint:all          # Frontend + backend linting
 npm run lint:python       # Backend only (flake8, black check, isort check)
@@ -699,18 +692,12 @@ element.style.removeProperty('color');
 ## Testing Strategy
 
 ```bash
-# Run specific test files
-python test_nickname_functionality.py  # Comprehensive nickname tests
-python test_seating_api.py            # Seating API tests
-python test_save.py                   # Save functionality tests
-python test_chart_naming.py           # Chart auto-naming tests
-
-# Frontend testing
-open test_nickname_frontend.html      # Interactive browser tests
-open test_optimizer.html              # Seating optimizer tests
-
 # Django app tests
 python manage.py test students.tests   # Students app tests (includes attendance)
+
+# Frontend testing
+open test_optimizer.html              # Seating optimizer tests (also runnable
+                                      # via: node frontend/seating/SeatingOptimizer.js)
 ```
 
 ## Environment Variables
