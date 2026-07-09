@@ -3365,6 +3365,16 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo }) => {
         // Student pool (right side) with action buttons
         React.createElement(StudentPool, {
           students: getUnassignedStudents(),
+          totalStudents: students.length,
+          onAddStudents: () => {
+            if (nav?.toClassAddStudents) {
+              nav.toClassAddStudents(classId);
+            } else if (navigateTo && typeof navigateTo === "function") {
+              navigateTo(`classes/${classId}/add-students`);
+            } else {
+              window.location.hash = `#classes/${classId}/add-students`;
+            }
+          },
           selectedStudent: selectedStudent,
           onSelectStudent: setSelectedStudent,
           onDragStart: setDraggedStudent,
@@ -4347,6 +4357,8 @@ const SeatingEditorSidebar = ({
 
 const StudentPool = ({
   students,
+  totalStudents,
+  onAddStudents,
   selectedStudent,
   onSelectStudent,
   onDragStart,
@@ -4587,7 +4599,7 @@ const StudentPool = ({
     // Student grid - fixed height and scrollable
     React.createElement(
       "div",
-      { 
+      {
         className: "student-grid",
         style: {
           height: "420px",
@@ -4595,7 +4607,68 @@ const StudentPool = ({
           overflowX: "hidden",
         }
       },
-        sortedStudents.map((student) => {
+      totalStudents === 0
+        ? // Empty state: the class roster itself has no enrolled students
+          // (distinct from "all enrolled students are seated")
+          React.createElement(
+            "div",
+            {
+              style: {
+                padding: "2rem 1.25rem",
+                textAlign: "center",
+                color: "#6b7280",
+              },
+            },
+            React.createElement("i", {
+              className: "fas fa-user-plus",
+              style: { fontSize: "26px", marginBottom: "0.75rem", display: "block" },
+            }),
+            React.createElement(
+              "p",
+              { style: { margin: "0 0 0.35rem 0", fontSize: "13px" } },
+              "No students enrolled in this class yet."
+            ),
+            React.createElement(
+              "p",
+              { style: { margin: "0 0 1rem 0", fontSize: "12px", opacity: 0.85 } },
+              "Use Add Students on the class page to enroll them."
+            ),
+            onAddStudents &&
+              React.createElement(
+                "button",
+                {
+                  className: "btn btn-sm btn-secondary",
+                  style: {
+                    padding: "6px 12px",
+                    fontSize: "14px",
+                    fontWeight: 500,
+                    borderRadius: "6px",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                  },
+                  onClick: onAddStudents,
+                },
+                React.createElement("i", { className: "fas fa-user-plus" }),
+                "Add Students"
+              )
+          )
+        : sortedStudents.length === 0
+        ? // Roster isn't empty, just nothing left unassigned - keep it minimal
+          !searchTerm &&
+          React.createElement(
+            "div",
+            {
+              style: {
+                padding: "1.25rem",
+                textAlign: "center",
+                color: "#6b7280",
+                fontSize: "13px",
+              },
+            },
+            "All students seated"
+          )
+        : sortedStudents.map((student) => {
         // Determine if we should apply gender highlighting
         const isFemale = student.gender === "female" || student.gender === "Female" || student.gender === "F";
         const hasGender = student.gender && String(student.gender).trim();
