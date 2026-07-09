@@ -40,6 +40,9 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         token["last_name"] = user.last_name
         token["is_teacher"] = user.is_teacher
         token["is_superuser"] = user.is_superuser
+        # For student accounts (is_teacher=False) this is the linked Student pk;
+        # null for teachers (GH issue #16).
+        token["student_id"] = user.student_id if not user.is_teacher else None
 
         return token
 
@@ -619,6 +622,9 @@ class ClassSerializer(serializers.ModelSerializer):
             "teacher_name",
             "current_enrollment",
             # "classroom_layout",  # Removed - deprecated field
+            "survey_enabled",
+            "survey_opens_at",
+            "survey_closes_at",
             "current_seating_period",
             "seating_periods",
             "roster",

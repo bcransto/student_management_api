@@ -27,6 +27,45 @@ class IsSuperuserOrOwner(permissions.BasePermission):
         return obj == request.user
 
 
+class IsTeacher(permissions.BasePermission):
+    """
+    Allow only authenticated teacher (or superuser) accounts.
+
+    Student accounts are provisioned via Google Sign-In with
+    ``is_teacher=False`` and a ``User.student`` link to a global Student row
+    (GH issue #16). They hold valid JWTs but must never reach any teacher-facing
+    data - this permission returns 403 for them. Superusers always pass so an
+    admin whose ``is_teacher`` flag was somehow cleared is never locked out.
+    """
+
+    message = "This endpoint is only available to teacher accounts."
+
+    def has_permission(self, request, view):
+        user = request.user
+        if not (user and user.is_authenticated):
+            return False
+        return bool(getattr(user, "is_teacher", False)) or bool(user.is_superuser)
+
+
+class IsStudent(permissions.BasePermission):
+    """
+    Allow only authenticated student accounts (GH issue #16 phase 2).
+
+    A student account is auto-provisioned via Google Sign-In with
+    ``is_teacher=False`` and a ``User.student`` link to a global Student row.
+    This is the mirror image of ``IsTeacher``: it gates the student-only survey
+    endpoints so teacher/admin JWTs (which have no linked Student) get a 403.
+    """
+
+    message = "This endpoint is only available to student accounts."
+
+    def has_permission(self, request, view):
+        user = request.user
+        if not (user and user.is_authenticated):
+            return False
+        return (not getattr(user, "is_teacher", True)) and user.student_id is not None
+
+
 class IsSpecialPointsUser(permissions.BasePermission):
     """Only allow the Cranston Commons user to access special points."""
 

@@ -64,7 +64,35 @@ const PartnershipRatingGrid = ({ students, classId, onClose, existingRatings }) 
     
     return 0; // Default to neutral
   };
-  
+
+  // --- Phase 3 (GH #16): derived student signals + teacher/student conflicts.
+  // These are READ-ONLY display overlays sourced from the partnership-ratings
+  // GET response. Teacher rating editing above is completely unaffected.
+  const conflicts = (existingRatings && existingRatings.conflicts) || [];
+  const studentSignals = (existingRatings && existingRatings.student_signals) || {};
+
+  const pairKey = (a, b) => `${Math.min(a, b)}-${Math.max(a, b)}`;
+
+  const conflictByPair = {};
+  conflicts.forEach((c) => {
+    conflictByPair[pairKey(c.student1_id, c.student2_id)] = c;
+  });
+
+  // JSON object keys arrive as strings; tolerate both number and string keys.
+  const getSignal = (a, b) => {
+    const row = studentSignals[a] || studentSignals[String(a)];
+    if (!row) return undefined;
+    const v = row[b];
+    return v !== undefined ? v : row[String(b)];
+  };
+
+  const signalTooltip = (signal) => {
+    if (signal === 2) return "Students: strong mutual pick";
+    if (signal === 1) return "Students: works well together";
+    if (signal === -1) return "Students: prefer not to pair";
+    return "Students expressed a preference";
+  };
+
   // Handle save
   const handleSave = async () => {
     setSaving(true);
@@ -362,10 +390,55 @@ const PartnershipRatingGrid = ({ students, classId, onClose, existingRatings }) 
           )
         ),
         
+        // Conflicts panel (Phase 3, GH #16) - only when conflicts exist.
+        conflicts.length > 0 && React.createElement(
+          "div",
+          {
+            style: {
+              marginBottom: '1rem',
+              padding: '0.75rem 1rem',
+              backgroundColor: '#fffbeb',
+              border: '1px solid #fcd34d',
+              borderRadius: '0.5rem'
+            }
+          },
+          React.createElement(
+            "div",
+            {
+              style: {
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                fontWeight: 600,
+                color: '#92400e',
+                marginBottom: '0.5rem',
+                fontSize: '0.875rem'
+              }
+            },
+            React.createElement("i", { className: "fas fa-triangle-exclamation" }),
+            `Conflicts between your ratings and student choices (${conflicts.length})`
+          ),
+          React.createElement(
+            "ul",
+            {
+              style: {
+                margin: 0,
+                paddingLeft: '1.25rem',
+                color: '#92400e',
+                fontSize: '0.8125rem',
+                lineHeight: 1.5
+              }
+            },
+            conflicts.map((c, i) =>
+              React.createElement("li", { key: i }, c.detail)
+            )
+          )
+        ),
+
         // Grid Table
         React.createElement(
           "div",
-          { 
+          {
             style: {
               overflowX: 'auto',
               border: '1px solid #e5e7eb',
@@ -481,7 +554,11 @@ const PartnershipRatingGrid = ({ students, classId, onClose, existingRatings }) 
                     const isLowerTriangle = actualColIndex < rowIndex;
                     const currentRating = getRating(rowStudent.id, colStudent.id);
                     const ratingOption = RATING_OPTIONS.find(opt => opt.value === currentRating);
-                    
+                    const cellConflict = conflictByPair[pairKey(rowStudent.id, colStudent.id)];
+                    const cellSignal = getSignal(rowStudent.id, colStudent.id);
+                    const showSignalDot =
+                      !cellConflict && cellSignal !== undefined && currentRating === 0;
+
                     return React.createElement(
                       "td",
                       { 
@@ -495,32 +572,71 @@ const PartnershipRatingGrid = ({ students, classId, onClose, existingRatings }) 
                         }
                       },
                       // Only show dropdown in upper triangle
-                      isUpperTriangle ? 
+                      isUpperTriangle ?
                         React.createElement(
-                          "select",
-                          { 
-                            value: currentRating,
-                            onChange: (e) => handleRatingChange(rowStudent.id, colStudent.id, e.target.value),
-                            style: {
-                              width: '90px',
-                              padding: '0.25rem',
-                              fontSize: '0.75rem',
-                              border: '1px solid #d1d5db',
-                              borderRadius: '0.25rem',
-                              backgroundColor: ratingOption ? `${ratingOption.color}20` : 'white',
-                              color: ratingOption ? ratingOption.color : '#374151',
-                              cursor: 'pointer'
-                            }
-                          },
-                          RATING_OPTIONS.map(option => 
-                            React.createElement(
-                              "option",
-                              { 
-                                key: option.value,
-                                value: option.value
-                              },
-                              option.label
+                          "div",
+                          { style: { position: 'relative', display: 'inline-block' } },
+                          React.createElement(
+                            "select",
+                            {
+                              value: currentRating,
+                              onChange: (e) => handleRatingChange(rowStudent.id, colStudent.id, e.target.value),
+                              style: {
+                                width: '90px',
+                                padding: '0.25rem',
+                                fontSize: '0.75rem',
+                                border: cellConflict ? '1px solid #f59e0b' : '1px solid #d1d5db',
+                                borderRadius: '0.25rem',
+                                backgroundColor: ratingOption ? `${ratingOption.color}20` : 'white',
+                                color: ratingOption ? ratingOption.color : '#374151',
+                                cursor: 'pointer'
+                              }
+                            },
+                            RATING_OPTIONS.map(option =>
+                              React.createElement(
+                                "option",
+                                {
+                                  key: option.value,
+                                  value: option.value
+                                },
+                                option.label
+                              )
                             )
+                          ),
+                          // Conflict badge (amber ⚠) with the detail as tooltip.
+                          cellConflict && React.createElement(
+                            "span",
+                            {
+                              title: cellConflict.detail,
+                              style: {
+                                position: 'absolute',
+                                top: '-7px',
+                                right: '-6px',
+                                fontSize: '0.7rem',
+                                lineHeight: 1,
+                                color: '#b45309',
+                                cursor: 'help'
+                              }
+                            },
+                            "⚠"
+                          ),
+                          // Subtle dot when students expressed a signal but the
+                          // teacher has no rating yet.
+                          showSignalDot && React.createElement(
+                            "span",
+                            {
+                              title: signalTooltip(cellSignal),
+                              style: {
+                                position: 'absolute',
+                                top: '-3px',
+                                right: '-3px',
+                                width: '8px',
+                                height: '8px',
+                                borderRadius: '50%',
+                                backgroundColor: cellSignal > 0 ? '#10b981' : '#f97316',
+                                cursor: 'help'
+                              }
+                            }
                           )
                         ) :
                         // Diagonal and lower triangle are grayed out

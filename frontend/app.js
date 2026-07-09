@@ -191,6 +191,21 @@ const App = () => {
     }
   }, []);
 
+  // Preserve a deep-link through login (GH issue #16 phase 2). A student who
+  // opens #my-partners/{id} while signed out is shown the login page; stash the
+  // intended hash so we can return them to it after they authenticate (via
+  // either the password form or the Google button). See handleLogin.
+  useEffect(() => {
+    const hash = window.location.hash.slice(1).split("?")[0];
+    if (hash.startsWith("my-partners/")) {
+      try {
+        sessionStorage.setItem("pendingHash", hash);
+      } catch (e) {
+        /* sessionStorage may be unavailable; deep-link fallback is best-effort */
+      }
+    }
+  }, []);
+
   // Handle hash changes (browser back/forward)
   useEffect(() => {
     const handleHashChange = () => {
@@ -295,6 +310,14 @@ const App = () => {
 
   // Fetch all application data
   const fetchData = async () => {
+    // Student accounts (JWT is_teacher=false) have no access to any teacher
+    // data - every ApiModule call would 403. Skip the whole fetch; the student
+    // portal renders its own placeholder (GH issue #16).
+    const info = window.AuthModule.getUserInfo();
+    if (info && info.isTeacher === false) {
+      return;
+    }
+
     console.log("Fetching application data...");
     setIsLoading(true);
 
@@ -348,8 +371,17 @@ const App = () => {
       setCurrentUser("Teacher");
     }
 
-    // Clear hash on login to go to dashboard
-    window.location.hash = "dashboard";
+    // Restore a preserved deep-link (e.g. #my-partners/{id} for a student who
+    // was bounced to login), otherwise go to the dashboard. Works for both the
+    // password form and the Google sign-in button, since both call handleLogin.
+    let pendingHash = null;
+    try {
+      pendingHash = sessionStorage.getItem("pendingHash");
+      if (pendingHash) sessionStorage.removeItem("pendingHash");
+    } catch (e) {
+      /* best-effort */
+    }
+    window.location.hash = pendingHash || "dashboard";
     fetchData();
   };
 
@@ -707,7 +739,23 @@ const App = () => {
 
   // Debug log to track renders
   console.log("App render - currentView:", currentView, "hash:", window.location.hash);
-  
+
+  // Student accounts (JWT is_teacher=false, GH issue #16) must never render any
+  // teacher component. Regardless of the hash, route them to the student portal
+  // placeholder with no sidebar/header. The real #my-partners survey ships in
+  // phase 2.
+  const sessionInfo = window.AuthModule.getUserInfo();
+  if (sessionInfo && sessionInfo.isTeacher === false) {
+    return React.createElement(
+      "div",
+      { className: "app app-fullscreen" },
+      React.createElement(window.StudentPortal, {
+        currentUser,
+        onLogout: handleLogout,
+      })
+    );
+  }
+
   // Check if we're in visual attendance mode (fullscreen, no sidebar/header)
   const isVisualAttendanceMode = window.location.hash.includes("attendance/visual/") || window.location.hash.includes("special-points/visual/");
   

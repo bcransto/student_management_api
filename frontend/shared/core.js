@@ -103,7 +103,10 @@ const AuthModule = {
       firstName: decoded.first_name || null,
       lastName: decoded.last_name || null,
       userId: decoded.user_id || decoded.id || null,
-      isTeacher: decoded.is_teacher || true,
+      // Default to teacher only when the claim is absent; an explicit
+      // is_teacher:false (student accounts) must stay false.
+      isTeacher: decoded.is_teacher !== false,
+      studentId: decoded.student_id || null,
     };
   },
 
