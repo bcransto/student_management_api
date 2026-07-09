@@ -805,7 +805,6 @@ Frontend auto-detects environment via hostname (pinto.local uses current origin 
 - `/api/students/last-synced/` - Cheap GET of max(Student.synced_at)
 - `/api/students/add-to-my-list/` - Add students (by ids and/or cohort) to my list
 - `/api/students/remove-from-my-list/` - Remove students (by ids and/or cohort) from my list
-- `/api/google/test/` - Test Google Classroom connection
 - `/api/google/disconnect/` - Remove Google credentials (POST, JWT-authenticated)
 - `/api/google/status/` - Cheap Google Classroom connection status (JWT-authenticated)
 - `/api/special-points/fetch/` - Proxy: get point totals from Cranston Commons
