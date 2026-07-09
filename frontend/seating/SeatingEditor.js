@@ -47,7 +47,30 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo, startInD
   const [selectedStudentForHistory, setSelectedStudentForHistory] = useState(null); // Student to show history for
   const [showRatingGrid, setShowRatingGrid] = useState(false); // Show/hide partnership rating grid
   const [partnershipRatings, setPartnershipRatings] = useState(null); // Partnership ratings data for the class
-  
+
+  // Phase 4 (GH #16): the ratings the seating tools (Smart Pair, Optimizer,
+  // Never-Together checks) should actually consume. Prefer the backend's
+  // effective_grid (teacher rating merged with the derived student signal),
+  // re-shaped to the classic {grid: {id: {ratings: {otherId: r}}}} form the
+  // consumers already expect. Fall back to the raw teacher grid for a stale
+  // cache that predates effective_grid. Student signals are capped at -1, so a
+  // hard -2 constraint here can only ever come from the teacher.
+  const effectivePartnershipRatings = useMemo(() => {
+    const pr = partnershipRatings;
+    if (!pr) return null;
+    if (pr.effective_grid) {
+      const grid = {};
+      Object.entries(pr.effective_grid).forEach(([s1, row]) => {
+        grid[s1] = { ratings: {} };
+        Object.entries(row || {}).forEach(([s2, val]) => {
+          grid[s1].ratings[s2] = val;
+        });
+      });
+      return { grid };
+    }
+    return pr; // legacy shape {grid: {id: {student_name, ratings}}}
+  }, [partnershipRatings]);
+
   // Click timer for handling single vs double click
   const clickTimerRef = React.useRef(null);
 
@@ -172,18 +195,19 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo, startInD
 
   // Helper function to check if there are any "Never Together" restrictions
   const hasPartnershipRestrictions = () => {
-    if (!partnershipRatings || !partnershipRatings.grid) {
+    const ratingsSource = effectivePartnershipRatings;
+    if (!ratingsSource || !ratingsSource.grid) {
       console.log("No partnership ratings available for restrictions check");
       return false;
     }
-    
-    console.log("Checking for partnership restrictions in grid:", partnershipRatings.grid);
-    
+
+    console.log("Checking for partnership restrictions in grid:", ratingsSource.grid);
+
     // Check if any rating is -2 (Never Together)
     let restrictionCount = 0;
-    for (const student1 in partnershipRatings.grid) {
+    for (const student1 in ratingsSource.grid) {
       // The grid structure is: grid[student1].ratings[student2] = rating
-      const studentData = partnershipRatings.grid[student1];
+      const studentData = ratingsSource.grid[student1];
       if (studentData && studentData.ratings) {
         for (const student2 in studentData.ratings) {
           if (studentData.ratings[student2] === -2) {
@@ -873,13 +897,13 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo, startInD
     
     // Filter out students with -2 (Never Together) ratings
     const validCandidates = candidateStudents.filter(candidate => {
-      if (partnershipRatings && partnershipRatings.grid) {
+      if (effectivePartnershipRatings && effectivePartnershipRatings.grid) {
         const s1 = String(targetStudentId);
         const s2 = String(candidate.id);
-        
+
         // Check both directions for -2 rating
-        const rating1 = partnershipRatings.grid[s1]?.ratings?.[s2];
-        const rating2 = partnershipRatings.grid[s2]?.ratings?.[s1];
+        const rating1 = effectivePartnershipRatings.grid[s1]?.ratings?.[s2];
+        const rating2 = effectivePartnershipRatings.grid[s2]?.ratings?.[s1];
         
         if (rating1 === -2 || rating2 === -2) {
           console.log(`  Excluding ${candidate.first_name} ${candidate.last_name} (Never Together restriction)`);
@@ -1381,7 +1405,7 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo, startInD
     const optimizer = new window.SeatingOptimizer();
     const result = optimizer.optimize(assignments, students, layout, {
       partnershipHistory: partnershipHistory,
-      partnershipRatings: partnershipRatings,
+      partnershipRatings: effectivePartnershipRatings,
       deactivatedSeats: deactivatedSeats,
     });
 

@@ -24,11 +24,19 @@ from .models import (
     SeatingAssignment,
     SeatingPeriod,
     Student,
+    StudentPartnerPreference,
     TableSeat,
     TeacherStudent,
     User,
 )
-from .permissions import HasExternalAPIKey, IsSpecialPointsUser, IsSuperuser, IsSuperuserOrOwner
+from .permissions import (
+    HasExternalAPIKey,
+    IsSpecialPointsUser,
+    IsStudent,
+    IsSuperuser,
+    IsSuperuserOrOwner,
+    IsTeacher,
+)
 from .serializers import (
     AttendanceBulkSerializer,
     AttendanceRecordSerializer,
@@ -58,22 +66,24 @@ class UserViewSet(viewsets.ModelViewSet):
     Regular users can only view and edit their own profile.
     """
     queryset = User.objects.all().order_by('-date_joined')
-    permission_classes = [IsAuthenticated]
-    
+    # IsTeacher gates the whole viewset off from student accounts (GH #16);
+    # the per-action branches below layer superuser/owner rules on top.
+    permission_classes = [IsTeacher]
+
     def get_permissions(self):
         """Return appropriate permission classes based on action"""
         if self.action in ['list', 'create']:
             # Only superusers can list all users or create new ones
-            permission_classes = [IsSuperuser]
+            permission_classes = [IsTeacher, IsSuperuser]
         elif self.action in ['retrieve', 'update', 'partial_update']:
             # Superusers can access any user, regular users only their own
-            permission_classes = [IsSuperuserOrOwner]
+            permission_classes = [IsTeacher, IsSuperuserOrOwner]
         elif self.action in ['destroy', 'deactivate', 'reactivate']:
             # Only superusers can delete or deactivate users
-            permission_classes = [IsSuperuser]
+            permission_classes = [IsTeacher, IsSuperuser]
         else:
-            # Default to authenticated users
-            permission_classes = [IsAuthenticated]
+            # Default: any teacher (e.g. own profile via `me`)
+            permission_classes = [IsTeacher]
         return [permission() for permission in permission_classes]
     
     def get_serializer_class(self):
@@ -99,7 +109,7 @@ class UserViewSet(viewsets.ModelViewSet):
             # Regular users can only see themselves
             return User.objects.filter(id=user.id)
     
-    @action(detail=False, methods=['get', 'patch'], permission_classes=[IsAuthenticated])
+    @action(detail=False, methods=['get', 'patch'], permission_classes=[IsTeacher])
     def me(self, request):
         """Get or update the current user's profile"""
         if request.method == 'GET':
@@ -154,7 +164,7 @@ class UserViewSet(viewsets.ModelViewSet):
         
         return Response({"message": f"User {user.email} has been reactivated"})
     
-    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated])
+    @action(detail=False, methods=['post'], permission_classes=[IsTeacher])
     def change_password(self, request):
         """Change the current user's password"""
         serializer = ChangePasswordSerializer(data=request.data)
@@ -258,7 +268,7 @@ class StudentViewSet(viewsets.ModelViewSet):
     # below is what actually runs (adds per-request prefetching + scoping).
     queryset = Student.objects.all()
     serializer_class = StudentSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsTeacher]
 
     def get_queryset(self):
         """
@@ -659,6 +669,31 @@ class StudentViewSet(viewsets.ModelViewSet):
         })
 
 
+def derive_partner_signal(pref_ab, pref_ba):
+    """Derive a symmetric pairing signal for one unordered student pair (A, B).
+
+    ``pref_ab`` is A's self-reported preference about B (+1 / -1 / None-if-absent);
+    ``pref_ba`` is B's preference about A. Returns one of:
+
+        +2  both chose +1 (strong pair)
+        +1  exactly one chose +1, the other is absent (good pair)
+        -1  any -1 present (do-not-pair / avoid) - this DOMINATES a +1
+        None  neither expressed anything
+
+    Note the derived signal is CAPPED at -1: student input can never produce a
+    hard -2 ("Never Together"), which stays teacher-only. See GH issue #16 ph3.
+    """
+    has_negative = pref_ab == -1 or pref_ba == -1
+    if has_negative:
+        return -1
+    positives = (1 if pref_ab == 1 else 0) + (1 if pref_ba == 1 else 0)
+    if positives == 2:
+        return 2
+    if positives == 1:
+        return 1
+    return None
+
+
 class ClassViewSet(viewsets.ModelViewSet):
     """
     ViewSet for managing classes.
@@ -690,7 +725,7 @@ class ClassViewSet(viewsets.ModelViewSet):
     """
     queryset = Class.objects.all()
     serializer_class = ClassSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsTeacher]
 
     def get_serializer_class(self):
         """Use lightweight serializer for list view"""
@@ -933,6 +968,7 @@ class ClassViewSet(viewsets.ModelViewSet):
             
             students = [entry.student for entry in roster_entries]
             student_ids = [s.id for s in students]
+            student_by_id = {s.id: s for s in students}
 
             # Resolve nicknames through the class teacher's annotations (one
             # query), falling back to first_name.
@@ -970,7 +1006,134 @@ class ClassViewSet(viewsets.ModelViewSet):
                         key = (min(s1.id, s2.id), max(s1.id, s2.id))
                         rating_value = ratings_lookup.get(key, 0)
                         grid_data[s1.id]['ratings'][s2.id] = rating_value
-            
+
+            # --- Phase 3: derived student pairing signals + conflicts ---
+            # (GH issue #16). Derive a per-pair signal from THIS class's
+            # StudentPartnerPreference rows, surface teacher/student conflicts,
+            # and expose an effective_grid the seating tools should consume.
+            student_id_set = set(student_ids)
+
+            # Display name (nickname fallback to first_name) for detail strings.
+            def _disp(sid):
+                s = student_by_id.get(sid)
+                if not s:
+                    return "A student"
+                return nickname_by_student.get(sid) or s.first_name
+
+            # prefs[(chooser_id, target_id)] = preference (+1 / -1)
+            prefs = {}
+            for p in StudentPartnerPreference.objects.filter(
+                class_assigned=class_obj,
+                student_id__in=student_id_set,
+                target_id__in=student_id_set,
+            ):
+                prefs[(p.student_id, p.target_id)] = p.preference
+
+            # Symmetric signal map mirroring grid's "ratings" shape. Only pairs
+            # with a derived signal are emitted (both directions).
+            student_signals = {}
+            # signal_lookup[(lo, hi)] = derived signal for effective_grid merge.
+            signal_lookup = {}
+            conflicts = []
+            seen_pairs = set()
+
+            for a in student_ids:
+                for b in student_ids:
+                    if a >= b:
+                        continue
+                    pair = (a, b)
+                    if pair in seen_pairs:
+                        continue
+                    seen_pairs.add(pair)
+
+                    pref_ab = prefs.get((a, b))  # A chose about B
+                    pref_ba = prefs.get((b, a))  # B chose about A
+                    signal = derive_partner_signal(pref_ab, pref_ba)
+                    if signal is None:
+                        continue
+
+                    signal_lookup[pair] = signal
+                    student_signals.setdefault(a, {})[b] = signal
+                    student_signals.setdefault(b, {})[a] = signal
+
+                    # Conflict detection against the teacher rating.
+                    teacher_rating = ratings_lookup.get(pair, 0)
+
+                    # Who chose the other +1 (case a) / -1 (case b), by direction.
+                    chose_pos = []  # list of (chooser, other)
+                    if pref_ab == 1:
+                        chose_pos.append((a, b))
+                    if pref_ba == 1:
+                        chose_pos.append((b, a))
+                    chose_neg = []
+                    if pref_ab == -1:
+                        chose_neg.append((a, b))
+                    if pref_ba == -1:
+                        chose_neg.append((b, a))
+
+                    detail = None
+                    if teacher_rating in (-1, -2) and chose_pos:
+                        marker = (
+                            "Never Together" if teacher_rating == -2
+                            else "Avoid if Possible"
+                        )
+                        if len(chose_pos) == 2:
+                            phrase = (
+                                f"{_disp(a)} and {_disp(b)} chose each other "
+                                "as good partners"
+                            )
+                        else:
+                            chooser, other = chose_pos[0]
+                            phrase = (
+                                f"{_disp(chooser)} chose {_disp(other)} "
+                                "as a good partner"
+                            )
+                        detail = f"{phrase}, but you have them marked {marker}"
+                    elif teacher_rating == 2 and chose_neg:
+                        if len(chose_neg) == 2:
+                            phrase = (
+                                f"{_disp(a)} and {_disp(b)} both chose "
+                                "not to work together"
+                            )
+                        else:
+                            chooser, other = chose_neg[0]
+                            phrase = (
+                                f"{_disp(chooser)} chose not to work "
+                                f"with {_disp(other)}"
+                            )
+                        detail = (
+                            f"{phrase}, but you have them marked Best Partnership"
+                        )
+
+                    if detail:
+                        conflicts.append({
+                            'student1_id': a,
+                            'student2_id': b,
+                            'student1_name': f"{student_by_id[a].first_name} "
+                                             f"{student_by_id[a].last_name}",
+                            'student2_name': f"{student_by_id[b].first_name} "
+                                             f"{student_by_id[b].last_name}",
+                            'teacher_rating': teacher_rating,
+                            'student_signal': signal,
+                            'detail': detail,
+                        })
+
+            # effective_grid: teacher rating where non-zero, else derived
+            # student signal, else 0. Same nested shape as grid. Student signals
+            # are capped at -1, so a -2 here always originates from the teacher.
+            effective_grid = {}
+            for s1 in students:
+                effective_grid[s1.id] = {}
+                for s2 in students:
+                    if s1.id == s2.id:
+                        continue
+                    pair = (min(s1.id, s2.id), max(s1.id, s2.id))
+                    teacher_rating = ratings_lookup.get(pair, 0)
+                    if teacher_rating != 0:
+                        effective_grid[s1.id][s2.id] = teacher_rating
+                    else:
+                        effective_grid[s1.id][s2.id] = signal_lookup.get(pair, 0)
+
             return Response({
                 'class_id': class_obj.id,
                 'students': [
@@ -980,7 +1143,10 @@ class ClassViewSet(viewsets.ModelViewSet):
                         'nickname': nickname_by_student.get(s.id) or s.first_name
                     } for s in students
                 ],
-                'grid': grid_data
+                'grid': grid_data,
+                'student_signals': student_signals,
+                'conflicts': conflicts,
+                'effective_grid': effective_grid,
             })
         
         elif request.method == "POST":
@@ -1159,7 +1325,7 @@ class ClassRosterViewSet(viewsets.ModelViewSet):
     """
     queryset = ClassRoster.objects.all()
     serializer_class = ClassRosterSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsTeacher]
     filter_backends = [DjangoFilterBackend]  # Enable the filter backend
     filterset_fields = ['student', 'class_assigned', 'is_active']  # Enable filtering
 
@@ -1183,7 +1349,7 @@ class ClassRosterViewSet(viewsets.ModelViewSet):
 
 
 @api_view(["GET"])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsTeacher])
 def dashboard_stats(request):
     """
     Lightweight counts for the dashboard stat cards.
@@ -1205,6 +1371,200 @@ def dashboard_stats(request):
             created_by=request.user, is_active=True
         ).count(),
     })
+
+
+# ============================================================================
+# Student partner survey (GH issue #16 phase 2) - the ONLY endpoints a student
+# account may reach. Gated by IsStudent (teacher/admin JWTs 403 here).
+# ============================================================================
+
+# Server-enforced caps on how many classmates a student may pick per direction.
+PARTNER_SURVEY_POSITIVE_CAP = 5
+PARTNER_SURVEY_NEGATIVE_CAP = 3
+
+
+def _survey_classmates(klass, student):
+    """Active roster minus the requester, ordered by last then first name.
+
+    Uses the GLOBAL Student first/last name only - never teacher nicknames or
+    any teacher rating data (those are the teacher's private annotations).
+    """
+    rosters = (
+        klass.roster.filter(is_active=True)
+        .exclude(student_id=student.id)
+        .select_related("student")
+        .order_by("student__last_name", "student__first_name")
+    )
+    return [
+        {
+            "id": r.student.id,
+            "first_name": r.student.first_name,
+            "last_name": r.student.last_name,
+        }
+        for r in rosters
+    ]
+
+
+def _survey_open_payload(klass, student):
+    """The full "open" response shape shared by GET and a successful POST."""
+    choices = [
+        {"target_id": p.target_id, "preference": p.preference}
+        for p in StudentPartnerPreference.objects.filter(
+            class_assigned=klass, student=student
+        )
+    ]
+    return {
+        "open": True,
+        "class_name": klass.name,
+        "caps": {
+            "positive": PARTNER_SURVEY_POSITIVE_CAP,
+            "negative": PARTNER_SURVEY_NEGATIVE_CAP,
+        },
+        "classmates": _survey_classmates(klass, student),
+        "choices": choices,
+    }
+
+
+def _survey_window_state(klass):
+    """Return None if the survey is open, else a (reason) string closed state."""
+    from django.utils import timezone
+
+    if not klass.survey_enabled:
+        return "not_enabled"
+    now = timezone.now()
+    if klass.survey_opens_at and now < klass.survey_opens_at:
+        return "not_yet_open"
+    if klass.survey_closes_at and now > klass.survey_closes_at:
+        return "closed"
+    return None
+
+
+@api_view(["GET", "POST"])
+@permission_classes([IsStudent])
+def my_partners(request, class_id):
+    """
+    Student partner survey for one class.
+
+    GET  -> the survey state for the requesting student (open shape or a
+            friendly {open: false, reason} when disabled / outside the window).
+    POST -> full-replace the student's choices (subject to caps/validation).
+
+    Gate order: the requesting user's linked Student MUST be on the class's
+    ACTIVE roster, else 404 (don't reveal the class exists to non-members).
+    """
+    from rest_framework import status as drf_status
+
+    student = request.user.student
+
+    # Roster gate: a non-member (or a nonexistent class) is indistinguishable -
+    # both yield 404 so we never leak that the class exists.
+    roster_entry = (
+        ClassRoster.objects.filter(
+            class_assigned_id=class_id, student=student, is_active=True
+        )
+        .select_related("class_assigned")
+        .first()
+    )
+    if roster_entry is None:
+        return Response({"detail": "Not found."}, status=drf_status.HTTP_404_NOT_FOUND)
+
+    klass = roster_entry.class_assigned
+    closed_reason = _survey_window_state(klass)
+
+    if request.method == "GET":
+        if closed_reason is not None:
+            return Response(
+                {"open": False, "reason": closed_reason, "class_name": klass.name}
+            )
+        return Response(_survey_open_payload(klass, student))
+
+    # POST - a disabled/closed survey rejects writes entirely.
+    if closed_reason is not None:
+        return Response(
+            {"open": False, "reason": closed_reason, "class_name": klass.name},
+            status=drf_status.HTTP_403_FORBIDDEN,
+        )
+
+    choices = request.data.get("choices", [])
+    if not isinstance(choices, list):
+        return Response(
+            {"detail": "choices must be a list."},
+            status=drf_status.HTTP_400_BAD_REQUEST,
+        )
+
+    # Valid targets = active roster of this class, excluding the requester.
+    valid_target_ids = set(
+        klass.roster.filter(is_active=True)
+        .exclude(student_id=student.id)
+        .values_list("student_id", flat=True)
+    )
+
+    cleaned = []
+    seen_targets = set()
+    positive = 0
+    negative = 0
+    for item in choices:
+        if not isinstance(item, dict):
+            return Response(
+                {"detail": "Each choice must be an object with target_id and preference."},
+                status=drf_status.HTTP_400_BAD_REQUEST,
+            )
+        target_id = item.get("target_id")
+        preference = item.get("preference")
+        if preference not in (1, -1):
+            return Response(
+                {"detail": f"Invalid preference {preference!r}; must be 1 or -1."},
+                status=drf_status.HTTP_400_BAD_REQUEST,
+            )
+        if target_id == student.id:
+            return Response(
+                {"detail": "You cannot pick yourself."},
+                status=drf_status.HTTP_400_BAD_REQUEST,
+            )
+        if target_id in seen_targets:
+            return Response(
+                {"detail": f"Duplicate choice for target {target_id}."},
+                status=drf_status.HTTP_400_BAD_REQUEST,
+            )
+        if target_id not in valid_target_ids:
+            return Response(
+                {"detail": f"Target {target_id} is not a classmate in this class."},
+                status=drf_status.HTTP_400_BAD_REQUEST,
+            )
+        seen_targets.add(target_id)
+        if preference == 1:
+            positive += 1
+        else:
+            negative += 1
+        cleaned.append((target_id, preference))
+
+    if positive > PARTNER_SURVEY_POSITIVE_CAP:
+        return Response(
+            {"detail": f"You may pick at most {PARTNER_SURVEY_POSITIVE_CAP} classmates you work well with."},
+            status=drf_status.HTTP_400_BAD_REQUEST,
+        )
+    if negative > PARTNER_SURVEY_NEGATIVE_CAP:
+        return Response(
+            {"detail": f"You may pick at most {PARTNER_SURVEY_NEGATIVE_CAP} classmates you don't work well with."},
+            status=drf_status.HTTP_400_BAD_REQUEST,
+        )
+
+    from django.db import transaction
+
+    with transaction.atomic():
+        # Full-replace semantics: drop rows not in the payload, upsert the rest.
+        StudentPartnerPreference.objects.filter(
+            class_assigned=klass, student=student
+        ).exclude(target_id__in=seen_targets).delete()
+        for target_id, preference in cleaned:
+            StudentPartnerPreference.objects.update_or_create(
+                class_assigned=klass,
+                student=student,
+                target_id=target_id,
+                defaults={"preference": preference},
+            )
+
+    return Response(_survey_open_payload(klass, student))
 
 
 # Layout ViewSets
@@ -1247,7 +1607,7 @@ class ClassroomLayoutViewSet(viewsets.ModelViewSet):
         - Layout assigned to class enables seating chart functionality
     """
     serializer_class = ClassroomLayoutSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsTeacher]
     
     def get_queryset(self):
         """Filter layouts to show only those created by the current user"""
@@ -1498,7 +1858,7 @@ class ClassroomTableViewSet(viewsets.ModelViewSet):
     """
     queryset = ClassroomTable.objects.all()
     serializer_class = ClassroomTableSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsTeacher]
 
 
 class TableSeatViewSet(viewsets.ModelViewSet):
@@ -1526,7 +1886,7 @@ class TableSeatViewSet(viewsets.ModelViewSet):
     """
     queryset = TableSeat.objects.all()
     serializer_class = TableSeatSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsTeacher]
 
 
 class LayoutObstacleViewSet(viewsets.ModelViewSet):
@@ -1553,7 +1913,7 @@ class LayoutObstacleViewSet(viewsets.ModelViewSet):
     """
     queryset = LayoutObstacle.objects.all()
     serializer_class = LayoutObstacleSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsTeacher]
 
 
 # Seating ViewSets
@@ -1596,7 +1956,7 @@ class SeatingPeriodViewSet(viewsets.ModelViewSet):
     """
     queryset = SeatingPeriod.objects.all()
     serializer_class = SeatingPeriodSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsTeacher]
     filterset_fields = ["class_assigned", "is_active"]  # Enable filtering
 
     def get_queryset(self):
@@ -1904,7 +2264,7 @@ class SeatingAssignmentViewSet(viewsets.ModelViewSet):
     """
     queryset = SeatingAssignment.objects.all()
     serializer_class = SeatingAssignmentSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsTeacher]
     filterset_fields = ["seating_period"]  # Enable filtering by seating_period
 
     def get_queryset(self):
@@ -1960,7 +2320,7 @@ class AttendanceViewSet(viewsets.ModelViewSet):
     Teachers can only manage attendance for their own classes.
     """
     serializer_class = AttendanceRecordSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsTeacher]
     
     def get_queryset(self):
         """Filter attendance records based on user's classes"""

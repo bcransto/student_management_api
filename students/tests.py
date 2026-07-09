@@ -12,6 +12,7 @@ from .models import (
     SeatingAssignment,
     SeatingPeriod,
     Student,
+    StudentPartnerPreference,
     TableSeat,
     TeacherStudent,
     User,
@@ -1430,3 +1431,688 @@ class DashboardStatsScopeTests(TestCase):
         data = response.json()
         self.assertEqual(data["total_students"], 2)   # s1 + s2
         self.assertEqual(data["active_students"], 1)  # s1 only
+
+
+class StudentGoogleSigninProvisioningTests(TestCase):
+    """
+    GH issue #16 phase 1: Google Sign-In auto-provisions a passwordless,
+    non-teacher User for an email that matches an active global Student, and
+    the issued JWT carries is_teacher=false plus the linked Student pk.
+    """
+
+    def setUp(self):
+        self.client = APIClient()
+        self.student = Student.objects.create(
+            student_id="S-100",
+            first_name="Sam",
+            last_name="Student",
+            email="sstudent@school.edu",
+            is_active=True,
+        )
+
+    @patch("students.google_classroom_service.google_id_token.verify_oauth2_token")
+    def test_student_email_auto_provisions_non_teacher_user(self, mock_verify):
+        # Case-insensitive match against the global Student list.
+        mock_verify.return_value = {
+            "email": "SStudent@School.edu",
+            "email_verified": True,
+        }
+        response = self.client.post(
+            "/api/auth/google/signin/", {"credential": "fake"}, format="json"
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("access", data)
+        self.assertIn("refresh", data)
+
+        # A non-teacher User now exists, linked one-to-one to the Student, with
+        # an unusable password.
+        user = User.objects.get(email__iexact="sstudent@school.edu")
+        self.assertFalse(user.is_teacher)
+        self.assertEqual(user.student_id, self.student.id)
+        self.assertFalse(user.has_usable_password())
+
+        # JWT claims: is_teacher false, student_id = linked Student pk.
+        import jwt
+
+        payload = jwt.decode(data["access"], options={"verify_signature": False})
+        self.assertIs(payload["is_teacher"], False)
+        self.assertEqual(payload["student_id"], self.student.id)
+
+    @patch("students.google_classroom_service.google_id_token.verify_oauth2_token")
+    def test_unknown_non_student_email_is_still_rejected(self, mock_verify):
+        mock_verify.return_value = {
+            "email": "nobody@school.edu",
+            "email_verified": True,
+        }
+        response = self.client.post(
+            "/api/auth/google/signin/", {"credential": "fake"}, format="json"
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(User.objects.filter(email__iexact="nobody@school.edu").exists())
+
+    @patch("students.google_classroom_service.google_id_token.verify_oauth2_token")
+    def test_archived_student_email_is_rejected(self, mock_verify):
+        self.student.is_active = False
+        self.student.save(update_fields=["is_active"])
+        mock_verify.return_value = {
+            "email": "sstudent@school.edu",
+            "email_verified": True,
+        }
+        response = self.client.post(
+            "/api/auth/google/signin/", {"credential": "fake"}, format="json"
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(User.objects.filter(student=self.student).exists())
+
+    @patch("students.google_classroom_service.google_id_token.verify_oauth2_token")
+    def test_second_signin_reuses_the_same_user(self, mock_verify):
+        mock_verify.return_value = {
+            "email": "sstudent@school.edu",
+            "email_verified": True,
+        }
+        first = self.client.post(
+            "/api/auth/google/signin/", {"credential": "fake"}, format="json"
+        )
+        self.assertEqual(first.status_code, 200)
+        second = self.client.post(
+            "/api/auth/google/signin/", {"credential": "fake"}, format="json"
+        )
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(User.objects.filter(student=self.student).count(), 1)
+
+
+class TeacherEndpointLockdownTests(TestCase):
+    """
+    GH issue #16 phase 1: student accounts hold valid JWTs but the IsTeacher
+    permission must 403 them off every teacher endpoint, while teacher accounts
+    keep working.
+    """
+
+    def setUp(self):
+        self.teacher = make_user()
+        self.klass = Class.objects.create(
+            name="Science", subject="Science", teacher=self.teacher
+        )
+        self.student = Student.objects.create(
+            student_id="S-200",
+            first_name="Sam",
+            last_name="Student",
+            email="sstudent@school.edu",
+            is_active=True,
+        )
+        self.student_user = User.objects.create(
+            username="sstudent@school.edu",
+            email="sstudent@school.edu",
+            first_name="Sam",
+            last_name="Student",
+            is_teacher=False,
+            student=self.student,
+        )
+        self.student_user.set_unusable_password()
+        self.student_user.save()
+
+    def endpoints(self):
+        return [
+            "/api/students/",
+            "/api/classes/",
+            "/api/layouts/",
+            "/api/attendance/",
+            f"/api/classes/{self.klass.id}/partnership-ratings/",
+        ]
+
+    def test_student_jwt_is_forbidden_everywhere(self):
+        client = APIClient()
+        client.force_authenticate(user=self.student_user)
+        for url in self.endpoints():
+            response = client.get(url)
+            self.assertEqual(
+                response.status_code, 403, f"expected 403 for student on {url}"
+            )
+
+    def test_teacher_jwt_still_works(self):
+        client = APIClient()
+        client.force_authenticate(user=self.teacher)
+        for url in self.endpoints():
+            response = client.get(url)
+            self.assertEqual(
+                response.status_code, 200, f"expected 200 for teacher on {url}"
+            )
+
+    def test_student_jwt_forbidden_on_google_endpoints(self):
+        client = APIClient()
+        client.force_authenticate(user=self.student_user)
+        for url in ["/api/google/status/", "/api/google/courses/"]:
+            response = client.get(url)
+            self.assertEqual(
+                response.status_code, 403, f"expected 403 for student on {url}"
+            )
+
+
+class PartnerSurveyTests(TestCase):
+    """
+    GH issue #16 phase 2: the student-only partner survey endpoints
+    (/api/my-partners/<class_id>/). Covers roster/window gates, the GET open
+    shape, POST full-replace + caps/validation, and permission lockdown.
+    """
+
+    def setUp(self):
+        from django.utils import timezone
+        from datetime import timedelta
+
+        self.timezone = timezone
+        self.timedelta = timedelta
+
+        self.teacher = make_user()
+        self.klass = Class.objects.create(
+            name="Homeroom", subject="General", teacher=self.teacher,
+            survey_enabled=True,
+        )
+
+        # Four students on the active roster. The chooser is `me`.
+        self.me = Student.objects.create(
+            student_id="S-1", first_name="Zoe", last_name="Zimmer",
+            email="zoe@school.edu", is_active=True,
+        )
+        self.alice = Student.objects.create(
+            student_id="S-2", first_name="Alice", last_name="Anderson",
+            email="alice@school.edu", is_active=True,
+        )
+        self.bob = Student.objects.create(
+            student_id="S-3", first_name="Bob", last_name="Baker",
+            email="bob@school.edu", is_active=True,
+        )
+        self.carol = Student.objects.create(
+            student_id="S-4", first_name="Carol", last_name="Carter",
+            email="carol@school.edu", is_active=True,
+        )
+        # A fifth student NOT on this roster (used for off-roster target test).
+        self.outsider = Student.objects.create(
+            student_id="S-9", first_name="Otto", last_name="Outsider",
+            email="otto@school.edu", is_active=True,
+        )
+
+        for s in (self.me, self.alice, self.bob, self.carol):
+            ClassRoster.objects.create(class_assigned=self.klass, student=s, is_active=True)
+
+        self.me_user = User.objects.create(
+            username="zoe@school.edu", email="zoe@school.edu",
+            first_name="Zoe", last_name="Zimmer",
+            is_teacher=False, student=self.me,
+        )
+        self.me_user.set_unusable_password()
+        self.me_user.save()
+
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.me_user)
+
+    def url(self, class_id=None):
+        return f"/api/my-partners/{class_id or self.klass.id}/"
+
+    # --- Gates -------------------------------------------------------------
+
+    def test_not_on_roster_returns_404(self):
+        other_class = Class.objects.create(
+            name="Band", subject="Music", teacher=self.teacher, survey_enabled=True
+        )
+        response = self.client.get(self.url(other_class.id))
+        self.assertEqual(response.status_code, 404)
+
+    def test_nonexistent_class_returns_404(self):
+        response = self.client.get(self.url(99999))
+        self.assertEqual(response.status_code, 404)
+
+    def test_survey_disabled_returns_not_enabled(self):
+        self.klass.survey_enabled = False
+        self.klass.save()
+        response = self.client.get(self.url())
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.data["open"])
+        self.assertEqual(response.data["reason"], "not_enabled")
+        self.assertEqual(response.data["class_name"], "Homeroom")
+
+    def test_window_in_future_returns_not_yet_open(self):
+        self.klass.survey_opens_at = self.timezone.now() + self.timedelta(days=1)
+        self.klass.save()
+        response = self.client.get(self.url())
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.data["open"])
+        self.assertEqual(response.data["reason"], "not_yet_open")
+
+    def test_window_past_returns_closed(self):
+        self.klass.survey_closes_at = self.timezone.now() - self.timedelta(days=1)
+        self.klass.save()
+        response = self.client.get(self.url())
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.data["open"])
+        self.assertEqual(response.data["reason"], "closed")
+
+    def test_enabled_no_window_is_open_with_classmates_and_empty_choices(self):
+        response = self.client.get(self.url())
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data["open"])
+        self.assertEqual(response.data["caps"], {"positive": 5, "negative": 3})
+        # Active roster minus self, ordered by last then first name.
+        names = [(c["first_name"], c["last_name"]) for c in response.data["classmates"]]
+        self.assertEqual(
+            names,
+            [("Alice", "Anderson"), ("Bob", "Baker"), ("Carol", "Carter")],
+        )
+        self.assertNotIn(self.me.id, [c["id"] for c in response.data["classmates"]])
+        self.assertEqual(response.data["choices"], [])
+
+    def test_inactive_roster_target_excluded_from_classmates(self):
+        ClassRoster.objects.filter(
+            class_assigned=self.klass, student=self.carol
+        ).update(is_active=False)
+        response = self.client.get(self.url())
+        ids = [c["id"] for c in response.data["classmates"]]
+        self.assertNotIn(self.carol.id, ids)
+
+    # --- POST --------------------------------------------------------------
+
+    def test_post_saves_and_echoes_choices(self):
+        payload = {"choices": [
+            {"target_id": self.alice.id, "preference": 1},
+            {"target_id": self.bob.id, "preference": -1},
+        ]}
+        response = self.client.post(self.url(), payload, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data["open"])
+        got = {(c["target_id"], c["preference"]) for c in response.data["choices"]}
+        self.assertEqual(got, {(self.alice.id, 1), (self.bob.id, -1)})
+        self.assertEqual(
+            StudentPartnerPreference.objects.filter(
+                class_assigned=self.klass, student=self.me
+            ).count(),
+            2,
+        )
+
+    def test_post_full_replace_removes_omitted_rows(self):
+        StudentPartnerPreference.objects.create(
+            class_assigned=self.klass, student=self.me, target=self.carol, preference=1
+        )
+        payload = {"choices": [{"target_id": self.alice.id, "preference": 1}]}
+        response = self.client.post(self.url(), payload, format="json")
+        self.assertEqual(response.status_code, 200)
+        remaining = set(
+            StudentPartnerPreference.objects.filter(
+                class_assigned=self.klass, student=self.me
+            ).values_list("target_id", flat=True)
+        )
+        self.assertEqual(remaining, {self.alice.id})
+
+    def test_post_positive_cap_enforced(self):
+        # Only 3 classmates exist, so build a 6-positive payload against a
+        # bigger roster to exceed the cap of 5.
+        extra = []
+        for i in range(5, 12):
+            s = Student.objects.create(
+                student_id=f"S-1{i}", first_name=f"E{i}", last_name=f"Extra{i}",
+                email=f"e{i}@school.edu", is_active=True,
+            )
+            ClassRoster.objects.create(class_assigned=self.klass, student=s, is_active=True)
+            extra.append(s)
+        choices = [{"target_id": s.id, "preference": 1} for s in extra[:6]]
+        response = self.client.post(self.url(), {"choices": choices}, format="json")
+        self.assertEqual(response.status_code, 400)
+
+    def test_post_negative_cap_enforced(self):
+        extra = []
+        for i in range(5, 12):
+            s = Student.objects.create(
+                student_id=f"S-2{i}", first_name=f"N{i}", last_name=f"Neg{i}",
+                email=f"n{i}@school.edu", is_active=True,
+            )
+            ClassRoster.objects.create(class_assigned=self.klass, student=s, is_active=True)
+            extra.append(s)
+        choices = [{"target_id": s.id, "preference": -1} for s in extra[:4]]
+        response = self.client.post(self.url(), {"choices": choices}, format="json")
+        self.assertEqual(response.status_code, 400)
+
+    def test_post_self_target_rejected(self):
+        payload = {"choices": [{"target_id": self.me.id, "preference": 1}]}
+        response = self.client.post(self.url(), payload, format="json")
+        self.assertEqual(response.status_code, 400)
+
+    def test_post_off_roster_target_rejected(self):
+        payload = {"choices": [{"target_id": self.outsider.id, "preference": 1}]}
+        response = self.client.post(self.url(), payload, format="json")
+        self.assertEqual(response.status_code, 400)
+
+    def test_post_duplicate_target_rejected(self):
+        payload = {"choices": [
+            {"target_id": self.alice.id, "preference": 1},
+            {"target_id": self.alice.id, "preference": -1},
+        ]}
+        response = self.client.post(self.url(), payload, format="json")
+        self.assertEqual(response.status_code, 400)
+
+    def test_post_bad_preference_rejected(self):
+        payload = {"choices": [{"target_id": self.alice.id, "preference": 2}]}
+        response = self.client.post(self.url(), payload, format="json")
+        self.assertEqual(response.status_code, 400)
+
+    def test_post_while_closed_is_rejected(self):
+        self.klass.survey_enabled = False
+        self.klass.save()
+        payload = {"choices": [{"target_id": self.alice.id, "preference": 1}]}
+        response = self.client.post(self.url(), payload, format="json")
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(
+            StudentPartnerPreference.objects.filter(
+                class_assigned=self.klass, student=self.me
+            ).exists()
+        )
+
+    # --- Permission lockdown ----------------------------------------------
+
+    def test_teacher_jwt_forbidden_on_survey(self):
+        client = APIClient()
+        client.force_authenticate(user=self.teacher)
+        response = client.get(self.url())
+        self.assertEqual(response.status_code, 403)
+        response = client.post(self.url(), {"choices": []}, format="json")
+        self.assertEqual(response.status_code, 403)
+
+    def test_student_jwt_still_forbidden_on_teacher_endpoints(self):
+        client = APIClient()
+        client.force_authenticate(user=self.me_user)
+        for url in ["/api/students/", "/api/classes/", f"/api/classes/{self.klass.id}/"]:
+            response = client.get(url)
+            self.assertEqual(response.status_code, 403, f"expected 403 on {url}")
+
+    def test_unauthenticated_is_rejected(self):
+        client = APIClient()
+        response = client.get(self.url())
+        self.assertIn(response.status_code, (401, 403))
+
+
+class ClassSurveyFieldSerializerTests(TestCase):
+    """The three survey fields round-trip through the Class serializer for the
+    owning teacher (GET returns them; PATCH updates them)."""
+
+    def setUp(self):
+        self.teacher = make_user()
+        self.klass = Class.objects.create(
+            name="Chem", subject="Science", teacher=self.teacher
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.teacher)
+
+    def test_get_returns_survey_fields(self):
+        response = self.client.get(f"/api/classes/{self.klass.id}/")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("survey_enabled", response.data)
+        self.assertIn("survey_opens_at", response.data)
+        self.assertIn("survey_closes_at", response.data)
+        self.assertFalse(response.data["survey_enabled"])
+
+    def test_patch_updates_survey_fields(self):
+        response = self.client.patch(
+            f"/api/classes/{self.klass.id}/",
+            {
+                "survey_enabled": True,
+                "survey_opens_at": "2026-08-01T09:00:00Z",
+                "survey_closes_at": "2026-08-15T17:00:00Z",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.klass.refresh_from_db()
+        self.assertTrue(self.klass.survey_enabled)
+        self.assertIsNotNone(self.klass.survey_opens_at)
+        self.assertIsNotNone(self.klass.survey_closes_at)
+
+
+class PartnerSignalDerivationTests(TestCase):
+    """
+    GH issue #16 phase 3: the partnership-ratings GET response derives a student
+    pairing signal, surfaces teacher/student conflicts, and exposes an
+    effective_grid. Also asserts the privacy boundary (none of this leaks to the
+    student-facing my-partners endpoint).
+    """
+
+    def setUp(self):
+        self.teacher = make_user()
+        self.klass = Class.objects.create(
+            name="Homeroom", subject="General", teacher=self.teacher,
+            survey_enabled=True,
+        )
+        self.a = Student.objects.create(
+            student_id="S-1", first_name="Maya", last_name="Adams",
+            email="maya@school.edu", is_active=True,
+        )
+        self.b = Student.objects.create(
+            student_id="S-2", first_name="Jake", last_name="Brown",
+            email="jake@school.edu", is_active=True,
+        )
+        self.c = Student.objects.create(
+            student_id="S-3", first_name="Nia", last_name="Carter",
+            email="nia@school.edu", is_active=True,
+        )
+        for s in (self.a, self.b, self.c):
+            ClassRoster.objects.create(
+                class_assigned=self.klass, student=s, is_active=True
+            )
+
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.teacher)
+
+    def _pref(self, chooser, target, value):
+        StudentPartnerPreference.objects.create(
+            class_assigned=self.klass, student=chooser, target=target,
+            preference=value,
+        )
+
+    def _set_rating(self, s1, s2, rating):
+        response = self.client.post(
+            f"/api/classes/{self.klass.id}/partnership-ratings/",
+            {"student1_id": s1.id, "student2_id": s2.id, "rating": rating},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+
+    def _get(self):
+        response = self.client.get(
+            f"/api/classes/{self.klass.id}/partnership-ratings/"
+        )
+        self.assertEqual(response.status_code, 200)
+        return response.data
+
+    def _signal(self, data, s1, s2):
+        return data["student_signals"].get(s1.id, {}).get(s2.id)
+
+    def _effective(self, data, s1, s2):
+        return data["effective_grid"][s1.id][s2.id]
+
+    # --- Pure derivation function -----------------------------------------
+
+    def test_derive_partner_signal_table(self):
+        from students.views import derive_partner_signal
+
+        self.assertEqual(derive_partner_signal(1, 1), 2)     # mutual +
+        self.assertEqual(derive_partner_signal(1, None), 1)  # one-way +
+        self.assertEqual(derive_partner_signal(None, 1), 1)  # one-way + (other dir)
+        self.assertEqual(derive_partner_signal(1, -1), -1)   # + / -
+        self.assertEqual(derive_partner_signal(-1, 1), -1)   # - / +
+        self.assertEqual(derive_partner_signal(-1, -1), -1)  # mutual -
+        self.assertEqual(derive_partner_signal(-1, None), -1)  # one-way -
+        self.assertEqual(derive_partner_signal(None, -1), -1)  # one-way - (other)
+        self.assertIsNone(derive_partner_signal(None, None))   # nothing
+
+    # --- Signal derivation via the endpoint --------------------------------
+
+    def test_mutual_positive_is_plus_two(self):
+        self._pref(self.a, self.b, 1)
+        self._pref(self.b, self.a, 1)
+        data = self._get()
+        self.assertEqual(self._signal(data, self.a, self.b), 2)
+        self.assertEqual(self._signal(data, self.b, self.a), 2)  # symmetric
+
+    def test_one_way_positive_is_plus_one(self):
+        self._pref(self.a, self.b, 1)
+        data = self._get()
+        self.assertEqual(self._signal(data, self.a, self.b), 1)
+        self.assertEqual(self._signal(data, self.b, self.a), 1)
+
+    def test_positive_and_negative_is_minus_one(self):
+        self._pref(self.a, self.b, 1)
+        self._pref(self.b, self.a, -1)
+        data = self._get()
+        self.assertEqual(self._signal(data, self.a, self.b), -1)
+
+    def test_mutual_negative_is_minus_one(self):
+        self._pref(self.a, self.b, -1)
+        self._pref(self.b, self.a, -1)
+        data = self._get()
+        self.assertEqual(self._signal(data, self.a, self.b), -1)
+
+    def test_one_way_negative_is_minus_one(self):
+        self._pref(self.a, self.b, -1)
+        data = self._get()
+        self.assertEqual(self._signal(data, self.a, self.b), -1)
+
+    def test_no_preferences_no_signal(self):
+        data = self._get()
+        self.assertEqual(data["student_signals"], {})
+
+    # --- effective_grid precedence ----------------------------------------
+
+    def test_effective_grid_uses_signal_when_teacher_zero(self):
+        self._pref(self.a, self.b, 1)
+        self._pref(self.b, self.a, 1)
+        data = self._get()
+        # teacher rating is 0 -> effective falls back to the +2 signal
+        self.assertEqual(self._effective(data, self.a, self.b), 2)
+        self.assertEqual(self._effective(data, self.b, self.a), 2)
+
+    def test_teacher_rating_wins_over_signal(self):
+        # teacher +1, student signal -1 -> effective +1 (non-zero teacher wins)
+        self._set_rating(self.a, self.b, 1)
+        self._pref(self.a, self.b, -1)
+        data = self._get()
+        self.assertEqual(self._effective(data, self.a, self.b), 1)
+
+    def test_teacher_minus_two_wins_and_conflicts(self):
+        # teacher -2 with mutual student +1 -> effective -2 AND conflict listed
+        self._set_rating(self.a, self.b, -2)
+        self._pref(self.a, self.b, 1)
+        self._pref(self.b, self.a, 1)
+        data = self._get()
+        self.assertEqual(self._effective(data, self.a, self.b), -2)
+        conflicts = data["conflicts"]
+        self.assertEqual(len(conflicts), 1)
+        c = conflicts[0]
+        self.assertEqual(c["teacher_rating"], -2)
+        self.assertEqual(c["student_signal"], 2)
+        self.assertIn("Maya Adams", (c["student1_name"], c["student2_name"]))
+        self.assertIn("Jake Brown", (c["student1_name"], c["student2_name"]))
+        self.assertIn("Never Together", c["detail"])
+
+    def test_effective_grid_never_minus_two_from_students(self):
+        # every negative student combination on every pair; no teacher ratings
+        self._pref(self.a, self.b, -1)
+        self._pref(self.b, self.a, -1)
+        self._pref(self.a, self.c, -1)
+        self._pref(self.c, self.a, 1)
+        data = self._get()
+        for s1 in data["effective_grid"]:
+            for s2, val in data["effective_grid"][s1].items():
+                self.assertNotEqual(val, -2)
+
+    def test_effective_grid_keeps_teacher_minus_two(self):
+        self._set_rating(self.a, self.b, -2)
+        data = self._get()
+        self.assertEqual(self._effective(data, self.a, self.b), -2)
+
+    # --- Conflict detail strings ------------------------------------------
+
+    def test_conflict_names_chooser_one_way_positive_vs_avoid(self):
+        # teacher -1 (Avoid), only Maya chose Jake +1
+        self._set_rating(self.a, self.b, -1)
+        self._pref(self.a, self.b, 1)
+        data = self._get()
+        self.assertEqual(len(data["conflicts"]), 1)
+        detail = data["conflicts"][0]["detail"]
+        self.assertIn("Maya chose Jake as a good partner", detail)
+        self.assertIn("Avoid if Possible", detail)
+
+    def test_conflict_plus_two_vs_student_negative(self):
+        # teacher +2 (Best), Jake chose not to work with Maya
+        self._set_rating(self.a, self.b, 2)
+        self._pref(self.b, self.a, -1)
+        data = self._get()
+        self.assertEqual(len(data["conflicts"]), 1)
+        detail = data["conflicts"][0]["detail"]
+        self.assertIn("Jake chose not to work with Maya", detail)
+        self.assertIn("Best Partnership", detail)
+
+    def test_no_conflict_when_teacher_and_students_agree(self):
+        # teacher +2, mutual student positive -> no conflict
+        self._set_rating(self.a, self.b, 2)
+        self._pref(self.a, self.b, 1)
+        self._pref(self.b, self.a, 1)
+        data = self._get()
+        self.assertEqual(data["conflicts"], [])
+
+    def test_teacher_plus_one_vs_student_negative_is_not_a_conflict(self):
+        # Documented decision: only teacher -1/-2-vs-chosen and +2-vs-negative
+        # are flagged. teacher +1 vs student -1 is NOT surfaced as a conflict.
+        self._set_rating(self.a, self.b, 1)
+        self._pref(self.a, self.b, -1)
+        data = self._get()
+        self.assertEqual(data["conflicts"], [])
+
+    # --- Backward compatibility -------------------------------------------
+
+    def test_existing_keys_unchanged(self):
+        data = self._get()
+        self.assertIn("class_id", data)
+        self.assertIn("students", data)
+        self.assertIn("grid", data)
+        # grid still carries teacher ratings (all 0 default here)
+        self.assertEqual(data["grid"][self.a.id]["ratings"][self.b.id], 0)
+
+    # --- Privacy boundary --------------------------------------------------
+
+    def test_my_partners_leaks_no_teacher_signals_or_conflicts(self):
+        student_user = User.objects.create(
+            username="maya@school.edu", email="maya@school.edu",
+            first_name="Maya", last_name="Adams",
+            is_teacher=False, student=self.a,
+        )
+        student_user.set_unusable_password()
+        student_user.save()
+        self._pref(self.a, self.b, 1)
+        self._pref(self.b, self.a, 1)
+        self._set_rating(self.a, self.b, -2)
+
+        student_client = APIClient()
+        student_client.force_authenticate(user=student_user)
+
+        # GET the survey
+        get_resp = student_client.get(f"/api/my-partners/{self.klass.id}/")
+        self.assertEqual(get_resp.status_code, 200)
+        body = str(get_resp.data)
+        for forbidden in ("student_signals", "conflicts", "effective_grid",
+                          "grid", "teacher_rating"):
+            self.assertNotIn(forbidden, get_resp.data)
+        self.assertNotIn("Never Together", body)
+
+        # POST a choice - same privacy guarantee
+        post_resp = student_client.post(
+            f"/api/my-partners/{self.klass.id}/",
+            {"choices": [{"target_id": self.c.id, "preference": 1}]},
+            format="json",
+        )
+        self.assertIn(post_resp.status_code, (200, 201))
+        for forbidden in ("student_signals", "conflicts", "effective_grid",
+                          "grid", "teacher_rating"):
+            self.assertNotIn(forbidden, post_resp.data)
+
+        # And the teacher endpoint still 403s a student JWT.
+        forbidden_resp = student_client.get(
+            f"/api/classes/{self.klass.id}/partnership-ratings/"
+        )
+        self.assertEqual(forbidden_resp.status_code, 403)

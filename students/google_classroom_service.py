@@ -17,6 +17,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from .models import GoogleClassroomCredentials
+from .permissions import IsTeacher
 import logging
 import os
 import certifi
@@ -38,7 +39,10 @@ def google_signin(request):
     GET: Returns the Google client ID so the frontend can render the button.
     POST: Verifies a Google ID token and returns JWT access/refresh tokens.
         Body: {"credential": "<ID token from Google Identity Services>"}
-        Only existing users (matched by email) can sign in - no auto-creation.
+        Existing users are matched by email. If no user matches but the email
+        belongs to an active global Student (Workspace-synced), a passwordless
+        non-teacher student login is auto-provisioned and linked to that Student
+        (GH issue #16). Unknown non-student emails are rejected.
     """
     if request.method == "GET":
         return Response({"client_id": settings.GOOGLE_CLIENT_ID})
@@ -62,15 +66,37 @@ def google_signin(request):
     if not email or not idinfo.get("email_verified"):
         return Response({"detail": "Google account email is not verified"}, status=401)
 
-    from .models import User
+    from .models import Student, User
 
     user = User.objects.filter(email__iexact=email, is_active=True).first()
     if not user:
-        logger.warning(f"Google sign-in rejected - no account for {email}")
-        return Response(
-            {"detail": f"No account found for {email}. Contact your administrator."},
-            status=403,
-        )
+        # No teacher/user account. If this email belongs to an active global
+        # Student (kept fresh by the Workspace directory sync), auto-provision a
+        # student login linked to that row (GH issue #16). Unknown non-student
+        # emails are still rejected exactly as before.
+        student = Student.objects.filter(email__iexact=email, is_active=True).first()
+        if not student:
+            logger.warning(f"Google sign-in rejected - no account for {email}")
+            return Response(
+                {"detail": f"No account found for {email}. Contact your administrator."},
+                status=403,
+            )
+
+        # Reuse an existing linked login if one somehow already exists,
+        # otherwise create a passwordless, non-teacher User.
+        user = User.objects.filter(student=student).first()
+        if user is None:
+            user = User(
+                username=email,
+                email=email,
+                first_name=student.first_name,
+                last_name=student.last_name,
+                is_teacher=False,
+                student=student,
+            )
+            user.set_unusable_password()
+            user.save()
+            logger.info(f"Auto-provisioned student login for {email}")
 
     from .serializers import CustomTokenObtainPairSerializer
 
@@ -114,7 +140,7 @@ def _build_oauth_authorization_url(request, user, next_hash="dashboard"):
 
 
 @api_view(["GET"])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsTeacher])
 def google_oauth_url(request):
     """
     Get the Google OAuth authorization URL for the current (JWT) user.
@@ -254,7 +280,7 @@ def google_auth_callback(request):
 
 
 @api_view(["POST"])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsTeacher])
 def google_disconnect(request):
     """
     Disconnect Google Classroom (remove stored credentials) for the current
@@ -280,7 +306,7 @@ def google_disconnect(request):
 
 
 @api_view(["GET"])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsTeacher])
 def google_status(request):
     """
     Lightweight connection status for the current (JWT) user - only checks
@@ -465,7 +491,7 @@ def _cohort_prefix(email):
 
 
 @api_view(["GET"])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsTeacher])
 def google_directory_cohorts(request):
     """
     List student cohorts (two-digit email prefixes) in the Workspace directory.
@@ -501,7 +527,7 @@ def google_directory_cohorts(request):
 
 
 @api_view(["GET"])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsTeacher])
 def google_directory_students(request):
     """
     List a cohort's students from the Workspace directory.
@@ -542,7 +568,7 @@ def google_directory_students(request):
 
 
 @api_view(["POST"])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsTeacher])
 def google_import_directory_students(request):
     """
     Bulk-create Students for a Workspace directory cohort.
@@ -646,7 +672,7 @@ def google_import_directory_students(request):
 
 
 @api_view(["POST"])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsTeacher])
 def google_sync_directory(request):
     """
     Run the Workspace directory sync using the REQUESTING user's credentials.
@@ -696,7 +722,7 @@ def google_sync_directory(request):
 
 
 @api_view(["GET"])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsTeacher])
 def google_test_directory(request):
     """
     Probe the Admin SDK Directory API with the current user's credentials.
@@ -750,7 +776,7 @@ def google_test_directory(request):
 # ============================================================================
 
 @api_view(["GET"])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsTeacher])
 def google_courses(request):
     """
     List the current user's active Google Classroom courses.
@@ -812,7 +838,7 @@ def _fetch_course_students(service, course_id):
 
 
 @api_view(["GET"])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsTeacher])
 def google_course_students(request, course_id):
     """
     List the students in a Google Classroom course.
@@ -852,7 +878,7 @@ def _unique_student_id(preferred, fallback):
 
 
 @api_view(["POST"])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsTeacher])
 def google_import_students(request):
     """
     Import students from a Google Classroom course into a class roster.

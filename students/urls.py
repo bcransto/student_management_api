@@ -59,6 +59,9 @@ urlpatterns = [
     # Dashboard stat counts (cheap COUNTs, no list payloads)
     path("dashboard/stats/", views.dashboard_stats, name="dashboard_stats"),
 
+    # Student partner survey (GH issue #16 phase 2, IsStudent-only)
+    path("my-partners/<int:class_id>/", views.my_partners, name="my_partners"),
+
     # API endpoints
     path("", include(router.urls)),
 ]

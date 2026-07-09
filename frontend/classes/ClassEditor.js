@@ -1,21 +1,50 @@
 // ClassEditor.js - Component for editing class details
 console.log("Loading ClassEditor component...");
 
+// Convert a backend ISO timestamp -> value for an <input type="datetime-local">
+// ("YYYY-MM-DDTHH:MM", local time). Empty/invalid -> "".
+const isoToLocalInput = (iso) => {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
+    d.getHours()
+  )}:${pad(d.getMinutes())}`;
+};
+
+// Convert a datetime-local value (local time) -> ISO string for the backend.
+// Empty -> null (no window bound).
+const localInputToIso = (val) => {
+  if (!val) return null;
+  const d = new Date(val);
+  if (isNaN(d.getTime())) return null;
+  return d.toISOString();
+};
+
 const ClassEditor = ({ classId, navigateTo }) => {
   // State for form fields
   const [className, setClassName] = React.useState("");
   const [subject, setSubject] = React.useState("");
   const [gradeLevel, setGradeLevel] = React.useState("");
   const [description, setDescription] = React.useState("");
-  
+
+  // Partner survey (GH issue #16 phase 2)
+  const [surveyEnabled, setSurveyEnabled] = React.useState(false);
+  const [surveyOpensAt, setSurveyOpensAt] = React.useState("");
+  const [surveyClosesAt, setSurveyClosesAt] = React.useState("");
+  const [copyStatus, setCopyStatus] = React.useState("");
+
   // State for original values (to detect changes)
   const [originalData, setOriginalData] = React.useState({});
-  
+
   // Loading and error states
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState(null);
   const [successMessage, setSuccessMessage] = React.useState("");
+
+  const surveyLink = `${window.location.origin}/#my-partners/${classId}`;
   
   // Load class data on mount
   React.useEffect(() => {
@@ -40,13 +69,22 @@ const ClassEditor = ({ classId, navigateTo }) => {
         setSubject(response.subject || "");
         setGradeLevel(response.grade_level || "");
         setDescription(response.description || "");
-        
+
+        const opensLocal = isoToLocalInput(response.survey_opens_at);
+        const closesLocal = isoToLocalInput(response.survey_closes_at);
+        setSurveyEnabled(!!response.survey_enabled);
+        setSurveyOpensAt(opensLocal);
+        setSurveyClosesAt(closesLocal);
+
         // Store original values
         setOriginalData({
           name: response.name || "",
           subject: response.subject || "",
           grade_level: response.grade_level || "",
-          description: response.description || ""
+          description: response.description || "",
+          survey_enabled: !!response.survey_enabled,
+          survey_opens_at: opensLocal,
+          survey_closes_at: closesLocal,
         });
         
       } catch (err) {
@@ -66,7 +104,10 @@ const ClassEditor = ({ classId, navigateTo }) => {
       className !== originalData.name ||
       subject !== originalData.subject ||
       gradeLevel !== originalData.grade_level ||
-      description !== originalData.description
+      description !== originalData.description ||
+      surveyEnabled !== originalData.survey_enabled ||
+      surveyOpensAt !== originalData.survey_opens_at ||
+      surveyClosesAt !== originalData.survey_closes_at
     );
   };
   
@@ -109,9 +150,12 @@ const ClassEditor = ({ classId, navigateTo }) => {
         name: className.trim(),
         subject: subject.trim(),
         grade_level: gradeLevel.trim(),
-        description: description.trim()
+        description: description.trim(),
+        survey_enabled: surveyEnabled,
+        survey_opens_at: localInputToIso(surveyOpensAt),
+        survey_closes_at: localInputToIso(surveyClosesAt),
       };
-      
+
       // Send PATCH request to update the class
       const response = await window.ApiModule.request(`/classes/${classId}/`, {
         method: 'PATCH',
@@ -120,16 +164,19 @@ const ClassEditor = ({ classId, navigateTo }) => {
         },
         body: JSON.stringify(updateData)
       });
-      
+
       // Success - show message then navigate
       setSuccessMessage("Changes saved successfully!");
-      
+
       // Update original data to prevent "unsaved changes" warning
       setOriginalData({
         name: className.trim(),
         subject: subject.trim(),
         grade_level: gradeLevel.trim(),
-        description: description.trim()
+        description: description.trim(),
+        survey_enabled: surveyEnabled,
+        survey_opens_at: surveyOpensAt,
+        survey_closes_at: surveyClosesAt,
       });
       
       // Navigate back to class view after a brief delay
@@ -158,7 +205,29 @@ const ClassEditor = ({ classId, navigateTo }) => {
       setSaving(false);
     }
   };
-  
+
+  // Copy the shareable student survey link. Sharing implies enabling: if the
+  // survey is currently off, turn it on and persist that as part of the copy.
+  const handleCopyLink = async () => {
+    try {
+      if (!surveyEnabled) {
+        await window.ApiModule.request(`/classes/${classId}/`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ survey_enabled: true }),
+        });
+        setSurveyEnabled(true);
+        setOriginalData((prev) => ({ ...prev, survey_enabled: true }));
+      }
+      await navigator.clipboard.writeText(surveyLink);
+      setCopyStatus("Copied!");
+    } catch (err) {
+      console.error("Copy link failed:", err);
+      setCopyStatus("Copy failed - select the link and copy manually");
+    }
+    setTimeout(() => setCopyStatus(""), 2500);
+  };
+
   // Render loading state
   if (loading) {
     return React.createElement(
@@ -378,7 +447,166 @@ const ClassEditor = ({ classId, navigateTo }) => {
           "Any additional notes or information about this class"
         )
       ),
-      
+
+      // Partner Survey section (GH issue #16 phase 2)
+      React.createElement(
+        "div",
+        {
+          className: "form-group",
+          style: {
+            marginTop: "1.5rem",
+            paddingTop: "1.5rem",
+            borderTop: "1px solid #e5e7eb",
+          },
+        },
+        React.createElement(
+          "h2",
+          { style: { fontSize: "1.1rem", fontWeight: 600, margin: "0 0 0.25rem" } },
+          "Partner Survey"
+        ),
+        React.createElement(
+          "small",
+          { className: "form-help", style: { display: "block", marginBottom: "1rem" } },
+          "Let students privately rank classmates they do (and don't) work well with. Share the link below with your class."
+        ),
+
+        // Enable toggle
+        React.createElement(
+          "label",
+          {
+            style: {
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              cursor: "pointer",
+              marginBottom: "1rem",
+            },
+          },
+          React.createElement("input", {
+            type: "checkbox",
+            checked: surveyEnabled,
+            onChange: (e) => setSurveyEnabled(e.target.checked),
+            disabled: saving,
+            style: { width: "18px", height: "18px", cursor: "pointer" },
+          }),
+          React.createElement(
+            "span",
+            { style: { fontWeight: 500 } },
+            surveyEnabled ? "Survey enabled" : "Survey disabled"
+          )
+        ),
+
+        // Optional window
+        React.createElement(
+          "div",
+          {
+            style: {
+              display: "flex",
+              gap: "1rem",
+              flexWrap: "wrap",
+              marginBottom: "1rem",
+            },
+          },
+          React.createElement(
+            "div",
+            { style: { flex: "1 1 220px" } },
+            React.createElement(
+              "label",
+              { htmlFor: "survey-opens", style: { display: "block", marginBottom: "0.25rem" } },
+              "Opens at (optional)"
+            ),
+            React.createElement("input", {
+              type: "datetime-local",
+              id: "survey-opens",
+              className: "form-input",
+              value: surveyOpensAt,
+              onChange: (e) => setSurveyOpensAt(e.target.value),
+              disabled: saving,
+            })
+          ),
+          React.createElement(
+            "div",
+            { style: { flex: "1 1 220px" } },
+            React.createElement(
+              "label",
+              { htmlFor: "survey-closes", style: { display: "block", marginBottom: "0.25rem" } },
+              "Closes at (optional)"
+            ),
+            React.createElement("input", {
+              type: "datetime-local",
+              id: "survey-closes",
+              className: "form-input",
+              value: surveyClosesAt,
+              onChange: (e) => setSurveyClosesAt(e.target.value),
+              disabled: saving,
+            })
+          )
+        ),
+        React.createElement(
+          "small",
+          { className: "form-help", style: { display: "block", marginBottom: "1rem" } },
+          "Leave both blank to keep the survey open whenever it's enabled."
+        ),
+
+        // Copy link row
+        React.createElement(
+          "div",
+          {
+            style: {
+              display: "flex",
+              alignItems: "center",
+              gap: "0.75rem",
+              flexWrap: "wrap",
+            },
+          },
+          React.createElement(
+            "button",
+            {
+              type: "button",
+              onClick: handleCopyLink,
+              disabled: saving,
+              style: {
+                padding: "6px 12px",
+                fontSize: "14px",
+                fontWeight: 500,
+                borderRadius: "6px",
+                border: "none",
+                backgroundColor: "#667eea",
+                color: "white",
+                cursor: saving ? "not-allowed" : "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+              },
+            },
+            React.createElement("i", { className: "fas fa-link" }),
+            " Copy Link"
+          ),
+          copyStatus &&
+            React.createElement(
+              "span",
+              { style: { fontSize: "0.85rem", color: "#10b981", fontWeight: 500 } },
+              copyStatus
+            )
+        ),
+        React.createElement(
+          "code",
+          {
+            style: {
+              display: "block",
+              marginTop: "0.5rem",
+              padding: "0.5rem 0.75rem",
+              background: "#f3f4f6",
+              borderRadius: "6px",
+              fontSize: "0.85rem",
+              wordBreak: "break-all",
+              userSelect: "all",
+            },
+          },
+          surveyLink
+        )
+      ),
+
       // Form Actions (Mobile)
       React.createElement(
         "div",

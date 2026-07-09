@@ -15,6 +15,18 @@ class User(AbstractUser):
     first_name = models.CharField(max_length=30)
     last_name = models.CharField(max_length=30)
     is_teacher = models.BooleanField(default=True)
+    # For student accounts (is_teacher=False), links to the global Student row
+    # this login represents. Auto-provisioned by Google Sign-In (GH issue #16);
+    # always null for teachers. SET_NULL so archiving/removing a Student never
+    # deletes the login.
+    student = models.OneToOneField(
+        "Student",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="user_account",
+        help_text="Set for student accounts; links to the global Student row.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     USERNAME_FIELD = "email"
@@ -234,6 +246,25 @@ class Class(models.Model):
         blank=True,
         related_name="classes_using_layout",
         help_text="Physical layout of the classroom",
+    )
+
+    # Student partner survey (GH issue #16 phase 2). When enabled, students on
+    # this class's active roster can rank classmates they do/don't work well
+    # with via #my-partners/{class_id}. Both window bounds blank = the survey is
+    # open whenever survey_enabled is True.
+    survey_enabled = models.BooleanField(
+        default=False,
+        help_text="Whether the student partner survey is open for this class",
+    )
+    survey_opens_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Optional start of the survey window (blank = no lower bound)",
+    )
+    survey_closes_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Optional end of the survey window (blank = no upper bound)",
     )
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -836,6 +867,59 @@ class PartnershipRating(models.Model):
             }
         )
         return rating_obj
+
+
+class StudentPartnerPreference(models.Model):
+    """
+    A single student's self-reported preference about working with a classmate
+    (GH issue #16 phase 2). The chooser (``student``) says whether they work
+    well (or not) with ``target`` in the context of one class. Strictly
+    student-owned survey data - never mixed with the teacher's PartnershipRating.
+    """
+
+    PREFERENCE_CHOICES = [
+        (1, "Works well"),
+        (-1, "Doesn't work well"),
+    ]
+
+    class_assigned = models.ForeignKey(
+        Class,
+        on_delete=models.CASCADE,
+        related_name="partner_preferences",
+    )
+    student = models.ForeignKey(
+        Student,
+        on_delete=models.CASCADE,
+        related_name="partner_preferences_made",
+        help_text="The student expressing the preference (the chooser)",
+    )
+    target = models.ForeignKey(
+        Student,
+        on_delete=models.CASCADE,
+        related_name="partner_preferences_received",
+        help_text="The classmate the preference is about",
+    )
+    preference = models.SmallIntegerField(choices=PREFERENCE_CHOICES)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = [["class_assigned", "student", "target"]]
+        indexes = [
+            models.Index(fields=["class_assigned", "student"]),
+        ]
+
+    def clean(self):
+        super().clean()
+        if self.student_id and self.target_id and self.student_id == self.target_id:
+            raise ValidationError("A student cannot rate themselves.")
+
+    def __str__(self):
+        label = dict(self.PREFERENCE_CHOICES).get(self.preference, "?")
+        return (
+            f"{self.class_assigned_id}: {self.student_id} -> {self.target_id} ({label})"
+        )
 
 
 class AttendanceRecord(models.Model):
