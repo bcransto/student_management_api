@@ -10,6 +10,7 @@ const Students = ({ data, navigateTo, apiModule }) => {
   const [searchTerm, setSearchTerm] = React.useState("");
   const [workspaceModalOpen, setWorkspaceModalOpen] = React.useState(false);
   const [bulkUpdateModalOpen, setBulkUpdateModalOpen] = React.useState(false);
+  const [pickerOpen, setPickerOpen] = React.useState(false);
 
   // Fetch (or re-fetch after imports/updates) the student list
   const loadStudents = async () => {
@@ -41,10 +42,9 @@ const Students = ({ data, navigateTo, apiModule }) => {
     }
   };
 
-  // Handle add student button click
-  const handleAddStudent = () => {
-    console.log("Navigating to add new student");
-    window.location.hash = "#students/new";
+  // "Add from School List" opens the picker (manual creation is disabled - #14)
+  const handleAddFromSchoolList = () => {
+    setPickerOpen(true);
   };
 
   // Filter students based on search term
@@ -113,11 +113,11 @@ const Students = ({ data, navigateTo, apiModule }) => {
       React.createElement(
         "button",
         {
-          onClick: handleAddStudent,
+          onClick: handleAddFromSchoolList,
           className: "btn btn-primary"
         },
-        React.createElement("i", { className: "fas fa-plus" }),
-        "Add Student"
+        React.createElement("i", { className: "fas fa-user-plus" }),
+        "Add from School List"
       ),
       React.createElement(
         "button",
@@ -203,8 +203,11 @@ const Students = ({ data, navigateTo, apiModule }) => {
                   "span",
                   {
                     className: `badge ${student.is_active ? "badge-success" : "badge-warning"}`,
+                    title: student.is_active
+                      ? undefined
+                      : "No longer in the Workspace directory",
                   },
-                  student.is_active ? "Active" : "Inactive"
+                  student.is_active ? "Active" : "Archived"
                 )
               ),
               React.createElement(
@@ -243,6 +246,15 @@ const Students = ({ data, navigateTo, apiModule }) => {
       onClose: () => setBulkUpdateModalOpen(false),
       onApplied: () => {
         setBulkUpdateModalOpen(false);
+        loadStudents();
+      }
+    }),
+
+    // "Add from School List" picker (school-wide list, cohort add/remove)
+    pickerOpen && window.StudentPicker && React.createElement(window.StudentPicker, {
+      onClose: () => setPickerOpen(false),
+      onChanged: () => {
+        // Refresh the my-students list after adds/removes (modal stays open)
         loadStudents();
       }
     })

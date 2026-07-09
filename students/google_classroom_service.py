@@ -649,7 +649,7 @@ def google_import_directory_students(request):
     """
     from django.db import transaction
 
-    from .models import Student
+    from .models import Student, TeacherStudent  # noqa: F401 (TeacherStudent via helper)
 
     cohort = str(request.data.get("cohort") or "")
     if not (cohort.isdigit() and len(cohort) == 2):
@@ -693,6 +693,8 @@ def google_import_directory_students(request):
                     update_fields.append("email")
                 if update_fields:
                     student.save(update_fields=update_fields)
+                # Importing adds the matched student to the importer's list.
+                _ensure_teacher_student(request.user, student)
                 existing.append(display_name)
                 continue
 
@@ -710,13 +712,15 @@ def google_import_directory_students(request):
                 skipped.append({"name": display_name, "reason": "Could not determine a unique student ID"})
                 continue
 
-            Student.objects.create(
+            new_student = Student.objects.create(
                 student_id=student_id,
                 first_name=gs["first_name"][:30],
                 last_name=gs["last_name"][:30],
                 email=gs["email"] or None,
                 google_user_id=gs["google_user_id"] or None,
             )
+            # Importing adds the newly created student to the importer's list.
+            _ensure_teacher_student(request.user, new_student)
             created.append({"name": display_name, "student_id": student_id})
 
     logger.info(
@@ -900,7 +904,7 @@ def google_import_students(request):
     Student records for unmatched Classroom students, then enrolls everyone
     into the class (reactivating soft-deleted roster entries).
     """
-    from .models import Class, ClassRoster, Student
+    from .models import Class, ClassRoster, Student, TeacherStudent
 
     course_id = request.data.get("course_id")
     class_id = request.data.get("class_id")
@@ -963,6 +967,11 @@ def google_import_students(request):
             )
             created.append({"name": display_name, "student_id": student_id})
 
+        # Importing a student IS adding them to the importing teacher's list:
+        # create (or reactivate) a TeacherStudent row. Annotations stay blank -
+        # never copied from any other teacher.
+        _ensure_teacher_student(request.user, student)
+
         # Enroll (or reactivate) the student in the class
         roster_entry, was_created = ClassRoster.objects.get_or_create(
             class_assigned=target_class,
@@ -997,6 +1006,25 @@ def google_import_students(request):
 # ============================================================================
 # Helper Functions
 # ============================================================================
+
+def _ensure_teacher_student(teacher, student):
+    """
+    Ensure the importing teacher has an active TeacherStudent row for this
+    student (importing is adding to your list). Creates the row if missing and
+    reactivates it if it was soft-removed. Annotations are never touched, so a
+    previously-set nickname/gender survives a re-import and a fresh row starts
+    blank - never seeded from another teacher.
+    """
+    from .models import TeacherStudent
+
+    ts, created = TeacherStudent.objects.get_or_create(
+        teacher=teacher, student=student
+    )
+    if not created and not ts.is_active:
+        ts.is_active = True
+        ts.save(update_fields=["is_active", "updated_at"])
+    return ts
+
 
 def get_google_service(user):
     """

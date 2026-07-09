@@ -158,7 +158,23 @@ React.createElement("div", { className: "example" }, children)
    - `formatStudentNameTwoLine()` returns { line1: nickname, line2: "Smi." } for consistent two-line display
    - `formatStudentName()` deprecated - use formatStudentNameTwoLine for new features
    - Search filters by nickname, first_name, last_name, student_id, email
-   - StudentEditor includes nickname and gender fields
+   - **`#students` is scoped to "my students"** (the requesting teacher's active
+     `TeacherStudent` rows) - the list `/api/students/` endpoint filters
+     automatically, so ClassStudentManager's enrollment picker and every other
+     consumer see the same scoped list (#14 phase 2)
+   - **No manual student creation** (#14): the old "Add Student" button / route
+     is gone. Students only enter via the Workspace sync (phase 3) or a Google
+     import; a teacher adds an existing student with **"Add from School List"**
+     (`StudentPicker.js`)
+   - `StudentPicker.js` - modal picker over the school-wide list
+     (`/api/students/school-list/`): filter by cohort dropdown, per-row Add /
+     Remove, "Add all in cohort", "Remove cohort from my list". Excludes
+     archived students. Registered in `index.html` like the other student modals
+   - `StudentEditor.js` - edit-only (no create mode). Sync-owned fields
+     (student ID, first/last name, email, Google ID) are read-only display;
+     editable fields are nickname/gender/preferential seating (per-teacher) plus
+     date of birth (global). "Remove from My List" replaces the old delete;
+     shows an "Archived" badge when `is_active=False`
    - All name displays (pool, seats, viewer) use two-line format: nickname on line 1, last name truncated to 3 chars on line 2
 
 4. **Layout System**
@@ -405,6 +421,47 @@ await ApiModule.request('/api/endpoint/')   // ❌ Double /api/ prefix
 # against are that teacher's annotation (nickname falls back to first_name).
 # {applied, updated:[{id,name,changes}], not_found, invalid, unchanged, conflicts}
 ```
+
+**My-students scoping & list management (#14 phase 2)**:
+```python
+# StudentViewSet is scoped to the requesting teacher's list.
+# - GET /api/students/  -> only the teacher's ACTIVE TeacherStudent students
+#   (archived global students still on the list are included so the UI badges
+#   them). Detail/update work for any student the teacher has a TeacherStudent
+#   row for OR one enrolled in one of their classes (so roster-click edit works
+#   even after a soft removal); an unrelated student 404s.
+# - POST /api/students/  -> 405 DISABLED. No manual creation: student IDs/emails
+#   are IT-generated. Global rows come only from the Workspace sync (phase 3)
+#   or the Google import endpoints.
+# - Sync-owned fields (student_id, first_name, last_name, email, google_user_id,
+#   cohort, is_active) are READ-ONLY via the serializer. date_of_birth is the
+#   one teacher-writable global field. nickname/gender/preferential_seating are
+#   per-teacher annotations (TeacherStudent), handled separately.
+
+# GET /api/students/school-list/?cohort=28
+# Read-only picker feed of the school-wide list. Excludes archived students
+# (is_active=False). {students:[{id,name,first_name,last_name,student_id,email,
+#   cohort,on_my_list}], cohorts:[{cohort,count}]}. on_my_list = already on the
+# requesting teacher's active list. cohort filters students; cohorts is always
+# the full set (stable dropdown).
+
+# POST /api/students/add-to-my-list/    Body: {"student_ids":[...], "cohort":"28"}
+# Creates/reactivates TeacherStudent rows for the teacher (either or both keys).
+# Annotations left BLANK - never copied from another teacher. Idempotent.
+# {added, reactivated, already_on_list}. Only active global students eligible.
+
+# POST /api/students/remove-from-my-list/  Body: {"student_ids":[...], "cohort":"28"}
+# Soft-deactivates the teacher's TeacherStudent rows (is_active=False). ONLY
+# hides from my-students - NEVER touches ClassRoster/seating/attendance, and
+# roster serializers keep resolving annotations through the inactive row.
+# Idempotent. {removed}
+```
+
+**Google imports add to the importer's list**: both `google_import_students`
+(Classroom roster) and `google_import_directory_students` (cohort) call the
+`_ensure_teacher_student` helper for every student they create OR match -
+importing IS adding to your list. Blank annotations, reactivates a soft-removed
+row, never overwrites an existing nickname/gender.
 
 **Blank gender**: gender is a per-teacher `TeacherStudent.gender` (nullable,
 "Not set" in StudentEditor); a teacher who hasn't set it sees null for every
@@ -686,6 +743,9 @@ Frontend auto-detects environment via hostname (pinto.local uses current origin 
 - `/api/google/directory-students/` - Workspace cohort roster preview
 - `/api/google/import-directory-students/` - Bulk-create a cohort's students
 - `/api/students/bulk-update-info/` - Paste CSV/TSV to set nickname/gender
+- `/api/students/school-list/` - School-wide picker feed (cohort filter, on_my_list)
+- `/api/students/add-to-my-list/` - Add students (by ids and/or cohort) to my list
+- `/api/students/remove-from-my-list/` - Remove students (by ids and/or cohort) from my list
 - `/api/google/test/` - Test Google Classroom connection
 - `/api/google/disconnect/` - Remove Google credentials (POST, JWT-authenticated)
 - `/api/google/status/` - Cheap Google Classroom connection status (JWT-authenticated)
@@ -694,9 +754,9 @@ Frontend auto-detects environment via hostname (pinto.local uses current origin 
 
 **Frontend Hash Routes**:
 - `#dashboard` - Main view
-- `#students` - Student list with search
-- `#students/new` - Create new student
-- `#students/edit/{id}` - Edit student
+- `#students` - "My students" list with search + "Add from School List" picker
+- `#students/edit/{id}` - Edit student (edit-only; sync fields read-only)
+  (the legacy `#students/new` route is removed and redirects here-to `#students`)
 - `#classes` - Class list
 - `#classes/view/{id}` - View class details
 - `#classes/edit/{id}` - Edit class details (name, subject, grade, description)

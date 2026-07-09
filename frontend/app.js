@@ -36,9 +36,11 @@ const App = () => {
       return "password-reset";
     }
 
-    // Check for student new pattern
+    // Manual student creation is disabled (#14) - redirect the legacy
+    // #students/new route to the students list ("Add from School List").
     if (hash === "students/new") {
-      return "student-edit";
+      window.location.hash = "students";
+      return "students";
     }
 
     // Check for student edit pattern
@@ -183,9 +185,7 @@ const App = () => {
   // Parse student ID from hash on initial load
   useEffect(() => {
     const hash = window.location.hash.slice(1).split("?")[0];
-    if (hash === "students/new") {
-      setEditingStudentId("new");
-    } else if (hash.startsWith("students/edit/")) {
+    if (hash.startsWith("students/edit/")) {
       const id = hash.replace("students/edit/", "");
       setEditingStudentId(id);
     }
@@ -202,10 +202,11 @@ const App = () => {
         return;
       }
 
-      // Check for student new pattern
+      // Manual student creation is disabled (#14) - redirect the legacy
+      // #students/new route to the students list.
       if (hash === "students/new") {
-        setEditingStudentId("new");
-        setCurrentView("student-edit");
+        window.location.hash = "students";
+        setCurrentView("students");
         return;
       }
 

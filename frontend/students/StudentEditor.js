@@ -1,70 +1,73 @@
 // frontend/students/StudentEditor.js
 // Student Editor View Component
+//
+// Phase 2 (#14): there is no create mode. Students are never created manually -
+// they enter the system via the Workspace sync or a Google import, and a
+// teacher adds them to their list with "Add from School List". This editor
+// therefore only edits an existing student. Sync-owned fields (student ID,
+// name, email, Google ID, cohort) are read-only display; the teacher can edit
+// their own per-teacher annotations (nickname, gender, preferential seating)
+// plus the one teacher-writable global field, date of birth.
 
 const StudentEditor = ({ studentId, navigateTo, apiModule }) => {
   // Use NavigationService if available, fallback to navigateTo prop
   const nav = window.NavigationService || null;
 
-  // Determine if we're in create mode (studentId is "new" or not provided)
-  const isCreateMode = !studentId || studentId === "new";
-
   const [student, setStudent] = React.useState(null);
-  const [loading, setLoading] = React.useState(!isCreateMode);
+  const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
   const [errors, setErrors] = React.useState({});
-  const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
+  const [showRemoveConfirm, setShowRemoveConfirm] = React.useState(false);
   const [formData, setFormData] = React.useState({
+    // Editable
+    nickname: "",
+    gender: "",
+    preferential_seating: false,
+    date_of_birth: "",
+    // Display-only (sync-owned)
     student_id: "",
     first_name: "",
     last_name: "",
-    nickname: "",
     email: "",
-    gender: "",
-    preferential_seating: false,
     google_user_id: "",
+    cohort: "",
     is_active: true,
-    enrollment_date: new Date().toISOString().split("T")[0],
   });
   const [enrolledClasses, setEnrolledClasses] = React.useState([]);
 
-  // Fetch student data on mount (only in edit mode)
   React.useEffect(() => {
-    if (studentId && !isCreateMode) {
+    if (studentId) {
       fetchStudentData();
     }
-  }, [studentId, isCreateMode]);
+  }, [studentId]);
 
   const fetchStudentData = async () => {
     try {
       setLoading(true);
 
-      // Fetch student details (apiModule.request returns the data directly)
-      console.log("Fetching student with ID:", studentId);
       const studentData = await apiModule.request(`/students/${studentId}/`);
-      console.log("Student data received:", studentData);
-
       if (!studentData) {
         throw new Error("No student data received");
       }
 
       setStudent(studentData);
       setFormData({
+        nickname: studentData.nickname || "",
+        gender: studentData.gender || "",
+        preferential_seating: studentData.preferential_seating || false,
+        date_of_birth: studentData.date_of_birth || "",
         student_id: studentData.student_id || "",
         first_name: studentData.first_name || "",
         last_name: studentData.last_name || "",
-        nickname: studentData.nickname || "",
         email: studentData.email || "",
-        gender: studentData.gender || "",
-        preferential_seating: studentData.preferential_seating || false,
         google_user_id: studentData.google_user_id || "",
+        cohort: studentData.cohort || "",
         is_active: studentData.is_active !== undefined ? studentData.is_active : true,
-        enrollment_date: studentData.enrollment_date || "",
       });
 
-      // Fetch enrolled classes
+      // Enrolled classes (scoped server-side to this teacher's classes)
       try {
         const rosterData = await apiModule.request(`/roster/?student=${studentId}`);
-        console.log("Roster data received:", rosterData);
         const rosterArray = Array.isArray(rosterData) ? rosterData : rosterData?.results || [];
         setEnrolledClasses(rosterArray);
       } catch (rosterError) {
@@ -80,11 +83,7 @@ const StudentEditor = ({ studentId, navigateTo, apiModule }) => {
   };
 
   const handleInputChange = (field, value) => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
-    // Clear error for this field when user starts typing
+    setFormData((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) {
       setErrors((prev) => {
         const newErrors = { ...prev };
@@ -94,74 +93,27 @@ const StudentEditor = ({ studentId, navigateTo, apiModule }) => {
     }
   };
 
-  const validateForm = () => {
-    const newErrors = {};
-
-    // Required fields
-    if (!formData.student_id.trim()) {
-      newErrors.student_id = "Student ID is required";
-    }
-    if (!formData.first_name.trim()) {
-      newErrors.first_name = "First name is required";
-    }
-    if (!formData.last_name.trim()) {
-      newErrors.last_name = "Last name is required";
-    }
-
-    // Email validation (if provided)
-    if (formData.email && formData.email.trim()) {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(formData.email)) {
-        newErrors.email = "Invalid email format";
-      }
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
   const handleSave = async () => {
-    if (!validateForm()) return;
-
     try {
       setSaving(true);
 
-      const studentData = {
-        student_id: formData.student_id,
-        first_name: formData.first_name,
-        last_name: formData.last_name,
+      // Only the editable fields are sent. nickname/gender/preferential_seating
+      // route to the teacher's TeacherStudent row; date_of_birth is the one
+      // teacher-writable global field. Sync-owned fields are read-only on the
+      // API and are intentionally omitted.
+      const payload = {
         nickname: formData.nickname || formData.first_name,
-        email: formData.email || null,
         gender: formData.gender || null,
         preferential_seating: formData.preferential_seating,
-        google_user_id: formData.google_user_id || null,
-        is_active: formData.is_active,
-        enrollment_date: formData.enrollment_date,
+        date_of_birth: formData.date_of_birth || null,
       };
 
-      if (isCreateMode) {
-        // Create new student with POST
-        const newStudent = await apiModule.request("/students/", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(studentData),
-        });
-        console.log("Student created successfully:", newStudent);
-      } else {
-        // Update existing student with PUT
-        const updatedStudent = await apiModule.request(`/students/${studentId}/`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(studentData),
-        });
-        console.log("Student updated successfully:", updatedStudent);
-      }
+      await apiModule.request(`/students/${studentId}/`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
 
-      // Success - navigate back to students list
       nav?.toStudents ? nav.toStudents() : navigateTo("students");
     } catch (error) {
       console.error("Error saving student:", error);
@@ -171,29 +123,25 @@ const StudentEditor = ({ studentId, navigateTo, apiModule }) => {
     }
   };
 
-  const handleDelete = async () => {
+  const handleRemoveFromList = async () => {
     try {
       setSaving(true);
 
-      // Soft delete by setting is_active to false
-      await apiModule.request(`/students/${studentId}/`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ is_active: false }),
+      // Removal only hides the student from THIS teacher's list. It never
+      // touches class rosters, seating, or attendance (see #14 design).
+      await apiModule.request("/students/remove-from-my-list/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ student_ids: [Number(studentId)] }),
       });
 
-      console.log("Student deleted (soft delete) successfully");
-
-      // Success - navigate back to students list
       nav?.toStudents ? nav.toStudents() : navigateTo("students");
     } catch (error) {
-      console.error("Error deleting student:", error);
-      setErrors({ delete: error.message || "Failed to delete student" });
+      console.error("Error removing student from list:", error);
+      setErrors({ remove: error.message || "Failed to remove student" });
     } finally {
       setSaving(false);
-      setShowDeleteConfirm(false);
+      setShowRemoveConfirm(false);
     }
   };
 
@@ -201,7 +149,6 @@ const StudentEditor = ({ studentId, navigateTo, apiModule }) => {
     nav?.toStudents ? nav.toStudents() : navigateTo("students");
   };
 
-  // Render loading state
   if (loading) {
     return React.createElement(
       "div",
@@ -211,19 +158,27 @@ const StudentEditor = ({ studentId, navigateTo, apiModule }) => {
     );
   }
 
-  // Render delete confirmation dialog
-  const deleteConfirmDialog = showDeleteConfirm
+  const readOnlyStyle = {
+    backgroundColor: "#f9fafb",
+    color: "#6b7280",
+    cursor: "not-allowed",
+  };
+
+  // Remove-from-list confirmation dialog
+  const removeConfirmDialog = showRemoveConfirm
     ? React.createElement(
         "div",
         { className: "delete-confirm-overlay" },
         React.createElement(
           "div",
           { className: "delete-confirm-dialog" },
-          React.createElement("h3", null, "Confirm Delete"),
+          React.createElement("h3", null, "Remove from My List"),
           React.createElement(
             "p",
             null,
-            `Are you sure you want to delete ${formData.first_name} ${formData.last_name}? This will mark the student as inactive.`
+            `Remove ${formData.first_name} ${formData.last_name} from your student list? ` +
+              `This only hides them from your list - class rosters, seating, and ` +
+              `attendance are untouched.`
           ),
           React.createElement(
             "div",
@@ -232,7 +187,7 @@ const StudentEditor = ({ studentId, navigateTo, apiModule }) => {
               "button",
               {
                 className: "btn btn-secondary",
-                onClick: () => setShowDeleteConfirm(false),
+                onClick: () => setShowRemoveConfirm(false),
               },
               "Cancel"
             ),
@@ -240,17 +195,16 @@ const StudentEditor = ({ studentId, navigateTo, apiModule }) => {
               "button",
               {
                 className: "btn btn-danger",
-                onClick: handleDelete,
+                onClick: handleRemoveFromList,
                 disabled: saving,
               },
-              saving ? "Deleting..." : "Delete"
+              saving ? "Removing..." : "Remove"
             )
           )
         )
       )
     : null;
 
-  // Main editor view
   return React.createElement(
     "div",
     { className: "student-editor-view" },
@@ -262,13 +216,25 @@ const StudentEditor = ({ studentId, navigateTo, apiModule }) => {
       React.createElement(
         "div",
         { className: "page-header-content" },
-        React.createElement("h1", { className: "page-title" }, isCreateMode ? "Add New Student" : "Edit Student"),
+        React.createElement(
+          "h1",
+          { className: "page-title" },
+          "Edit Student",
+          !formData.is_active &&
+            React.createElement(
+              "span",
+              {
+                className: "badge badge-warning",
+                style: { marginLeft: "12px", fontSize: "0.7em", verticalAlign: "middle" },
+                title: "No longer in the Workspace directory",
+              },
+              "Archived"
+            )
+        ),
         React.createElement(
           "p",
           { className: "page-subtitle" },
-          isCreateMode
-            ? "Enter the student's information below"
-            : `Editing: ${formData.first_name} ${formData.last_name} (${formData.student_id})`
+          `Editing: ${formData.first_name} ${formData.last_name} (${formData.student_id})`
         )
       ),
       React.createElement(
@@ -276,20 +242,15 @@ const StudentEditor = ({ studentId, navigateTo, apiModule }) => {
         { className: "page-header-actions" },
         React.createElement(
           "button",
-          {
-            className: "btn btn-secondary",
-            onClick: handleCancel,
-          },
+          { className: "btn btn-secondary", onClick: handleCancel },
           React.createElement("i", { className: "fas fa-arrow-left" }),
           " Back to Students"
         )
       )
     ),
 
-    // Error display
     errors.fetch && React.createElement("div", { className: "alert alert-danger" }, errors.fetch),
 
-    // Main content
     React.createElement(
       "div",
       { className: "editor-content" },
@@ -299,61 +260,63 @@ const StudentEditor = ({ studentId, navigateTo, apiModule }) => {
         "div",
         { className: "editor-form-section" },
         React.createElement("h2", null, "Student Information"),
+        React.createElement(
+          "p",
+          {
+            style: { color: "#6b7280", fontSize: "0.85rem", marginTop: "-8px", marginBottom: "16px" },
+          },
+          "Identity fields come from the Workspace directory sync and are read-only. ",
+          "Nickname, gender, and preferential seating are yours alone; date of birth is shared."
+        ),
 
-        // Student ID field
+        // Student ID (read-only)
         React.createElement(
           "div",
           { className: "form-group" },
-          React.createElement("label", { htmlFor: "student_id" }, "Student ID *"),
+          React.createElement("label", { htmlFor: "student_id" }, "Student ID"),
           React.createElement("input", {
             type: "text",
             id: "student_id",
-            className: `form-control ${errors.student_id ? "error" : ""}`,
+            className: "form-control",
             value: formData.student_id,
-            onChange: (e) => handleInputChange("student_id", e.target.value),
-            required: true,
-          }),
-          errors.student_id &&
-            React.createElement("span", { className: "error-message" }, errors.student_id)
+            readOnly: true,
+            style: readOnlyStyle,
+          })
         ),
 
-        // Name fields (side by side)
+        // Name fields (read-only, side by side)
         React.createElement(
           "div",
           { className: "form-row" },
           React.createElement(
             "div",
             { className: "form-group col" },
-            React.createElement("label", { htmlFor: "first_name" }, "First Name *"),
+            React.createElement("label", { htmlFor: "first_name" }, "First Name"),
             React.createElement("input", {
               type: "text",
               id: "first_name",
-              className: `form-control ${errors.first_name ? "error" : ""}`,
+              className: "form-control",
               value: formData.first_name,
-              onChange: (e) => handleInputChange("first_name", e.target.value),
-              required: true,
-            }),
-            errors.first_name &&
-              React.createElement("span", { className: "error-message" }, errors.first_name)
+              readOnly: true,
+              style: readOnlyStyle,
+            })
           ),
           React.createElement(
             "div",
             { className: "form-group col" },
-            React.createElement("label", { htmlFor: "last_name" }, "Last Name *"),
+            React.createElement("label", { htmlFor: "last_name" }, "Last Name"),
             React.createElement("input", {
               type: "text",
               id: "last_name",
-              className: `form-control ${errors.last_name ? "error" : ""}`,
+              className: "form-control",
               value: formData.last_name,
-              onChange: (e) => handleInputChange("last_name", e.target.value),
-              required: true,
-            }),
-            errors.last_name &&
-              React.createElement("span", { className: "error-message" }, errors.last_name)
+              readOnly: true,
+              style: readOnlyStyle,
+            })
           )
         ),
 
-        // Nickname and Gender fields (side by side)
+        // Nickname and Gender (editable, side by side)
         React.createElement(
           "div",
           { className: "form-row" },
@@ -390,7 +353,7 @@ const StudentEditor = ({ studentId, navigateTo, apiModule }) => {
           )
         ),
 
-        // Email field
+        // Email (read-only)
         React.createElement(
           "div",
           { className: "form-group" },
@@ -398,14 +361,14 @@ const StudentEditor = ({ studentId, navigateTo, apiModule }) => {
           React.createElement("input", {
             type: "email",
             id: "email",
-            className: `form-control ${errors.email ? "error" : ""}`,
+            className: "form-control",
             value: formData.email,
-            onChange: (e) => handleInputChange("email", e.target.value),
-          }),
-          errors.email && React.createElement("span", { className: "error-message" }, errors.email)
+            readOnly: true,
+            style: readOnlyStyle,
+          })
         ),
 
-        // Preferential Seating and Google User ID (side by side)
+        // Preferential Seating (editable) + Date of Birth (editable)
         React.createElement(
           "div",
           { className: "form-row" },
@@ -422,61 +385,42 @@ const StudentEditor = ({ studentId, navigateTo, apiModule }) => {
                 className: "form-check-input",
                 checked: formData.preferential_seating,
                 onChange: (e) => handleInputChange("preferential_seating", e.target.checked),
-                style: { width: "18px", height: "18px" }
+                style: { width: "18px", height: "18px" },
               })
             )
           ),
           React.createElement(
             "div",
             { className: "form-group col" },
-            React.createElement("label", { htmlFor: "google_user_id" }, "Google User ID"),
-            React.createElement("input", {
-              type: "text",
-              id: "google_user_id",
-              className: "form-control",
-              value: formData.google_user_id,
-              onChange: (e) => handleInputChange("google_user_id", e.target.value),
-              placeholder: "For Google Classroom integration",
-            })
-          )
-        ),
-
-        // Status and Enrollment Date (side by side)
-        React.createElement(
-          "div",
-          { className: "form-row" },
-          React.createElement(
-            "div",
-            { className: "form-group col" },
-            React.createElement("label", { htmlFor: "is_active" }, "Status"),
-            React.createElement(
-              "select",
-              {
-                id: "is_active",
-                className: "form-control",
-                value: formData.is_active.toString(),
-                onChange: (e) => handleInputChange("is_active", e.target.value === "true"),
-              },
-              React.createElement("option", { value: "true" }, "Active"),
-              React.createElement("option", { value: "false" }, "Inactive")
-            )
-          ),
-          React.createElement(
-            "div",
-            { className: "form-group col" },
-            React.createElement("label", { htmlFor: "enrollment_date" }, "Enrollment Date"),
+            React.createElement("label", { htmlFor: "date_of_birth" }, "Date of Birth"),
             React.createElement("input", {
               type: "date",
-              id: "enrollment_date",
+              id: "date_of_birth",
               className: "form-control",
-              value: formData.enrollment_date ? formData.enrollment_date.split("T")[0] : "",
-              onChange: (e) => handleInputChange("enrollment_date", e.target.value),
+              value: formData.date_of_birth ? formData.date_of_birth.split("T")[0] : "",
+              onChange: (e) => handleInputChange("date_of_birth", e.target.value),
             })
           )
         ),
 
-        // Error messages
+        // Google User ID (read-only)
+        React.createElement(
+          "div",
+          { className: "form-group" },
+          React.createElement("label", { htmlFor: "google_user_id" }, "Google User ID"),
+          React.createElement("input", {
+            type: "text",
+            id: "google_user_id",
+            className: "form-control",
+            value: formData.google_user_id || "",
+            readOnly: true,
+            style: readOnlyStyle,
+            placeholder: "Not linked",
+          })
+        ),
+
         errors.save && React.createElement("div", { className: "alert alert-danger" }, errors.save),
+        errors.remove && React.createElement("div", { className: "alert alert-danger" }, errors.remove),
 
         // Action buttons
         React.createElement(
@@ -484,39 +428,30 @@ const StudentEditor = ({ studentId, navigateTo, apiModule }) => {
           { className: "form-actions" },
           React.createElement(
             "button",
-            {
-              className: "btn btn-primary",
-              onClick: handleSave,
-              disabled: saving,
-            },
+            { className: "btn btn-primary", onClick: handleSave, disabled: saving },
             React.createElement("i", { className: "fas fa-save" }),
-            saving ? " Saving..." : (isCreateMode ? " Create Student" : " Save Changes")
+            saving ? " Saving..." : " Save Changes"
+          ),
+          React.createElement(
+            "button",
+            { className: "btn btn-secondary", onClick: handleCancel, disabled: saving },
+            "Cancel"
           ),
           React.createElement(
             "button",
             {
-              className: "btn btn-secondary",
-              onClick: handleCancel,
-              disabled: saving,
-            },
-            "Cancel"
-          ),
-          // Only show delete button in edit mode
-          !isCreateMode && React.createElement(
-            "button",
-            {
               className: "btn btn-danger",
-              onClick: () => setShowDeleteConfirm(true),
+              onClick: () => setShowRemoveConfirm(true),
               disabled: saving,
             },
-            React.createElement("i", { className: "fas fa-trash" }),
-            " Delete Student"
+            React.createElement("i", { className: "fas fa-user-minus" }),
+            " Remove from My List"
           )
         )
       ),
 
-      // Enrolled Classes section (only show in edit mode)
-      !isCreateMode && React.createElement(
+      // Enrolled Classes section
+      React.createElement(
         "div",
         { className: "enrolled-classes-panel" },
         React.createElement("h2", null, "Enrolled Classes"),
@@ -531,21 +466,21 @@ const StudentEditor = ({ studentId, navigateTo, apiModule }) => {
                     key: roster.id,
                     className: "class-card clickable-class-card",
                     onClick: () => {
-                      // Navigate to the class view
                       const classId = roster.class_assigned;
                       if (classId) {
                         if (nav?.toClassView) {
                           nav.toClassView(classId);
-                        } else if (navigateTo && typeof navigateTo === 'function') {
+                        } else if (navigateTo && typeof navigateTo === "function") {
                           navigateTo(`classes/view/${classId}`);
                         } else {
-                          // Fallback to direct hash navigation
-                          window.location.hash = Router?.buildHash ? Router.buildHash('classView', {id: classId}) : `#classes/view/${classId}`;
+                          window.location.hash = Router?.buildHash
+                            ? Router.buildHash("classView", { id: classId })
+                            : `#classes/view/${classId}`;
                         }
                       }
                     },
                     style: { cursor: "pointer" },
-                    title: "Click to view class details"
+                    title: "Click to view class details",
                   },
                   React.createElement(
                     "div",
@@ -587,13 +522,12 @@ const StudentEditor = ({ studentId, navigateTo, apiModule }) => {
           : React.createElement(
               "p",
               { className: "no-classes" },
-              "This student is not enrolled in any classes."
+              "This student is not enrolled in any of your classes."
             )
       )
     ),
 
-    // Delete confirmation dialog
-    deleteConfirmDialog
+    removeConfirmDialog
   );
 };
 

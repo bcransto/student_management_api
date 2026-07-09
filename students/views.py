@@ -236,43 +236,52 @@ class UserViewSet(viewsets.ModelViewSet):
 
 class StudentViewSet(viewsets.ModelViewSet):
     """
-    ViewSet for managing student records.
-    
-    Provides full CRUD operations for student management.
-    All authenticated users can manage students.
-    
-    Attributes:
-        - first_name: Student's first name (required)
-        - last_name: Student's last name (required)
-        - nickname: Display name (defaults to first_name if empty)
-        - gender: Student's gender ('male', 'female', 'other')
-        - student_id: Unique identifier for the student
-        - email: Student's email address
-        - is_active: Soft delete flag (default: True)
-    
-    Special Behaviors:
-        - Nickname automatically defaults to first_name when saved as empty/whitespace
-        - Search functionality includes nickname, first_name, last_name, student_id, and email
-        - Students marked as inactive (is_active=False) are still returned but can be filtered
+    ViewSet for the requesting teacher's "my students" list.
+
+    The list endpoint is scoped: it returns only the students on the
+    requesting teacher's list (active TeacherStudent rows), which is what
+    #students and every enrollment picker should see. Detail/update work for
+    any student the teacher has a TeacherStudent row for (or one enrolled in
+    one of their classes), so the editor keeps working after a soft removal.
+
+    Manual creation is DISABLED (see create()): student IDs and emails are
+    IT-generated, so global Student rows are only ever created by the
+    Workspace directory sync (phase 3) or the Google import endpoints.
+
+    Sync-owned fields (student_id, first_name, last_name, email,
+    google_user_id, cohort, is_active) are read-only via the serializer;
+    date_of_birth is the one teacher-writable global field. nickname, gender,
+    and preferential_seating are per-teacher annotations stored on
+    TeacherStudent.
     """
     # Base queryset lets the DRF router infer the basename; get_queryset()
-    # below is what actually runs (adds per-request prefetching).
+    # below is what actually runs (adds per-request prefetching + scoping).
     queryset = Student.objects.all()
     serializer_class = StudentSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         """
-        Prefetch the requesting teacher's own annotations (for the serializer's
-        nickname/gender/preferential_seating resolution) plus the class-teacher
-        annotations needed by the nested ClassRoster serializer, avoiding N+1
-        queries. Needs the request, hence get_queryset rather than a class attr.
+        Scope to the teacher's students and prefetch the annotations the
+        serializer needs (the requesting teacher's own row for nickname/gender/
+        preferential_seating, plus the class-teacher rows for the nested
+        ClassRoster serializer) to avoid N+1 queries.
+
+        - list: only active TeacherStudent rows (the teacher's "my students").
+          Archived global students (Student.is_active=False) still on the list
+          are included so the UI can badge them.
+        - other actions: any student the teacher has a TeacherStudent row for
+          (active or not) OR one enrolled in one of their classes, so the
+          editor keeps working for a student removed from the list but still on
+          a roster.
         """
-        from django.db.models import Prefetch
+        from django.db.models import Prefetch, Q
+
+        user = self.request.user
 
         my_annotations = Prefetch(
             "teacher_annotations",
-            queryset=TeacherStudent.objects.filter(teacher=self.request.user),
+            queryset=TeacherStudent.objects.filter(teacher=user),
             to_attr="my_annotations",
         )
         roster_annotations = Prefetch(
@@ -280,11 +289,193 @@ class StudentViewSet(viewsets.ModelViewSet):
             queryset=TeacherStudent.objects.all(),
             to_attr="teacher_annotations_list",
         )
-        return Student.objects.prefetch_related(
+        base = Student.objects.prefetch_related(
             my_annotations,
             "enrollments__class_assigned__teacher",
             roster_annotations,
-        ).all()
+        )
+
+        if self.action == "list":
+            return base.filter(
+                teacher_annotations__teacher=user,
+                teacher_annotations__is_active=True,
+            ).distinct()
+
+        return base.filter(
+            Q(teacher_annotations__teacher=user)
+            | Q(enrollments__class_assigned__teacher=user)
+        ).distinct()
+
+    def create(self, request, *args, **kwargs):
+        """Manual student creation is disabled by design (#14)."""
+        return Response(
+            {
+                "error": (
+                    "Manual student creation is disabled. Students are created "
+                    "by the Workspace directory sync or the Google import. Use "
+                    "'Add from School List' to add an existing student to your list."
+                )
+            },
+            status=status.HTTP_405_METHOD_NOT_ALLOWED,
+        )
+
+    @action(detail=False, methods=["get"], url_path="school-list")
+    def school_list(self, request):
+        """
+        Read-only picker feed of the global (school-wide) student list.
+
+        GET /api/students/school-list/?cohort=28
+
+        Returns active (non-archived) global students with minimal fields plus
+        an ``on_my_list`` flag for the requesting teacher, and the list of
+        available cohorts with counts for the filter dropdown. Optional
+        ``cohort`` query param filters the returned students (cohorts are
+        always the full set so the dropdown is stable).
+
+        Response: {
+            "students": [{id, name, first_name, last_name, student_id, email,
+                          cohort, on_my_list}],
+            "cohorts": [{"cohort": "28", "count": 40}, ...]
+        }
+        """
+        from django.db.models import Count
+
+        students_qs = Student.objects.filter(is_active=True)
+
+        # Cohorts (with counts) across the whole active list, for the dropdown.
+        cohorts = [
+            {"cohort": row["cohort"], "count": row["count"]}
+            for row in students_qs.exclude(cohort="")
+            .values("cohort")
+            .annotate(count=Count("id"))
+            .order_by("cohort")
+        ]
+
+        cohort = request.query_params.get("cohort")
+        if cohort:
+            students_qs = students_qs.filter(cohort=cohort)
+
+        # Which of these are already on the requesting teacher's active list.
+        on_my_list_ids = set(
+            TeacherStudent.objects.filter(
+                teacher=request.user, is_active=True
+            ).values_list("student_id", flat=True)
+        )
+
+        students_qs = students_qs.order_by("last_name", "first_name")
+        students = [
+            {
+                "id": s.id,
+                "name": s.get_full_name(),
+                "first_name": s.first_name,
+                "last_name": s.last_name,
+                "student_id": s.student_id,
+                "email": s.email,
+                "cohort": s.cohort,
+                "on_my_list": s.id in on_my_list_ids,
+            }
+            for s in students_qs
+        ]
+
+        return Response({"students": students, "cohorts": cohorts})
+
+    def _resolve_add_students(self, request):
+        """
+        Resolve the target students for an add-to-list request from
+        student_ids and/or a cohort. Only active (non-archived) global
+        students are eligible to be added.
+        """
+        from django.db.models import Q
+
+        ids = request.data.get("student_ids") or []
+        cohort = request.data.get("cohort")
+        if not ids and not cohort:
+            return None
+        q = Q()
+        if ids:
+            q |= Q(id__in=ids)
+        if cohort:
+            q |= Q(cohort=cohort)
+        return Student.objects.filter(q, is_active=True).distinct()
+
+    @action(detail=False, methods=["post"], url_path="add-to-my-list")
+    def add_to_my_list(self, request):
+        """
+        Add students to the requesting teacher's list by ids and/or a cohort.
+
+        POST /api/students/add-to-my-list/
+        Body: {"student_ids": [1, 2], "cohort": "28"}  (either or both)
+
+        Creates or reactivates TeacherStudent rows for the teacher. Annotations
+        are left blank - never copied from another teacher. Idempotent.
+
+        Response: {added, reactivated, already_on_list}
+        """
+        students = self._resolve_add_students(request)
+        if students is None:
+            return Response(
+                {"error": "Provide student_ids and/or a cohort."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        added = reactivated = already = 0
+        for student in students:
+            ts, created = TeacherStudent.objects.get_or_create(
+                teacher=request.user, student=student
+            )
+            if created:
+                added += 1
+            elif not ts.is_active:
+                ts.is_active = True
+                ts.save(update_fields=["is_active", "updated_at"])
+                reactivated += 1
+            else:
+                already += 1
+
+        return Response(
+            {
+                "added": added,
+                "reactivated": reactivated,
+                "already_on_list": already,
+            }
+        )
+
+    @action(detail=False, methods=["post"], url_path="remove-from-my-list")
+    def remove_from_my_list(self, request):
+        """
+        Remove students from the requesting teacher's list by ids and/or cohort.
+
+        POST /api/students/remove-from-my-list/
+        Body: {"student_ids": [1, 2], "cohort": "28"}  (either or both)
+
+        Soft-deactivates the teacher's TeacherStudent rows (is_active=False).
+        This ONLY hides the students from the teacher's list - it never touches
+        ClassRoster, seating, or attendance, and roster displays keep resolving
+        annotations through the (now inactive) row. Idempotent.
+
+        Response: {removed}
+        """
+        from django.db.models import Q
+
+        ids = request.data.get("student_ids") or []
+        cohort = request.data.get("cohort")
+        if not ids and not cohort:
+            return Response(
+                {"error": "Provide student_ids and/or a cohort."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        q = Q()
+        if ids:
+            q |= Q(student_id__in=ids)
+        if cohort:
+            q |= Q(student__cohort=cohort)
+
+        removed = TeacherStudent.objects.filter(
+            q, teacher=request.user, is_active=True
+        ).update(is_active=False)
+
+        return Response({"removed": removed})
 
     GENDER_MAP = {
         "m": "male", "male": "male",

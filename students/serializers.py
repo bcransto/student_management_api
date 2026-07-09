@@ -447,12 +447,27 @@ class StudentSerializer(serializers.ModelSerializer):
             "preferential_seating",
             "google_user_id",
             "date_of_birth",
+            "cohort",
             "enrollment_date",
             "is_active",
             "active_classes",
             "current_enrollments",
         ]
-        read_only_fields = ["enrollment_date"]
+        # Sync-owned fields are read-only via the API - the global Student row
+        # is maintained only by the Workspace directory sync (and the Google
+        # imports). date_of_birth is the one teacher-writable global field
+        # (Workspace's domain_public view never exposes it); nickname/gender/
+        # preferential_seating are per-teacher annotations handled separately.
+        read_only_fields = [
+            "enrollment_date",
+            "student_id",
+            "first_name",
+            "last_name",
+            "email",
+            "google_user_id",
+            "cohort",
+            "is_active",
+        ]
 
     def get_active_classes(self, obj):
         active_classes = obj.active_classes

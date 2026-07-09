@@ -80,6 +80,13 @@ class GoogleImportStudentsTests(TestCase):
                 class_assigned=self.klass, student=alice, is_active=True
             ).exists()
         )
+        # Phase 2: Classroom import also adds each student to the importer's
+        # list (blank annotations).
+        self.assertTrue(
+            TeacherStudent.objects.filter(
+                teacher=self.teacher, student=alice, is_active=True
+            ).exists()
+        )
 
     def test_matches_existing_student_by_email_and_backfills_google_id(self):
         existing = Student.objects.create(
@@ -615,6 +622,10 @@ class TeacherStudentAnnotationTests(TestCase):
             student_id="1001", first_name="Alexander", last_name="Anderson",
             email="aanderson@school.edu",
         )
+        # The student must be on the teacher's list to be retrievable/editable
+        # (phase 2 scoping). A blank row carries no annotation values, so the
+        # fallback behavior below is still exercised.
+        TeacherStudent.objects.create(teacher=self.teacher, student=self.student)
 
     def test_nickname_falls_back_to_first_name_without_annotation(self):
         response = self.client.get(f"/api/students/{self.student.id}/")
@@ -643,11 +654,15 @@ class TeacherStudentAnnotationTests(TestCase):
         self.assertTrue(annotation.preferential_seating)
 
     def test_annotations_do_not_leak_between_teachers(self):
-        TeacherStudent.objects.create(
-            teacher=self.teacher, student=self.student,
-            nickname="Alex", gender="male", preferential_seating=True,
-        )
-        # The other teacher sees defaults, not the first teacher's annotation
+        # setUp already gave self.teacher a blank row; set annotation values.
+        ts = TeacherStudent.objects.get(teacher=self.teacher, student=self.student)
+        ts.nickname = "Alex"
+        ts.gender = "male"
+        ts.preferential_seating = True
+        ts.save()
+        # The other teacher also has the student on their list, but with their
+        # own (blank) row - they must see defaults, not teacher's annotation.
+        TeacherStudent.objects.create(teacher=self.other, student=self.student)
         self.client.force_authenticate(user=self.other)
         response = self.client.get(f"/api/students/{self.student.id}/")
         data = response.json()
@@ -659,9 +674,10 @@ class TeacherStudentAnnotationTests(TestCase):
         """A class's roster uses the CLASS TEACHER's annotation, not the viewer's."""
         klass = Class.objects.create(name="Science", subject="Science", teacher=self.teacher)
         ClassRoster.objects.create(class_assigned=klass, student=self.student)
-        TeacherStudent.objects.create(
-            teacher=self.teacher, student=self.student, nickname="Alex", gender="female"
-        )
+        # setUp already created a blank row for this teacher; set values on it.
+        TeacherStudent.objects.filter(
+            teacher=self.teacher, student=self.student
+        ).update(nickname="Alex", gender="female")
         response = self.client.get(f"/api/classes/{klass.id}/")
         self.assertEqual(response.status_code, 200)
         roster = response.json()["roster"]
@@ -768,12 +784,22 @@ class GoogleDirectoryImportTests(TestCase):
         anika = Student.objects.get(student_id="2887")
         self.assertEqual(anika.first_name, "Anika")
         self.assertEqual(anika.google_user_id, "g-2887")
-        # Import does not create per-teacher annotations in phase 1
-        self.assertFalse(anika.teacher_annotations.exists())
+        # Phase 2: importing adds every created/matched student to the
+        # importing teacher's list, with blank annotations.
+        anika_ts = anika.teacher_annotations.get(teacher=self.teacher)
+        self.assertTrue(anika_ts.is_active)
+        self.assertFalse(anika_ts.nickname)
+        self.assertIsNone(anika_ts.gender)
 
         existing.refresh_from_db()
         self.assertEqual(existing.student_id, "emailderived")  # never overwritten
         self.assertEqual(existing.google_user_id, "g-2901")  # backfilled
+        # The matched (existing) student is also added to the importer's list
+        self.assertTrue(
+            existing.teacher_annotations.filter(
+                teacher=self.teacher, is_active=True
+            ).exists()
+        )
         self.assertEqual(ClassRoster.objects.count(), 0)  # no enrollment
 
     def test_import_is_idempotent(self):
@@ -863,3 +889,272 @@ class GoogleStatusAndDisconnectTests(TestCase):
     def test_disconnect_rejects_get(self):
         response = self.client.get("/api/google/disconnect/")
         self.assertEqual(response.status_code, 405)
+
+
+class StudentScopeTests(TestCase):
+    """Phase 2: my-students scoping, disabled creation, sync-owned read-only."""
+
+    def setUp(self):
+        self.teacher = make_user()
+        self.other = make_user(email="other@school.edu", username="other")
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.teacher)
+
+        self.mine = Student.objects.create(
+            student_id="1001", first_name="Mine", last_name="Student",
+            email="mine@school.edu", cohort="28",
+        )
+        self.theirs = Student.objects.create(
+            student_id="1002", first_name="Their", last_name="Student",
+            email="their@school.edu", cohort="28",
+        )
+        TeacherStudent.objects.create(teacher=self.teacher, student=self.mine)
+        TeacherStudent.objects.create(teacher=self.other, student=self.theirs)
+
+    def test_list_is_scoped_to_my_students(self):
+        response = self.client.get("/api/students/")
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        rows = body["results"] if isinstance(body, dict) and "results" in body else body
+        ids = {s["id"] for s in rows}
+        self.assertIn(self.mine.id, ids)
+        self.assertNotIn(self.theirs.id, ids)  # other teacher's list
+
+    def test_removed_student_drops_off_my_list(self):
+        TeacherStudent.objects.filter(
+            teacher=self.teacher, student=self.mine
+        ).update(is_active=False)
+        response = self.client.get("/api/students/")
+        rows = response.json()
+        rows = rows["results"] if isinstance(rows, dict) and "results" in rows else rows
+        self.assertNotIn(self.mine.id, {s["id"] for s in rows})
+
+    def test_manual_creation_is_disabled(self):
+        response = self.client.post(
+            "/api/students/",
+            {"student_id": "9999", "first_name": "No", "last_name": "Manual"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 405)
+        self.assertFalse(Student.objects.filter(student_id="9999").exists())
+
+    def test_sync_owned_fields_are_read_only_but_dob_writable(self):
+        response = self.client.patch(
+            f"/api/students/{self.mine.id}/",
+            {
+                "first_name": "Hacked",
+                "last_name": "Name",
+                "email": "hacked@school.edu",
+                "student_id": "XXXX",
+                "cohort": "99",
+                "date_of_birth": "2012-05-04",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.mine.refresh_from_db()
+        # Sync-owned fields untouched
+        self.assertEqual(self.mine.first_name, "Mine")
+        self.assertEqual(self.mine.last_name, "Student")
+        self.assertEqual(self.mine.email, "mine@school.edu")
+        self.assertEqual(self.mine.student_id, "1001")
+        self.assertEqual(self.mine.cohort, "28")
+        # date_of_birth is the one teacher-writable global field
+        self.assertEqual(str(self.mine.date_of_birth), "2012-05-04")
+
+    def test_detail_works_for_roster_student_not_on_list(self):
+        """A student enrolled in the teacher's class is editable even if not
+        explicitly on the my-students list."""
+        klass = Class.objects.create(name="Sci", subject="Sci", teacher=self.teacher)
+        roster_student = Student.objects.create(
+            student_id="2001", first_name="Ros", last_name="Ter"
+        )
+        ClassRoster.objects.create(class_assigned=klass, student=roster_student)
+        response = self.client.get(f"/api/students/{roster_student.id}/")
+        self.assertEqual(response.status_code, 200)
+
+    def test_detail_404_for_unrelated_student(self):
+        response = self.client.get(f"/api/students/{self.theirs.id}/")
+        self.assertEqual(response.status_code, 404)
+
+
+class SchoolListPickerTests(TestCase):
+    """Phase 2: the school-list picker feed and add/remove endpoints."""
+
+    def setUp(self):
+        self.teacher = make_user()
+        self.other = make_user(email="other@school.edu", username="other")
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.teacher)
+
+        self.a = Student.objects.create(
+            student_id="2801", first_name="Ada", last_name="Alpha",
+            email="ada@school.edu", cohort="28",
+        )
+        self.b = Student.objects.create(
+            student_id="2802", first_name="Ben", last_name="Beta",
+            email="ben@school.edu", cohort="28",
+        )
+        self.c = Student.objects.create(
+            student_id="2701", first_name="Cal", last_name="Gamma",
+            email="cal@school.edu", cohort="27",
+        )
+        # An archived (sync-removed) student must never appear in the picker.
+        self.archived = Student.objects.create(
+            student_id="2803", first_name="Arch", last_name="Ived",
+            cohort="28", is_active=False,
+        )
+        # a is already on the teacher's list.
+        TeacherStudent.objects.create(teacher=self.teacher, student=self.a)
+
+    def test_school_list_excludes_archived_and_flags_on_my_list(self):
+        response = self.client.get("/api/students/school-list/")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        by_id = {s["id"]: s for s in data["students"]}
+        self.assertNotIn(self.archived.id, by_id)  # archived excluded
+        self.assertTrue(by_id[self.a.id]["on_my_list"])
+        self.assertFalse(by_id[self.b.id]["on_my_list"])
+        # Cohorts with counts (archived excluded from counts too)
+        cohorts = {row["cohort"]: row["count"] for row in data["cohorts"]}
+        self.assertEqual(cohorts, {"27": 1, "28": 2})
+
+    def test_school_list_cohort_filter(self):
+        response = self.client.get("/api/students/school-list/?cohort=27")
+        data = response.json()
+        ids = {s["id"] for s in data["students"]}
+        self.assertEqual(ids, {self.c.id})
+        # Cohort dropdown still lists all cohorts regardless of the filter
+        self.assertEqual({r["cohort"] for r in data["cohorts"]}, {"27", "28"})
+
+    def test_add_by_ids_is_idempotent_and_reactivates(self):
+        # First add b and c
+        response = self.client.post(
+            "/api/students/add-to-my-list/",
+            {"student_ids": [self.b.id, self.c.id]}, format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["added"], 2)
+        self.assertEqual(
+            TeacherStudent.objects.filter(
+                teacher=self.teacher, is_active=True
+            ).count(),
+            3,  # a (setUp) + b + c
+        )
+        # Re-adding is idempotent (already on list)
+        response = self.client.post(
+            "/api/students/add-to-my-list/",
+            {"student_ids": [self.b.id]}, format="json",
+        )
+        self.assertEqual(response.json()["already_on_list"], 1)
+        # Soft-remove then re-add reactivates the same row
+        TeacherStudent.objects.filter(
+            teacher=self.teacher, student=self.b
+        ).update(is_active=False)
+        response = self.client.post(
+            "/api/students/add-to-my-list/",
+            {"student_ids": [self.b.id]}, format="json",
+        )
+        self.assertEqual(response.json()["reactivated"], 1)
+        self.assertEqual(
+            TeacherStudent.objects.filter(teacher=self.teacher, student=self.b).count(),
+            1,  # reactivated, not duplicated
+        )
+
+    def test_add_by_cohort(self):
+        response = self.client.post(
+            "/api/students/add-to-my-list/", {"cohort": "28"}, format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        # a already on list; b added; archived excluded
+        on_list = set(
+            TeacherStudent.objects.filter(
+                teacher=self.teacher, is_active=True
+            ).values_list("student_id", flat=True)
+        )
+        self.assertIn(self.a.id, on_list)
+        self.assertIn(self.b.id, on_list)
+        self.assertNotIn(self.archived.id, on_list)
+
+    def test_add_requires_ids_or_cohort(self):
+        response = self.client.post("/api/students/add-to-my-list/", {}, format="json")
+        self.assertEqual(response.status_code, 400)
+
+    def test_remove_by_ids_and_by_cohort(self):
+        TeacherStudent.objects.create(teacher=self.teacher, student=self.b)
+        TeacherStudent.objects.create(teacher=self.teacher, student=self.c)
+        # Remove by ids
+        response = self.client.post(
+            "/api/students/remove-from-my-list/",
+            {"student_ids": [self.a.id]}, format="json",
+        )
+        self.assertEqual(response.json()["removed"], 1)
+        self.assertFalse(
+            TeacherStudent.objects.get(teacher=self.teacher, student=self.a).is_active
+        )
+        # Remove by cohort (b is cohort 28, c is cohort 27)
+        response = self.client.post(
+            "/api/students/remove-from-my-list/", {"cohort": "28"}, format="json",
+        )
+        self.assertEqual(response.json()["removed"], 1)  # only b (a already inactive)
+        self.assertFalse(
+            TeacherStudent.objects.get(teacher=self.teacher, student=self.b).is_active
+        )
+        self.assertTrue(
+            TeacherStudent.objects.get(teacher=self.teacher, student=self.c).is_active
+        )
+
+    def test_remove_does_not_touch_roster_and_roster_still_resolves(self):
+        """Removing a student from my-students never touches their roster, and
+        the class roster keeps resolving the (now inactive) annotation."""
+        klass = Class.objects.create(name="Sci", subject="Sci", teacher=self.teacher)
+        ClassRoster.objects.create(class_assigned=klass, student=self.a)
+        TeacherStudent.objects.filter(
+            teacher=self.teacher, student=self.a
+        ).update(nickname="Addie", gender="female")
+
+        response = self.client.post(
+            "/api/students/remove-from-my-list/",
+            {"student_ids": [self.a.id]}, format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+
+        # Roster entry untouched
+        self.assertTrue(
+            ClassRoster.objects.get(class_assigned=klass, student=self.a).is_active
+        )
+        # Roster display still resolves the annotation through the inactive row
+        response = self.client.get(f"/api/classes/{klass.id}/")
+        roster = response.json()["roster"]
+        self.assertEqual(len(roster), 1)
+        self.assertEqual(roster[0]["student_nickname"], "Addie")
+        self.assertEqual(roster[0]["student_gender"], "female")
+
+    def test_annotations_never_copied_from_another_teacher(self):
+        """A teacher adding a student the other teacher has annotated gets a
+        blank row - annotations are never shared."""
+        TeacherStudent.objects.filter(
+            teacher=self.teacher, student=self.a
+        ).update(nickname="Addie", gender="female")
+        self.client.force_authenticate(user=self.other)
+        response = self.client.post(
+            "/api/students/add-to-my-list/",
+            {"student_ids": [self.a.id]}, format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        other_row = TeacherStudent.objects.get(teacher=self.other, student=self.a)
+        self.assertFalse(other_row.nickname)
+        self.assertIsNone(other_row.gender)
+
+    def test_endpoints_require_authentication(self):
+        self.client.force_authenticate(user=None)
+        for url in (
+            "/api/students/school-list/",
+        ):
+            self.assertEqual(self.client.get(url).status_code, 401)
+        self.assertEqual(
+            self.client.post(
+                "/api/students/add-to-my-list/", {"student_ids": [1]}, format="json"
+            ).status_code,
+            401,
+        )
