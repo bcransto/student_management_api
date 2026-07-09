@@ -172,11 +172,13 @@ React.createElement("div", { className: "example" }, children)
      remain for the sync + any admin use)
    - `StudentPicker.js` - "Add Student" modal picker over the school-wide list
      (`/api/students/school-list/`): filter by cohort dropdown, per-row Add /
-     Remove, "Add all in cohort", "Remove cohort from my list". Excludes
-     archived students. Registered in `index.html` like the other student modals
-   - `AddCohortModal.js` - "Add Cohort" modal: cohort dropdown with counts,
-     adds (or removes) the whole cohort to/from my list via
-     add-to-my-list/remove-from-my-list `{cohort}` - app's list only, no Google
+     Remove, "Add all in cohort". Excludes archived students. Registered in
+     `index.html` like the other student modals
+   - `AddCohortModal.js` - one modal, two toolbar buttons via `mode` prop
+     ("add" | "remove"): "Add Cohort" / "Remove Cohort". Cohort dropdown with
+     counts; calls add-to-my-list/remove-from-my-list `{cohort}` - app's list
+     only, no Google. Remove confirms first and only hides students from my
+     list (rosters/seating/attendance untouched)
    - `StudentEditor.js` - edit-only (no create mode). Sync-owned fields
      (student ID, first/last name, email, Google ID) are read-only display;
      editable fields are nickname/gender/preferential seating (per-teacher) plus
@@ -441,7 +443,7 @@ await ApiModule.request('/api/endpoint/')   // ❌ Double /api/ prefix
 # Non-zero exit on failure so cron/systemd flags it.
 
 # POST /api/google/sync-directory/  (JWT, SUPERUSER-ONLY — 403 otherwise; the
-# frontend hides the Sync Now button for non-admins via the JWT is_superuser
+# frontend hides the "Sync db" button for non-admins via the JWT is_superuser
 # claim) — "Sync now"; runs sync_directory with request.user's creds;
 # needs_reconnect shape on missing creds/scope; 502 on fetch failure.
 # Response is the summary dict + last_synced.
@@ -886,6 +888,10 @@ Frontend auto-detects environment via hostname (pinto.local uses current origin 
 - **Highlight buttons**: Normal/Gender/Previous modes
 - **Partnership Ratings button**: Opens grid for teacher preferences
 - **Click Timer**: Uses React.useRef for single/double click differentiation
+- **Empty roster state**: If the class has zero enrolled students (`students`
+  array empty, not just "all seated"), the Student Pool shows an explanatory
+  empty state with an "Add Students" button linking to
+  `#classes/{classId}/add-students` instead of a silent blank pool
 
 ### Seating Viewer Features
 - **View Modes**: Teacher View (default), Student View (180° mirror), Print View (placeholder)

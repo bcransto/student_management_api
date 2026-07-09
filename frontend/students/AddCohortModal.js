@@ -1,11 +1,13 @@
-// AddCohortModal.js - "Add Cohort" modal (issue #14)
-// Adds (or removes) a whole cohort of the app's school-wide student list
-// to/from the teacher's "my students" list. Reads the app's synced list via
-// /students/school-list/ - it never talks to Google directly; the Workspace
-// directory sync keeps the school list current.
+// AddCohortModal.js - "Add Cohort" / "Remove Cohort" modal (issue #14)
+// Adds or removes a whole cohort of the app's school-wide student list
+// to/from the teacher's "my students" list, depending on the `mode` prop
+// ("add" | "remove"). Reads the app's synced list via /students/school-list/ -
+// it never talks to Google directly; the Workspace directory sync keeps the
+// school list current.
 console.log("Loading AddCohortModal component...");
 
-const AddCohortModal = ({ onClose, onChanged }) => {
+const AddCohortModal = ({ onClose, onChanged, mode = "add" }) => {
+  const removing = mode === "remove";
   const [loading, setLoading] = React.useState(true);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState(null);
@@ -77,7 +79,11 @@ const AddCohortModal = ({ onClose, onChanged }) => {
         body: JSON.stringify({ cohort: selectedCohort }),
       });
       const n = response.removed || 0;
-      setMessage(`Removed ${n} student${n === 1 ? "" : "s"} from your list.`);
+      setMessage(
+        n > 0
+          ? `Removed ${n} student${n === 1 ? "" : "s"} from your list.`
+          : `No one from Class of 20${selectedCohort} was on your list.`
+      );
       if (onChanged) onChanged();
     } catch (err) {
       console.error("Error removing cohort:", err);
@@ -133,8 +139,11 @@ const AddCohortModal = ({ onClose, onChanged }) => {
         React.createElement(
           "h2",
           { style: { margin: 0, fontSize: "1.25rem" } },
-          React.createElement("i", { className: "fas fa-users", style: { marginRight: "8px" } }),
-          "Add Cohort"
+          React.createElement("i", {
+            className: removing ? "fas fa-user-minus" : "fas fa-users",
+            style: { marginRight: "8px" },
+          }),
+          removing ? "Remove Cohort" : "Add Cohort"
         ),
         React.createElement(
           "button",
@@ -190,7 +199,9 @@ const AddCohortModal = ({ onClose, onChanged }) => {
       React.createElement(
         "p",
         { style: { margin: "0 0 0.75rem", fontSize: "0.9rem", color: "#6b7280" } },
-        "Add every student in a cohort to your student list. Individual students can be added or removed with Add Student."
+        removing
+          ? "Remove every student in a cohort from your student list. This only hides them from your list - class rosters, seating, and attendance are untouched."
+          : "Add every student in a cohort to your student list. Individual students can be added or removed with Add Student."
       ),
 
       // Cohort dropdown
@@ -233,42 +244,25 @@ const AddCohortModal = ({ onClose, onChanged }) => {
       // Footer actions
       React.createElement(
         "div",
-        { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } },
+        { style: { display: "flex", justifyContent: "flex-end", gap: "8px" } },
+        React.createElement(
+          "button",
+          { onClick: onClose, disabled: busy, className: "btn btn-secondary" },
+          "Done"
+        ),
         React.createElement(
           "button",
           {
-            onClick: removeCohort,
+            onClick: removing ? removeCohort : addCohort,
             disabled: busy || !selectedCohort,
-            title: "Remove every student in this cohort from your list",
-            style: {
-              border: "none",
-              background: "none",
-              color: busy || !selectedCohort ? "#d1d5db" : "#ef4444",
-              cursor: busy || !selectedCohort ? "default" : "pointer",
-              fontSize: "0.85rem",
-              padding: 0,
-            },
+            className: removing ? "btn btn-danger" : "btn btn-primary",
           },
-          "Remove cohort from my list"
-        ),
-        React.createElement(
-          "div",
-          { style: { display: "flex", gap: "8px" } },
-          React.createElement(
-            "button",
-            { onClick: onClose, disabled: busy, className: "btn btn-secondary" },
-            "Done"
-          ),
-          React.createElement(
-            "button",
-            {
-              onClick: addCohort,
-              disabled: busy || !selectedCohort,
-              className: "btn btn-primary",
-            },
-            React.createElement("i", { className: busy ? "fas fa-sync fa-spin" : "fas fa-plus" }),
-            selectedCohort ? ` Add Class of 20${selectedCohort}` : " Add cohort"
-          )
+          React.createElement("i", {
+            className: busy ? "fas fa-sync fa-spin" : removing ? "fas fa-user-minus" : "fas fa-plus",
+          }),
+          selectedCohort
+            ? ` ${removing ? "Remove" : "Add"} Class of 20${selectedCohort}`
+            : ` ${removing ? "Remove" : "Add"} cohort`
         )
       )
     )

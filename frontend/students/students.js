@@ -8,7 +8,7 @@ const Students = ({ data, navigateTo, apiModule }) => {
   const [students, setStudents] = React.useState(data?.students || []);
   const [loading, setLoading] = React.useState(!data?.students?.length);
   const [searchTerm, setSearchTerm] = React.useState("");
-  const [cohortModalOpen, setCohortModalOpen] = React.useState(false);
+  const [cohortModalMode, setCohortModalMode] = React.useState(null); // null | "add" | "remove"
   const [bulkUpdateModalOpen, setBulkUpdateModalOpen] = React.useState(false);
   const [pickerOpen, setPickerOpen] = React.useState(false);
 
@@ -197,11 +197,20 @@ const Students = ({ data, navigateTo, apiModule }) => {
       React.createElement(
         "button",
         {
-          onClick: () => setCohortModalOpen(true),
+          onClick: () => setCohortModalMode("add"),
           className: "btn btn-success"
         },
         React.createElement("i", { className: "fas fa-users" }),
         "Add Cohort"
+      ),
+      React.createElement(
+        "button",
+        {
+          onClick: () => setCohortModalMode("remove"),
+          className: "btn btn-danger"
+        },
+        React.createElement("i", { className: "fas fa-user-minus" }),
+        "Remove Cohort"
       ),
       React.createElement(
         "button",
@@ -223,7 +232,7 @@ const Students = ({ data, navigateTo, apiModule }) => {
         React.createElement("i", {
           className: syncing ? "fas fa-sync fa-spin" : "fas fa-sync"
         }),
-        syncing ? "Syncing..." : "Sync Now"
+        syncing ? "Syncing..." : "Sync db"
       ),
       searchTerm && React.createElement(
         "span",
@@ -391,9 +400,10 @@ const Students = ({ data, navigateTo, apiModule }) => {
       )
     ),
 
-    // "Add Cohort" modal (whole-cohort add/remove over the app's school list)
-    cohortModalOpen && window.AddCohortModal && React.createElement(window.AddCohortModal, {
-      onClose: () => setCohortModalOpen(false),
+    // "Add Cohort" / "Remove Cohort" modal (whole-cohort ops over the app's school list)
+    cohortModalMode && window.AddCohortModal && React.createElement(window.AddCohortModal, {
+      mode: cohortModalMode,
+      onClose: () => setCohortModalMode(null),
       onChanged: () => {
         // Refresh the my-students list after adds/removes (modal stays open)
         loadStudents();

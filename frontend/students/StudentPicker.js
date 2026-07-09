@@ -1,8 +1,9 @@
 // StudentPicker.js - "Add Student" modal (issue #14 phase 2)
 // Browse the school-wide (Workspace-synced) student list, filter by cohort,
-// and add students to (or remove cohorts from) the teacher's "my students"
-// list. Manual student creation is disabled by design - students only ever
-// enter the system via the Workspace sync or a Google import.
+// and add students to the teacher's "my students" list (whole-cohort removal
+// lives in the Students page toolbar's "Remove Cohort"). Manual student
+// creation is disabled by design - students only ever enter the system via
+// the Workspace sync or a Google import.
 console.log("Loading StudentPicker component...");
 
 const StudentPicker = ({ onClose, onChanged }) => {
@@ -150,35 +151,6 @@ const StudentPicker = ({ onClose, onChanged }) => {
     } catch (err) {
       console.error("Error removing student:", err);
       setError("Failed to remove the student.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const removeCohort = async () => {
-    if (!selectedCohort) return;
-    if (
-      !window.confirm(
-        `Remove all of Class of 20${selectedCohort} from your student list? ` +
-          `This only hides them from your list - class rosters, seating, and ` +
-          `attendance are untouched.`
-      )
-    ) {
-      return;
-    }
-    setBusy(true);
-    setError(null);
-    try {
-      const response = await window.ApiModule.request("/students/remove-from-my-list/", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cohort: selectedCohort }),
-      });
-      const n = response.removed || 0;
-      await afterChange(`Removed ${n} student${n === 1 ? "" : "s"} from your list.`);
-    } catch (err) {
-      console.error("Error removing cohort:", err);
-      setError("Failed to remove the cohort.");
     } finally {
       setBusy(false);
     }
@@ -350,7 +322,8 @@ const StudentPicker = ({ onClose, onChanged }) => {
         })
       ),
 
-      // Cohort-level actions (only when a specific cohort is selected)
+      // Cohort-level action (only when a specific cohort is selected).
+      // Cohort REMOVAL lives on the Students page toolbar ("Remove Cohort").
       selectedCohort &&
         React.createElement(
           "div",
@@ -360,12 +333,6 @@ const StudentPicker = ({ onClose, onChanged }) => {
             { onClick: addAllInCohort, disabled: busy, style: smallBtn("#10b981") },
             React.createElement("i", { className: "fas fa-users" }),
             `Add all in Class of 20${selectedCohort}`
-          ),
-          React.createElement(
-            "button",
-            { onClick: removeCohort, disabled: busy, style: smallBtn("#ef4444") },
-            React.createElement("i", { className: "fas fa-user-minus" }),
-            "Remove cohort from my list"
           )
         ),
 
