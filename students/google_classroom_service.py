@@ -1185,7 +1185,11 @@ def get_user_courses(user):
         page_token = None
 
         while True:
+            # teacherId='me' restricts to courses the user TEACHES - without it
+            # the API also returns courses they are enrolled in as a student
+            # (GH issue #19)
             response = service.courses().list(
+                teacherId='me',
                 pageSize=100,
                 pageToken=page_token,
                 courseStates=['ACTIVE']
