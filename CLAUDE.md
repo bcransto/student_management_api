@@ -21,8 +21,7 @@ python manage.py createsuperuser  # Create admin user
 
 # Run tests
 python manage.py test                    # All Django app tests
-python manage.py test students.tests    # Students app tests
-python manage.py test attendance.tests  # Attendance app tests
+python manage.py test students.tests    # Students app tests (includes attendance)
 
 # Standalone test files (run from project root)
 python test_nickname_functionality.py   # Nickname handling tests
@@ -587,8 +586,7 @@ open test_nickname_frontend.html      # Interactive browser tests
 open test_optimizer.html              # Seating optimizer tests
 
 # Django app tests
-python manage.py test attendance.tests # Attendance app tests
-python manage.py test students.tests   # Students app tests
+python manage.py test students.tests   # Students app tests (includes attendance)
 ```
 
 ## Environment Variables
