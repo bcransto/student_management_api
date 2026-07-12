@@ -580,7 +580,8 @@ class ClassListSerializer(SeatingPeriodExistsMixin, serializers.ModelSerializer)
     class Meta:
         model = Class
         fields = ["id", "name", "subject", "grade_level", "description",
-                  "current_enrollment", "has_seating_periods", "updated_at"]
+                  "current_enrollment", "has_seating_periods", "is_active",
+                  "updated_at"]
 
 
 class ClassSerializer(SeatingPeriodExistsMixin, serializers.ModelSerializer):
@@ -648,6 +649,7 @@ class ClassSerializer(SeatingPeriodExistsMixin, serializers.ModelSerializer):
             "survey_enabled",
             "survey_opens_at",
             "survey_closes_at",
+            "is_active",
             "current_seating_period",
             "seating_periods",
             "has_seating_periods",

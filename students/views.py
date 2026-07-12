@@ -745,7 +745,17 @@ class ClassViewSet(viewsets.ModelViewSet):
         # seating list can tell "no charts yet" apart from an empty chart
         # without an N+1 .exists() call per class.
         if self.action == 'list':
-            return base_qs.annotate(
+            # Archived classes (is_active=False) are hidden from every class
+            # list by default (dashboard, #classes, seating, attendance,
+            # special-points all consume this endpoint). Pass
+            # ?include_archived=1 (or "true") to include them so the
+            # "Show archived" toggle can offer unarchive. Detail/other actions
+            # are NOT filtered, so unarchiving an archived class still works.
+            include_archived = str(
+                self.request.query_params.get("include_archived", "")
+            ).lower() in ("1", "true", "yes")
+            list_qs = base_qs if include_archived else base_qs.filter(is_active=True)
+            return list_qs.annotate(
                 student_count=models.Count(
                     "roster", filter=models.Q(roster__is_active=True)
                 ),

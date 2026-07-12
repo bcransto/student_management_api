@@ -267,6 +267,11 @@ class Class(models.Model):
         help_text="Optional end of the survey window (blank = no upper bound)",
     )
 
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Archived classes are hidden from class lists",
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

@@ -2177,3 +2177,73 @@ class PartnerSignalDerivationTests(TestCase):
             f"/api/classes/{self.klass.id}/partnership-ratings/"
         )
         self.assertEqual(forbidden_resp.status_code, 403)
+
+
+class ClassArchiveTests(TestCase):
+    """GH #20: archiving a class hides it from the class list (and every
+    consumer of /api/classes/) unless ?include_archived is passed, while the
+    detail path stays reachable so it can be unarchived."""
+
+    def setUp(self):
+        self.teacher = make_user()
+        self.active_class = Class.objects.create(
+            name="Active", subject="Science", teacher=self.teacher
+        )
+        self.archived_class = Class.objects.create(
+            name="Archived", subject="Science", teacher=self.teacher,
+            is_active=False,
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.teacher)
+
+    def _list_ids(self, response):
+        results = response.data["results"] if "results" in response.data else response.data
+        return {row["id"] for row in results}
+
+    def test_archived_class_absent_from_default_list(self):
+        response = self.client.get("/api/classes/")
+        self.assertEqual(response.status_code, 200)
+        ids = self._list_ids(response)
+        self.assertIn(self.active_class.id, ids)
+        self.assertNotIn(self.archived_class.id, ids)
+
+    def test_archived_class_present_with_include_archived(self):
+        response = self.client.get("/api/classes/?include_archived=1")
+        self.assertEqual(response.status_code, 200)
+        ids = self._list_ids(response)
+        self.assertIn(self.active_class.id, ids)
+        self.assertIn(self.archived_class.id, ids)
+
+    def test_list_exposes_is_active_field(self):
+        response = self.client.get("/api/classes/?include_archived=true")
+        results = response.data["results"] if "results" in response.data else response.data
+        by_id = {row["id"]: row for row in results}
+        self.assertTrue(by_id[self.active_class.id]["is_active"])
+        self.assertFalse(by_id[self.archived_class.id]["is_active"])
+
+    def test_patch_toggles_is_active(self):
+        # Archive
+        response = self.client.patch(
+            f"/api/classes/{self.active_class.id}/",
+            {"is_active": False},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.active_class.refresh_from_db()
+        self.assertFalse(self.active_class.is_active)
+
+        # Unarchive
+        response = self.client.patch(
+            f"/api/classes/{self.active_class.id}/",
+            {"is_active": True},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.active_class.refresh_from_db()
+        self.assertTrue(self.active_class.is_active)
+
+    def test_detail_accessible_when_archived(self):
+        response = self.client.get(f"/api/classes/{self.archived_class.id}/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["id"], self.archived_class.id)
+        self.assertFalse(response.data["is_active"])

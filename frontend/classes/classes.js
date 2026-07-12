@@ -11,9 +11,66 @@ const Classes = ({ data, refreshData, navigateTo, currentParams }) => {
 
   const { classes } = data || {};
   console.log("Classes array:", classes);
-  
+
   // State for create modal
   const [showCreateModal, setShowCreateModal] = React.useState(false);
+  // "Show archived" toggle (GH #20). The shared app data (data.classes) is
+  // active-only and feeds nav/dashboard; we keep our OWN local list here so
+  // toggling archived never affects those consumers. Seeded from props, then
+  // refetched locally whenever the toggle flips or a class is (un)archived.
+  const [showArchived, setShowArchived] = React.useState(false);
+  const [classList, setClassList] = React.useState(classes || []);
+
+  // Keep the local list in sync with the shared active-only data while the
+  // archived toggle is OFF (e.g. after a create refreshes props).
+  React.useEffect(() => {
+    if (!showArchived) {
+      setClassList(classes || []);
+    }
+  }, [classes, showArchived]);
+
+  const loadClasses = React.useCallback(async (includeArchived) => {
+    try {
+      const url = includeArchived ? "/classes/?include_archived=1" : "/classes/";
+      const resp = await window.ApiModule.request(url, { method: "GET" });
+      setClassList(resp.results || resp || []);
+    } catch (err) {
+      console.error("Failed to load classes:", err);
+    }
+  }, []);
+
+  const handleToggleArchived = (e) => {
+    const next = e.target.checked;
+    setShowArchived(next);
+    loadClasses(next);
+  };
+
+  const handleArchiveToggle = async (cls, e) => {
+    e.stopPropagation();
+    const archiving = cls.is_active !== false;
+    const message = archiving
+      ? `Archive ${cls.name}? It will be hidden from class lists; you can restore it with Show archived.`
+      : `Unarchive ${cls.name}? It will reappear in your class lists.`;
+    if (!window.confirm(message)) {
+      return;
+    }
+    try {
+      await window.ApiModule.request(`/classes/${cls.id}/`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_active: !archiving }),
+      });
+      // Refresh our local list (respecting the toggle) and the shared app
+      // data so nav/dashboard drop or regain the class.
+      await loadClasses(showArchived);
+      if (refreshData) {
+        refreshData();
+      }
+    } catch (err) {
+      console.error("Error toggling class archive:", err);
+      alert(`Failed to ${archiving ? "archive" : "unarchive"} class: ${err.message || "Unknown error"}`);
+    }
+  };
 
   if (!classes || !Array.isArray(classes)) {
     return React.createElement(
@@ -84,13 +141,39 @@ const Classes = ({ data, refreshData, navigateTo, currentParams }) => {
         )
       ),
       React.createElement(
-        "button",
-        {
-          className: "btn btn-primary btn-lg",
-          onClick: handleNewClass,
-        },
-        React.createElement("i", { className: "fas fa-plus" }),
-        " New Class"
+        "div",
+        { style: { display: "flex", alignItems: "center", gap: "16px" } },
+        // Show archived toggle (GH #20)
+        React.createElement(
+          "label",
+          {
+            style: {
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              fontSize: "14px",
+              color: "#6b7280",
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+            },
+          },
+          React.createElement("input", {
+            type: "checkbox",
+            checked: showArchived,
+            onChange: handleToggleArchived,
+            style: { cursor: "pointer" },
+          }),
+          "Show archived"
+        ),
+        React.createElement(
+          "button",
+          {
+            className: "btn btn-primary btn-lg",
+            onClick: handleNewClass,
+          },
+          React.createElement("i", { className: "fas fa-plus" }),
+          " New Class"
+        )
       )
     ),
 
@@ -98,7 +181,8 @@ const Classes = ({ data, refreshData, navigateTo, currentParams }) => {
     React.createElement(
       "div",
       { className: "list-grid" },
-      classes.map((cls) => {
+      classList.map((cls) => {
+        const isArchived = cls.is_active === false;
         const enrollmentPercent = cls.max_enrollment
           ? Math.round((cls.current_enrollment / cls.max_enrollment) * 100)
           : 0;
@@ -109,7 +193,7 @@ const Classes = ({ data, refreshData, navigateTo, currentParams }) => {
             key: cls.id,
             className: "list-card classes-list-card",
             onClick: () => handleClassClick(cls),
-            style: { cursor: "pointer" }
+            style: { cursor: "pointer", opacity: isArchived ? 0.6 : 1 }
           },
           // Card Header
           React.createElement(
@@ -122,9 +206,38 @@ const Classes = ({ data, refreshData, navigateTo, currentParams }) => {
               cls.name
             ),
             React.createElement(
-              "span",
-              { className: "badge badge-info" },
-              cls.subject || "General"
+              "div",
+              { style: { display: "flex", alignItems: "center", gap: "8px" } },
+              isArchived && React.createElement(
+                "span",
+                { className: "badge badge-warning" },
+                "Archived"
+              ),
+              React.createElement(
+                "span",
+                { className: "badge badge-info" },
+                cls.subject || "General"
+              ),
+              // Archive / Unarchive icon button (GH #20)
+              React.createElement(
+                "button",
+                {
+                  onClick: (e) => handleArchiveToggle(cls, e),
+                  title: isArchived ? "Unarchive class" : "Archive class",
+                  style: {
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    color: "#6b7280",
+                    fontSize: "14px",
+                    padding: "4px",
+                    lineHeight: 1,
+                  },
+                },
+                React.createElement("i", {
+                  className: isArchived ? "fas fa-box-open" : "fas fa-box-archive",
+                })
+              )
             )
           ),
 
@@ -242,6 +355,36 @@ const ClassView = ({ classId, data, navigateTo }) => {
       navigateTo("classes");
     } else {
       window.location.hash = "#classes";
+    }
+  };
+
+  const handleArchive = async () => {
+    if (!classDetails) return;
+    const archiving = classDetails.is_active !== false;
+    const message = archiving
+      ? `Archive ${classDetails.name}? It will be hidden from class lists; you can restore it with Show archived.`
+      : `Unarchive ${classDetails.name}? It will reappear in your class lists.`;
+    if (!window.confirm(message)) {
+      return;
+    }
+    try {
+      await window.ApiModule.request(`/classes/${classId}/`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_active: !archiving }),
+      });
+      // Back to the class list after archiving; after unarchiving, refresh in place.
+      if (archiving) {
+        handleBack();
+      } else {
+        const response = await window.ApiModule.request(`/classes/${classId}/`, {
+          method: "GET",
+        });
+        setClassDetails(response);
+      }
+    } catch (err) {
+      console.error("Error toggling class archive:", err);
+      alert(`Failed to ${archiving ? "archive" : "unarchive"} class: ${err.message || "Unknown error"}`);
     }
   };
 
@@ -388,6 +531,30 @@ const ClassView = ({ classId, data, navigateTo }) => {
         },
         React.createElement("i", { className: "fas fa-user-plus" }),
         " Add Students"
+      ),
+      // Archive / Unarchive button - only show if current user is the teacher (GH #20)
+      isTeacher && React.createElement(
+        "button",
+        {
+          onClick: handleArchive,
+          style: {
+            padding: "6px 12px",
+            fontSize: "14px",
+            fontWeight: 500,
+            borderRadius: "6px",
+            border: "none",
+            cursor: "pointer",
+            color: "#fff",
+            backgroundColor: classDetails.is_active === false ? "#10b981" : "#6b7280",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "6px",
+          },
+        },
+        React.createElement("i", {
+          className: classDetails.is_active === false ? "fas fa-box-open" : "fas fa-box-archive",
+        }),
+        classDetails.is_active === false ? " Unarchive" : " Archive"
       )
     ),
 
