@@ -127,6 +127,35 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo, startInD
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [hasUnsavedChanges]);
 
+  // GH #21b: guard in-app (SPA) navigation - notably the BROWSER Back/Forward
+  // button, which changes the hash and would otherwise let the router unmount
+  // this editor with no warning. We register a callback with the global
+  // NavigationGuard; the router calls it before honoring a hash change.
+  //
+  // The callback must read CURRENT state, so it reads a ref (updated by the
+  // effect below) rather than closing over stale hasUnsavedChanges/isDraftMode.
+  // Condition mirrors the editor's own Back button exactly: prompt iff
+  // hasUnsavedChanges. An UNTOUCHED draft has hasUnsavedChanges === false (see
+  // enterDraftMode), so it stays silently discardable. Wording matches the
+  // existing in-app confirms (draft vs. saved period).
+  const navGuardStateRef = React.useRef({ hasUnsavedChanges: false, isDraftMode: false });
+  useEffect(() => {
+    navGuardStateRef.current = { hasUnsavedChanges, isDraftMode };
+  }, [hasUnsavedChanges, isDraftMode]);
+
+  useEffect(() => {
+    if (!window.NavigationGuard) return;
+    const guard = () => {
+      const { hasUnsavedChanges: dirty, isDraftMode: draft } = navGuardStateRef.current;
+      if (!dirty) return null;
+      return draft
+        ? "You have an unsaved new chart. Discard it and navigate away?"
+        : "You have unsaved changes. Do you want to continue without saving?";
+    };
+    window.NavigationGuard.register(guard);
+    return () => window.NavigationGuard.unregister(guard);
+  }, []);
+
   // Helper function to get partnership data for a specific student
   const getStudentPartnershipData = (studentId) => {
     if (!partnershipHistory || !studentId) {
@@ -1932,10 +1961,18 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo, startInD
       // Get full details of the target period
       const fullTargetPeriod = await window.ApiModule.request(`/seating-periods/${targetPeriod.id}/`);
 
-      // Update URL to reflect the new period being edited
+      // Update URL to reflect the new period being edited. We've already
+      // prompted above (if dirty), so tell the router's navigation guard to
+      // skip the resulting hash change - otherwise the browser-back guard
+      // would fire a second, duplicate confirm (GH #21b). Only suppress on the
+      // branches that actually change the hash (the fallback below is
+      // state-only, so suppressing there would wrongly swallow the next
+      // genuine browser-back).
       if (nav?.toSeatingEditPeriod) {
+        if (window.NavigationGuard) window.NavigationGuard.suppressNext();
         nav.toSeatingEditPeriod(classId, targetPeriod.id);
       } else if (navigateTo) {
+        if (window.NavigationGuard) window.NavigationGuard.suppressNext();
         navigateTo(`seating/edit/${classId}/period/${targetPeriod.id}`);
       } else {
         // Fallback: just update the UI state
@@ -2784,6 +2821,9 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo, startInD
               ) {
                 return;
               }
+              // Already prompted here; suppress the router's guard for the
+              // hash change onBack triggers so it doesn't prompt again (#21b).
+              if (window.NavigationGuard) window.NavigationGuard.suppressNext();
               if (onBack) {
                 onBack();
               }
