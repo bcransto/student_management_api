@@ -387,6 +387,44 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo, startInD
     return duplicates;
   };
 
+  // GH #25: short display name for "Never Together" alerts (nickname
+  // fallback to first_name, plus last initial - e.g. "Alex J.")
+  const formatNeverTogetherName = (student) => {
+    if (!student) return "Student";
+    const first = student.nickname || student.first_name || "Student";
+    const lastInitial = student.last_name ? `${student.last_name.charAt(0)}.` : "";
+    return `${first} ${lastInitial}`.trim();
+  };
+
+  // GH #25: find any already-seated students at `tableId` (within the given
+  // assignments snapshot) who have a -2 "Never Together" rating with
+  // `studentId`. Checks both directions in the ratings grid; missing/absent
+  // rating data is treated as no conflict. This is a WARN-BUT-ALLOW check -
+  // callers still perform the placement and just surface the result via
+  // window.alert (matching how Optimize treats pre-seated pairs as a
+  // teacher override).
+  const findNeverPairConflicts = (studentId, tableId, assignments) => {
+    const grid = effectivePartnershipRatings?.grid;
+    if (!grid || !tableId) return [];
+
+    const tableAssignments = assignments?.[tableId] || {};
+    const s1 = String(studentId);
+    const conflicts = [];
+
+    Object.values(tableAssignments).forEach((seatedId) => {
+      if (seatedId == null || String(seatedId) === s1) return; // skip self/empty seats
+      const s2 = String(seatedId);
+      const rating1 = grid[s1]?.ratings?.[s2];
+      const rating2 = grid[s2]?.ratings?.[s1];
+      if (rating1 === -2 || rating2 === -2) {
+        const seatedStudent = students.find((s) => s.id === seatedId);
+        conflicts.push({ id: seatedId, name: formatNeverTogetherName(seatedStudent) });
+      }
+    });
+
+    return conflicts;
+  };
+
   const loadClassData = async (preservedAssignments = null) => {
     try {
       setLoading(true);
@@ -606,7 +644,12 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo, startInD
   const handleSeatAssignment = (studentId, tableId, seatNumber) => {
     const student = students.find(s => s.id === studentId);
     const studentName = student ? `${student.first_name} ${student.last_name}` : "Student";
-    
+
+    // GH #25: WARN BUT ALLOW - check for -2 "Never Together" conflicts at
+    // the target table BEFORE placement (so "already-seated" doesn't
+    // include the student being placed). The placement proceeds either way.
+    const neverPairConflicts = findNeverPairConflicts(studentId, tableId, assignments);
+
     const newAssignments = {
       ...assignments,
       [tableId]: {
@@ -614,9 +657,17 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo, startInD
         [seatNumber]: studentId,
       },
     };
-    
+
     addToHistory(newAssignments, `Place ${studentName}`);
-    
+
+    if (neverPairConflicts.length > 0) {
+      const placedName = formatNeverTogetherName(student);
+      const otherNames = neverPairConflicts.map(c => c.name).join(" and ");
+      window.alert(
+        `⚠️ Never Together: ${placedName} and ${otherNames} are marked "Never Together" but are now at the same table.`
+      );
+    }
+
     // Check for duplicates AFTER placement
     // Find table number from table ID
     const table = layout?.tables?.find(t => String(t.id) === String(tableId));
@@ -695,7 +746,34 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo, startInD
 
     console.log("Final result:", JSON.parse(JSON.stringify(result)));
     addToHistory(result, `Swap ${nameA} and ${nameB}`);
-    
+
+    // GH #25: WARN BUT ALLOW - check both swapped students against their
+    // NEW table's occupants. `newAssignments` at this point still reflects
+    // the post-removal/pre-reassignment state (result spreads it into new
+    // objects rather than mutating it), so each destination table's
+    // occupants correctly exclude both students mid-swap - no separate
+    // "vacated seat" exclusion needed. Student A lands at tableB/seatB;
+    // Student B lands at tableA/seatA (see `result` above).
+    const neverPairConflictsA = findNeverPairConflicts(studentA, tableB, newAssignments);
+    const neverPairConflictsB = findNeverPairConflicts(studentB, tableA, newAssignments);
+
+    if (neverPairConflictsA.length > 0 || neverPairConflictsB.length > 0) {
+      const swapWarnings = [];
+      if (neverPairConflictsA.length > 0) {
+        swapWarnings.push(
+          `${formatNeverTogetherName(studentAObj)} and ${neverPairConflictsA.map(c => c.name).join(" and ")}`
+        );
+      }
+      if (neverPairConflictsB.length > 0) {
+        swapWarnings.push(
+          `${formatNeverTogetherName(studentBObj)} and ${neverPairConflictsB.map(c => c.name).join(" and ")}`
+        );
+      }
+      window.alert(
+        `⚠️ Never Together: ${swapWarnings.join("; ")} are marked "Never Together" but are now at the same table.`
+      );
+    }
+
     // Check for duplicates for both swapped students
     const tableAObj = layout?.tables?.find(t => String(t.id) === String(tableA));
     const tableBObj = layout?.tables?.find(t => String(t.id) === String(tableB));
