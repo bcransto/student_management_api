@@ -11,10 +11,13 @@ const ClassStudentManager = ({ classId, navigateTo }) => {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState(null);
   const [showInactive, setShowInactive] = React.useState(false);
-  const [batchMode, setBatchMode] = React.useState(false);
-  const [parsedStudentIds, setParsedStudentIds] = React.useState([]);
-  const [notFoundIds, setNotFoundIds] = React.useState([]);
-  const [isEmailInput, setIsEmailInput] = React.useState(false);
+
+  // Batch Add modal state
+  const [batchModalOpen, setBatchModalOpen] = React.useState(false);
+  const [batchText, setBatchText] = React.useState("");
+  const [batchLoading, setBatchLoading] = React.useState(false);
+  const [batchError, setBatchError] = React.useState(null);
+  const [batchResult, setBatchResult] = React.useState(null);
 
   // Google Classroom import state
   const [googleModalOpen, setGoogleModalOpen] = React.useState(false);
@@ -121,43 +124,34 @@ const ClassStudentManager = ({ classId, navigateTo }) => {
     return [...new Set(ids)];
   };
   
-  // Watch for changes in batch mode and search query
-  React.useEffect(() => {
-    if (batchMode && searchQuery) {
-      const parsedIds = parseStudentIds(searchQuery);
-      setParsedStudentIds(parsedIds);
-
-      // Detect if input contains email addresses (has @ symbol)
-      const emailMode = parsedIds.some(id => id.includes('@'));
-      setIsEmailInput(emailMode);
-
-      // Find matching students - check email field if emails, student_id otherwise
-      const matchingStudents = allStudents.filter(s => {
-        const matchField = emailMode ? s.email : s.student_id;
-        return parsedIds.includes(matchField) && !s.isEnrolled;
-      });
-
-      // Auto-select all found students that aren't already enrolled
-      setSelectedStudents(new Set(matchingStudents.map(s => s.id)));
-
-      // Find which IDs/emails don't match any students
-      const foundIds = new Set(
-        allStudents
-          .filter(s => parsedIds.includes(emailMode ? s.email : s.student_id))
-          .map(s => emailMode ? s.email : s.student_id)
-      );
-      const notFound = parsedIds.filter(id => !foundIds.has(id));
-      setNotFoundIds(notFound);
-    } else {
-      setParsedStudentIds([]);
-      setNotFoundIds([]);
-      setIsEmailInput(false);
-      if (batchMode === false) {
-        // Clear selections when leaving batch mode
-        setSelectedStudents(new Set());
-      }
+  // Parse the Batch Add textarea and match tokens against the already-loaded
+  // student list. Auto-detects email vs student ID input (same "@" heuristic
+  // as before). Matched students are split into: brand new (never enrolled),
+  // re-enroll (previously enrolled, roster inactive), and already enrolled
+  // (no action needed) - so previously-enrolled matches keep surfacing as a
+  // re-enroll, same as the rest of the page.
+  const getBatchMatches = () => {
+    const tokens = parseStudentIds(batchText);
+    if (tokens.length === 0) {
+      return { tokens: [], emailMode: false, matched: [], notFound: [] };
     }
-  }, [batchMode, searchQuery, allStudents]);
+
+    const emailMode = tokens.some(id => id.includes('@'));
+    const matched = [];
+    const foundTokens = new Set();
+
+    tokens.forEach(token => {
+      const student = allStudents.find(s => (emailMode ? s.email : s.student_id) === token);
+      if (student) {
+        matched.push(student);
+        foundTokens.add(token);
+      }
+    });
+
+    const notFound = tokens.filter(token => !foundTokens.has(token));
+
+    return { tokens, emailMode, matched, notFound };
+  };
 
   React.useEffect(() => {
     const fetchData = async () => {
@@ -238,6 +232,54 @@ const ClassStudentManager = ({ classId, navigateTo }) => {
     }
   };
 
+  const openBatchModal = () => {
+    setBatchModalOpen(true);
+    setBatchText("");
+    setBatchError(null);
+    setBatchResult(null);
+  };
+
+  // Closes the Batch Add modal. If a batch enrollment already completed,
+  // return to the class view (same pattern as closeGoogleModal).
+  const closeBatchModal = () => {
+    setBatchModalOpen(false);
+    if (batchResult) {
+      handleBack();
+    }
+  };
+
+  const handleBatchEnroll = async () => {
+    const { matched } = getBatchMatches();
+    const toEnroll = matched.filter(s => !s.isEnrolled && !s.isInactive);
+    const toReenroll = matched.filter(s => s.isInactive);
+
+    if (toEnroll.length === 0 && toReenroll.length === 0) {
+      return;
+    }
+
+    setBatchLoading(true);
+    setBatchError(null);
+
+    try {
+      if (toEnroll.length > 0) {
+        await enrollStudentIds(toEnroll.map(s => s.id));
+      }
+      if (toReenroll.length > 0) {
+        await reactivateRosterIds(toReenroll.map(s => s.rosterId));
+      }
+
+      setBatchResult({
+        enrolledCount: toEnroll.length,
+        reenrolledCount: toReenroll.length
+      });
+    } catch (err) {
+      console.error("Error batch enrolling students:", err);
+      setBatchError(`Failed to enroll students: ${err.message || 'Unknown error'}`);
+    } finally {
+      setBatchLoading(false);
+    }
+  };
+
   const handleToggleStudent = (studentId) => {
     const newSelected = new Set(selectedStudents);
     if (newSelected.has(studentId)) {
@@ -261,6 +303,38 @@ const ClassStudentManager = ({ classId, navigateTo }) => {
     }
   };
 
+  // Shared enrollment API call: creates a new (active) roster entry for each
+  // given student id. Used by both the checkbox "Enroll N Selected" flow and
+  // the Batch Add modal so there's a single place that talks to /roster/.
+  const enrollStudentIds = async (studentIds) => {
+    const enrollPromises = studentIds.map(studentId =>
+      window.ApiModule.request('/roster/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          class_assigned: classId,
+          student: studentId,
+          is_active: true
+        })
+      })
+    );
+    await Promise.all(enrollPromises);
+  };
+
+  // Shared re-enrollment API call: reactivates existing (inactive) roster
+  // entries. Used by both the single-student "Re-enroll" button and the
+  // Batch Add modal for previously-enrolled matches.
+  const reactivateRosterIds = async (rosterIds) => {
+    const reactivatePromises = rosterIds.map(rosterId =>
+      window.ApiModule.request(`/roster/${rosterId}/`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_active: true })
+      })
+    );
+    await Promise.all(reactivatePromises);
+  };
+
   const handleEnrollSelected = async () => {
     if (selectedStudents.size === 0) {
       alert("Please select at least one student to enroll");
@@ -277,23 +351,10 @@ const ClassStudentManager = ({ classId, navigateTo }) => {
     }
 
     try {
-      // Enroll each selected student
-      const enrollPromises = Array.from(selectedStudents).map(studentId => 
-        window.ApiModule.request('/roster/', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            class_assigned: classId,
-            student: studentId,
-            is_active: true
-          })
-        })
-      );
+      await enrollStudentIds(Array.from(selectedStudents));
 
-      await Promise.all(enrollPromises);
-      
       alert(`Successfully enrolled ${selectedStudents.size} student(s)`);
-      
+
       // Navigate back to class view
       handleBack();
     } catch (err) {
@@ -309,12 +370,8 @@ const ClassStudentManager = ({ classId, navigateTo }) => {
 
     try {
       // Reactivate the existing roster entry
-      await window.ApiModule.request(`/roster/${student.rosterId}/`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ is_active: true })
-      });
-      
+      await reactivateRosterIds([student.rosterId]);
+
       alert(`Successfully re-enrolled ${student.first_name} ${student.last_name}`);
       
       // Refresh data
@@ -327,16 +384,9 @@ const ClassStudentManager = ({ classId, navigateTo }) => {
 
   const getFilteredStudents = () => {
     let filtered = allStudents;
-    
-    // Filter by batch IDs/emails or search query
-    if (batchMode && parsedStudentIds.length > 0) {
-      // In batch mode, filter by exact ID or email match
-      filtered = filtered.filter(student => {
-        const matchField = isEmailInput ? student.email : student.student_id;
-        return parsedStudentIds.includes(matchField);
-      });
-    } else if (searchQuery && !batchMode) {
-      // Normal search mode
+
+    // Filter by search query
+    if (searchQuery) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(student => 
         student.first_name?.toLowerCase().includes(query) ||
@@ -383,6 +433,21 @@ const ClassStudentManager = ({ classId, navigateTo }) => {
   const enrolledStudents = filteredStudents.filter(s => s.isEnrolled);
   const inactiveStudents = filteredStudents.filter(s => s.isInactive);
 
+  // App-standard small toolbar button style (see CLAUDE.md)
+  const smallBtnStyle = (bg) => ({
+    padding: "6px 12px",
+    fontSize: "14px",
+    fontWeight: 500,
+    borderRadius: "6px",
+    border: "none",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "6px",
+    color: "white",
+    backgroundColor: bg,
+    cursor: "pointer"
+  });
+
   return React.createElement(
     "div",
     { className: "student-manager-container" },
@@ -408,82 +473,69 @@ const ClassStudentManager = ({ classId, navigateTo }) => {
       )
     ),
 
-    // Controls
+    // Controls - single-row toolbar: search grows, buttons align right
     React.createElement(
       "div",
-      { className: "student-manager-controls" },
-      
-      // Search bar
+      {
+        className: "student-manager-controls",
+        style: {
+          display: "flex",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: "10px"
+        }
+      },
+
+      React.createElement("input", {
+        type: "text",
+        className: "search-input",
+        placeholder: "Search students by name, ID, or email...",
+        value: searchQuery,
+        onChange: (e) => setSearchQuery(e.target.value),
+        style: { flex: "1 1 240px", minWidth: "200px" }
+      }),
+
       React.createElement(
-        "div",
-        { className: "search-section" },
-        React.createElement("input", {
-          type: "text",
-          className: "search-input",
-          placeholder: batchMode 
-            ? "Paste student IDs..." 
-            : "Search students by name, ID, or email...",
-          value: searchQuery,
-          onChange: (e) => setSearchQuery(e.target.value)
-        }),
-        React.createElement(
-          "button",
-          {
-            className: "btn btn-secondary",
-            onClick: () => {
-              setSearchQuery("");
-              if (batchMode) {
-                // Reset batch mode when clearing in batch mode
-                setBatchMode(false);
-              }
-            }
-          },
-          "Clear"
-        ),
-        React.createElement(
-          "label",
-          { 
-            className: "checkbox-label",
-            style: { marginLeft: "1rem", cursor: "pointer" }
-          },
-          React.createElement("input", {
-            type: "checkbox",
-            checked: batchMode,
-            onChange: (e) => {
-              setBatchMode(e.target.checked);
-              // Clear search when toggling modes
-              setSearchQuery("");
-              setSelectedStudents(new Set());
-            }
-          }),
-          " Batch Add"
-        )
+        "button",
+        {
+          style: smallBtnStyle("#6b7280"),
+          onClick: () => setSearchQuery("")
+        },
+        "Clear"
       ),
 
-      // Filters and actions
+      React.createElement(
+        "button",
+        {
+          style: smallBtnStyle("#667eea"),
+          onClick: openBatchModal
+        },
+        React.createElement("i", { className: "fas fa-list" }),
+        " Batch Add"
+      ),
+
+      React.createElement(
+        "label",
+        {
+          className: "checkbox-label",
+          style: { cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "6px" }
+        },
+        React.createElement("input", {
+          type: "checkbox",
+          checked: showInactive,
+          onChange: (e) => setShowInactive(e.target.checked)
+        }),
+        "Show previously enrolled"
+      ),
+
       React.createElement(
         "div",
-        { className: "filter-actions" },
-        React.createElement(
-          "label",
-          { className: "checkbox-label" },
-          React.createElement("input", {
-            type: "checkbox",
-            checked: showInactive,
-            onChange: (e) => setShowInactive(e.target.checked)
-          }),
-          " Show previously enrolled"
-        ),
+        { style: { marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: "10px" } },
         React.createElement(
           "button",
           {
-            className: "btn btn-secondary",
-            onClick: openGoogleImport,
-            style: {
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "6px"
-            }
+            style: smallBtnStyle("#667eea"),
+            onClick: openGoogleImport
           },
           React.createElement("i", { className: "fab fa-google" }),
           " Import from Google Classroom"
@@ -491,7 +543,7 @@ const ClassStudentManager = ({ classId, navigateTo }) => {
         selectedStudents.size > 0 && React.createElement(
           "button",
           {
-            className: "btn btn-primary",
+            style: smallBtnStyle("#10b981"),
             onClick: handleEnrollSelected
           },
           React.createElement("i", { className: "fas fa-user-plus" }),
@@ -514,22 +566,7 @@ const ClassStudentManager = ({ classId, navigateTo }) => {
           { className: "section-header" },
           React.createElement("h2", null, "Available Students"),
           React.createElement("span", { className: "count-badge" }, `${availableStudents.length} students`),
-          batchMode && React.createElement(
-            "span",
-            { 
-              className: "badge badge-info",
-              style: { 
-                backgroundColor: "#3b82f6",
-                color: "white",
-                padding: "0.25rem 0.5rem",
-                borderRadius: "0.25rem",
-                fontSize: "0.875rem",
-                marginLeft: "0.5rem"
-              }
-            },
-            "Batch Mode Active"
-          ),
-          !batchMode && availableStudents.length > 0 && React.createElement(
+          availableStudents.length > 0 && React.createElement(
             "button",
             {
               className: "btn btn-link btn-sm",
@@ -538,28 +575,7 @@ const ClassStudentManager = ({ classId, navigateTo }) => {
             selectedStudents.size === availableStudents.length ? "Deselect All" : "Select All"
           )
         ),
-        
-        // Show not found IDs message when in batch mode
-        batchMode && notFoundIds.length > 0 && React.createElement(
-          "div",
-          {
-            style: {
-              padding: "0.75rem",
-              backgroundColor: "#fef2f2",
-              border: "1px solid #fca5a5",
-              borderRadius: "6px",
-              marginBottom: "1rem",
-              color: "#dc2626",
-              fontSize: "0.9rem"
-            }
-          },
-          React.createElement("i", { 
-            className: "fas fa-exclamation-triangle",
-            style: { marginRight: "0.5rem" }
-          }),
-          `${isEmailInput ? 'Emails' : 'Student IDs'} not found: ${notFoundIds.join(", ")}`
-        ),
-        
+
         React.createElement(
           "div",
           { className: "student-list" },
@@ -972,7 +988,257 @@ const ClassStudentManager = ({ classId, navigateTo }) => {
           )
         )
       )
-    )
+    ),
+
+    // Batch Add modal
+    batchModalOpen && (() => {
+      const { matched, notFound, emailMode } = getBatchMatches();
+      const toEnroll = matched.filter(s => !s.isEnrolled && !s.isInactive);
+      const toReenroll = matched.filter(s => s.isInactive);
+      const alreadyEnrolled = matched.filter(s => s.isEnrolled);
+      const actionableCount = toEnroll.length + toReenroll.length;
+
+      const matchStatus = (student) => {
+        if (student.isEnrolled) return { label: "Already enrolled", color: "#6b7280" };
+        if (student.isInactive) return { label: "Re-enroll", color: "#b45309" };
+        return { label: "New", color: "#059669" };
+      };
+
+      return React.createElement(
+        "div",
+        {
+          style: {
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 10000
+          },
+          onClick: (e) => {
+            if (e.target === e.currentTarget && !batchLoading) {
+              closeBatchModal();
+            }
+          }
+        },
+        React.createElement(
+          "div",
+          {
+            style: {
+              backgroundColor: "white",
+              borderRadius: "8px",
+              padding: "1.5rem",
+              width: "90%",
+              maxWidth: "520px",
+              maxHeight: "85vh",
+              overflowY: "auto",
+              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)"
+            }
+          },
+
+          // Modal header
+          React.createElement(
+            "div",
+            {
+              style: {
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: "1rem"
+              }
+            },
+            React.createElement(
+              "h2",
+              { style: { margin: 0, fontSize: "1.25rem" } },
+              React.createElement("i", { className: "fas fa-list", style: { marginRight: "8px" } }),
+              "Batch Add Students"
+            ),
+            React.createElement(
+              "button",
+              {
+                onClick: closeBatchModal,
+                style: {
+                  border: "none",
+                  background: "none",
+                  fontSize: "1.25rem",
+                  cursor: "pointer",
+                  color: "#6b7280"
+                }
+              },
+              "×"
+            )
+          ),
+
+          // Result summary (after a successful batch enroll)
+          !batchLoading && batchResult && React.createElement(
+            "div",
+            null,
+            React.createElement(
+              "div",
+              {
+                style: {
+                  padding: "0.75rem",
+                  backgroundColor: "#d1fae5",
+                  border: "1px solid #6ee7b7",
+                  borderRadius: "6px",
+                  marginBottom: "1rem",
+                  color: "#065f46"
+                }
+              },
+              `Done: ${batchResult.enrolledCount} enrolled` +
+                (batchResult.reenrolledCount ? `, ${batchResult.reenrolledCount} re-enrolled` : "")
+            ),
+            React.createElement(
+              "button",
+              {
+                className: "btn btn-primary",
+                style: { width: "100%" },
+                onClick: closeBatchModal
+              },
+              "Done"
+            )
+          ),
+
+          // Input + preview form (before a batch enroll has completed)
+          !batchResult && React.createElement(
+            "div",
+            null,
+
+            React.createElement(
+              "p",
+              { style: { color: "#6b7280", marginBottom: "0.75rem", fontSize: "0.9rem" } },
+              "Paste student IDs or email addresses, separated by commas, spaces, or new lines."
+            ),
+
+            React.createElement("textarea", {
+              rows: 6,
+              value: batchText,
+              onChange: (e) => setBatchText(e.target.value),
+              placeholder: "e.g. 12345, 67890 or jane.doe@school.edu",
+              disabled: batchLoading,
+              style: {
+                width: "100%",
+                boxSizing: "border-box",
+                padding: "0.5rem",
+                fontSize: "14px",
+                fontFamily: "inherit",
+                border: "1px solid #d1d5db",
+                borderRadius: "6px",
+                marginBottom: "1rem",
+                resize: "vertical"
+              }
+            }),
+
+            batchError && React.createElement(
+              "div",
+              {
+                style: {
+                  padding: "0.75rem",
+                  backgroundColor: "#fef2f2",
+                  border: "1px solid #fca5a5",
+                  borderRadius: "6px",
+                  marginBottom: "1rem",
+                  color: "#dc2626",
+                  fontSize: "0.9rem"
+                }
+              },
+              batchError
+            ),
+
+            // Preview: matched students
+            matched.length > 0 && React.createElement(
+              "div",
+              {
+                style: {
+                  border: "1px solid #e5e7eb",
+                  borderRadius: "6px",
+                  padding: "0.5rem",
+                  marginBottom: "1rem",
+                  maxHeight: "220px",
+                  overflowY: "auto"
+                }
+              },
+              React.createElement(
+                "div",
+                { style: { fontWeight: "500", fontSize: "0.9rem", marginBottom: "0.4rem" } },
+                `Matched (${matched.length})`
+              ),
+              matched.map((student) => {
+                const status = matchStatus(student);
+                return React.createElement(
+                  "div",
+                  {
+                    key: student.id,
+                    style: {
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      padding: "0.3rem 0.25rem",
+                      fontSize: "0.9rem",
+                      borderBottom: "1px solid #f3f4f6"
+                    }
+                  },
+                  React.createElement(
+                    "span",
+                    null,
+                    `${student.nickname || student.first_name} ${student.last_name}`,
+                    React.createElement(
+                      "span",
+                      { style: { color: "#9ca3af", marginLeft: "0.5rem", fontSize: "0.8rem" } },
+                      `ID: ${student.student_id}`
+                    )
+                  ),
+                  React.createElement(
+                    "span",
+                    { style: { color: status.color, fontSize: "0.8rem", fontWeight: 500 } },
+                    status.label
+                  )
+                );
+              })
+            ),
+
+            // Preview: not-found tokens
+            notFound.length > 0 && React.createElement(
+              "div",
+              {
+                style: {
+                  padding: "0.75rem",
+                  backgroundColor: "#fef2f2",
+                  border: "1px solid #fca5a5",
+                  borderRadius: "6px",
+                  marginBottom: "1rem",
+                  color: "#dc2626",
+                  fontSize: "0.9rem"
+                }
+              },
+              React.createElement("i", {
+                className: "fas fa-exclamation-triangle",
+                style: { marginRight: "0.5rem" }
+              }),
+              `${emailMode ? 'Emails' : 'Student IDs'} not found: ${notFound.join(", ")}`
+            ),
+
+            React.createElement(
+              "button",
+              {
+                className: "btn btn-primary",
+                style: { width: "100%" },
+                disabled: actionableCount === 0 || batchLoading,
+                onClick: handleBatchEnroll
+              },
+              React.createElement("i", {
+                className: batchLoading ? "fas fa-spinner fa-spin" : "fas fa-user-plus"
+              }),
+              batchLoading ? " Enrolling..." : ` Enroll ${actionableCount} Students`
+            )
+          )
+        )
+      );
+    })()
   );
 };
 
