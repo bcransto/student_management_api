@@ -360,6 +360,15 @@ const Seating = ({ data, navigateTo, initialView, classId, periodId }) => {
                   classItem.grade_level
                     ? `Grade ${classItem.grade_level}`
                     : classItem.subject || "N/A"
+                ),
+                // GH #21a: classes with no seating charts at all get an
+                // explanatory hint instead of leaving View/Edit silently
+                // opening an empty chart.
+                !classItem.has_seating_periods && React.createElement(
+                  "div",
+                  null,
+                  React.createElement("i", { className: "fas fa-info-circle" }),
+                  "No charts yet"
                 )
               ),
 
@@ -371,7 +380,15 @@ const Seating = ({ data, navigateTo, initialView, classId, periodId }) => {
                   "button",
                   {
                     className: "btn btn-sm btn-ghost",
-                    onClick: (e) => { e.stopPropagation(); handleViewChart(classItem.id); }
+                    disabled: !classItem.has_seating_periods,
+                    title: classItem.has_seating_periods
+                      ? undefined
+                      : "No charts yet — click New to create one",
+                    onClick: (e) => {
+                      e.stopPropagation();
+                      if (!classItem.has_seating_periods) return;
+                      handleViewChart(classItem.id);
+                    }
                   },
                   "View"
                 ),
@@ -379,7 +396,15 @@ const Seating = ({ data, navigateTo, initialView, classId, periodId }) => {
                   "button",
                   {
                     className: "btn btn-sm btn-primary",
-                    onClick: (e) => { e.stopPropagation(); handleEditChart(classItem.id); }
+                    disabled: !classItem.has_seating_periods,
+                    title: classItem.has_seating_periods
+                      ? undefined
+                      : "No charts yet — click New to create one",
+                    onClick: (e) => {
+                      e.stopPropagation();
+                      if (!classItem.has_seating_periods) return;
+                      handleEditChart(classItem.id);
+                    }
                   },
                   "Edit"
                 ),

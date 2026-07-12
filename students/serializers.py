@@ -548,7 +548,23 @@ class StudentSerializer(serializers.ModelSerializer):
         return student
 
 
-class ClassListSerializer(serializers.ModelSerializer):
+class SeatingPeriodExistsMixin:
+    """Shared has_seating_periods resolution (GH #21a).
+
+    Prefers the ClassViewSet list queryset's has_seating_periods_annotated
+    Exists() annotation (avoids an N+1 query per class); falls back to a
+    live .exists() check for the detail/retrieve path or any other caller
+    that didn't annotate the queryset.
+    """
+
+    def get_has_seating_periods(self, obj):
+        annotated = getattr(obj, "has_seating_periods_annotated", None)
+        if annotated is not None:
+            return bool(annotated)
+        return obj.seating_periods.exists()
+
+
+class ClassListSerializer(SeatingPeriodExistsMixin, serializers.ModelSerializer):
     """Lightweight serializer for class list view - no roster, periods, or assignments"""
 
     # Reads the ClassViewSet list queryset's student_count annotation; named
@@ -556,14 +572,18 @@ class ClassListSerializer(serializers.ModelSerializer):
     # alias also keeps the model property (which fires its own COUNT query)
     # from shadowing the annotation.
     current_enrollment = serializers.IntegerField(source="student_count", read_only=True)
+    # True if ANY SeatingPeriod (tracked or one-off) exists for this class -
+    # lets the seating list disable View/Edit instead of opening an empty
+    # chart (GH #21a).
+    has_seating_periods = serializers.SerializerMethodField()
 
     class Meta:
         model = Class
         fields = ["id", "name", "subject", "grade_level", "description",
-                  "current_enrollment", "updated_at"]
+                  "current_enrollment", "has_seating_periods", "updated_at"]
 
 
-class ClassSerializer(serializers.ModelSerializer):
+class ClassSerializer(SeatingPeriodExistsMixin, serializers.ModelSerializer):
     teacher = serializers.PrimaryKeyRelatedField(read_only=True)
     teacher_name = serializers.CharField(source="teacher.get_full_name", read_only=True)
     current_enrollment = serializers.ReadOnlyField()
@@ -571,6 +591,9 @@ class ClassSerializer(serializers.ModelSerializer):
     # classroom_layout removed - deprecated field, use SeatingPeriod.layout instead
     current_seating_period = SeatingPeriodSerializer(read_only=True)
     seating_periods = SeatingPeriodSerializer(many=True, read_only=True)
+    # True if ANY SeatingPeriod (tracked or one-off) exists for this class
+    # (GH #21a) - see SeatingPeriodExistsMixin.
+    has_seating_periods = serializers.SerializerMethodField()
 
     def get_roster(self, obj):
         """Only return active roster entries with prefetched seating data"""
@@ -627,6 +650,7 @@ class ClassSerializer(serializers.ModelSerializer):
             "survey_closes_at",
             "current_seating_period",
             "seating_periods",
+            "has_seating_periods",
             "roster",
             "created_at",
             "updated_at",
@@ -640,6 +664,7 @@ class ClassSerializer(serializers.ModelSerializer):
             "roster",
             "current_seating_period",
             "seating_periods",
+            "has_seating_periods",
         ]
 
 

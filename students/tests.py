@@ -1865,6 +1865,67 @@ class ClassSurveyFieldSerializerTests(TestCase):
         self.assertIsNotNone(self.klass.survey_closes_at)
 
 
+class ClassHasSeatingPeriodsTests(TestCase):
+    """GH #21a: has_seating_periods lets the seating list tell "no charts
+    yet" apart from an empty chart, both via the annotated list queryset and
+    the plain .exists() fallback on detail/retrieve."""
+
+    def setUp(self):
+        self.teacher = make_user()
+        self.empty_class = Class.objects.create(
+            name="No Charts", subject="Science", teacher=self.teacher
+        )
+        self.chart_class = Class.objects.create(
+            name="Has Chart", subject="Science", teacher=self.teacher
+        )
+        self.layout = ClassroomLayout.objects.create(
+            name="Room 1", room_width=10, room_height=8, created_by=self.teacher
+        )
+        SeatingPeriod.objects.create(
+            class_assigned=self.chart_class,
+            layout=self.layout,
+            name="Chart 1",
+            start_date=date.today(),
+            end_date=None,
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.teacher)
+
+    def test_list_reports_has_seating_periods_via_annotation(self):
+        response = self.client.get("/api/classes/")
+        self.assertEqual(response.status_code, 200)
+        results = response.data["results"] if "results" in response.data else response.data
+        by_id = {row["id"]: row for row in results}
+        self.assertFalse(by_id[self.empty_class.id]["has_seating_periods"])
+        self.assertTrue(by_id[self.chart_class.id]["has_seating_periods"])
+
+    def test_detail_reports_has_seating_periods_via_fallback(self):
+        empty_response = self.client.get(f"/api/classes/{self.empty_class.id}/")
+        chart_response = self.client.get(f"/api/classes/{self.chart_class.id}/")
+        self.assertEqual(empty_response.status_code, 200)
+        self.assertEqual(chart_response.status_code, 200)
+        self.assertFalse(empty_response.data["has_seating_periods"])
+        self.assertTrue(chart_response.data["has_seating_periods"])
+
+    def test_untracked_one_off_still_counts(self):
+        """A one-off (is_tracked=False) chart still counts - the viewer can
+        display it even though it's excluded from the current-period rule."""
+        one_off_class = Class.objects.create(
+            name="One Off Only", subject="Science", teacher=self.teacher
+        )
+        SeatingPeriod.objects.create(
+            class_assigned=one_off_class,
+            layout=self.layout,
+            name="Sub Day",
+            start_date=date.today(),
+            end_date=None,
+            is_tracked=False,
+        )
+        response = self.client.get(f"/api/classes/{one_off_class.id}/")
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data["has_seating_periods"])
+
+
 class PartnerSignalDerivationTests(TestCase):
     """
     GH issue #16 phase 3: the partnership-ratings GET response derives a student

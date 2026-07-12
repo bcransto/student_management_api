@@ -740,12 +740,18 @@ class ClassViewSet(viewsets.ModelViewSet):
 
         # For list action, no heavy prefetching - just an efficient student
         # count computed in the same query (the current_enrollment model
-        # property would otherwise fire a COUNT query per class)
+        # property would otherwise fire a COUNT query per class), plus an
+        # Exists() annotation for has_seating_periods (GH #21a) so the
+        # seating list can tell "no charts yet" apart from an empty chart
+        # without an N+1 .exists() call per class.
         if self.action == 'list':
             return base_qs.annotate(
                 student_count=models.Count(
                     "roster", filter=models.Q(roster__is_active=True)
-                )
+                ),
+                has_seating_periods_annotated=models.Exists(
+                    SeatingPeriod.objects.filter(class_assigned=models.OuterRef("pk"))
+                ),
             )
 
         # For detail/other actions, prefetch related data
