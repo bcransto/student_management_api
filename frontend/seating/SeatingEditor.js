@@ -4071,11 +4071,14 @@ const SeatingCanvas = ({
           const seatId = `${table.id}-${seat.seat_number}`;
           const isDeactivated = deactivatedSeats && deactivatedSeats.has(seatId);
           
-          // Use shared seat styles
+          // Use shared seat styles. Preferential seats are indicated only by
+          // the corner star marker, never by the green preferential colorSet -
+          // it would override occupied styling and collide with the gender
+          // highlight's green.
           const seatStyle = LayoutStyles.getSeatStyle(seat, {
             isOccupied: !!assignedStudent,
             isSelected: false,
-            isAccessible: seat.is_accessible,
+            isPreferential: false,
             gridSize: gridSize,
             showName: !!assignedStudent
           });
@@ -4172,7 +4175,7 @@ const SeatingCanvas = ({
           }
 
           const finalClassName = `seat ${assignedStudent ? "occupied" : "empty"} ${
-            seat.is_accessible ? "accessible" : ""
+            seat.is_preferential ? "preferential-seat" : ""
           } ${genderClass} ${previousClass} ${preferentialClass} ${!assignedStudent && !isDeactivated ? "fillable" : ""}`.trim();
           
           if (genderClass) {
@@ -4361,6 +4364,24 @@ const SeatingCanvas = ({
                 ? `${assignedStudent.nickname || assignedStudent.first_name} ${assignedStudent.last_name}`
                 : `Seat ${seat.seat_number}`,
             },
+            seat.is_preferential
+              ? React.createElement(
+                  "span",
+                  {
+                    className: "seat-preferential-marker",
+                    style: {
+                      position: "absolute",
+                      top: "2px",
+                      right: "2px",
+                      fontSize: "10px",
+                      lineHeight: 1,
+                      color: "#f59e0b",
+                      pointerEvents: "none",
+                    },
+                  },
+                  "★"
+                )
+              : null,
             isDeactivated
               ? React.createElement(
                   "div",

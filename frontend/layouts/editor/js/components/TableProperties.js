@@ -48,9 +48,9 @@ const TablePropertiesPanel = ({ selectedItem, layout, setLayout, setSelectedItem
     }));
   };
 
-  const toggleSeatAccessibility = (seatNumber) => {
+  const toggleSeatPreferential = (seatNumber) => {
     const newSeats = table.seats.map((seat) =>
-      seat.seat_number === seatNumber ? { ...seat, is_accessible: !seat.is_accessible } : seat
+      seat.seat_number === seatNumber ? { ...seat, is_preferential: !seat.is_preferential } : seat
     );
     updateTableProperty("seats", newSeats);
   };
@@ -524,30 +524,30 @@ const TablePropertiesPanel = ({ selectedItem, layout, setLayout, setSelectedItem
                   React.createElement(
                     "button",
                     {
-                      onClick: () => toggleSeatAccessibility(seat.seat_number),
+                      onClick: () => toggleSeatPreferential(seat.seat_number),
                       style: {
                         fontSize: '14px',
                         padding: '4px 12px',
                         borderRadius: '4px',
                         fontWeight: '500',
                         transition: 'background-color 0.2s',
-                        backgroundColor: seat.is_accessible ? '#d1fae5' : '#f3f4f6',
-                        color: seat.is_accessible ? '#065f46' : '#6b7280',
+                        backgroundColor: seat.is_preferential ? '#d1fae5' : '#f3f4f6',
+                        color: seat.is_preferential ? '#065f46' : '#6b7280',
                         border: 'none',
                         cursor: 'pointer'
                       },
-                      title: seat.is_accessible
+                      title: seat.is_preferential
                         ? "Click to make regular seat"
-                        : "Click to make accessible seat",
+                        : "Click to make preferential seat",
                       onMouseEnter: (e) => {
-                        e.target.style.backgroundColor = seat.is_accessible ? '#a7f3d0' : '#e5e7eb';
+                        e.target.style.backgroundColor = seat.is_preferential ? '#a7f3d0' : '#e5e7eb';
                       },
                       onMouseLeave: (e) => {
-                        e.target.style.backgroundColor = seat.is_accessible ? '#d1fae5' : '#f3f4f6';
+                        e.target.style.backgroundColor = seat.is_preferential ? '#d1fae5' : '#f3f4f6';
                       }
                     },
-                    seat.is_accessible
-                      ? React.createElement("span", null, "♿ Accessible")
+                    seat.is_preferential
+                      ? React.createElement("span", null, "★ Preferential")
                       : React.createElement("span", null, "👤 Regular")
                   )
                 )
@@ -616,7 +616,7 @@ const TablePropertiesPanel = ({ selectedItem, layout, setLayout, setSelectedItem
               React.createElement(
                 "div",
                 { style: { color: '#1d4ed8' } },
-                `Accessible: ${table.seats?.filter((s) => s.is_accessible).length || 0}`
+                `Preferential: ${table.seats?.filter((s) => s.is_preferential).length || 0}`
               )
             )
           )

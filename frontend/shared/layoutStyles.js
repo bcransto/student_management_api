@@ -31,7 +31,7 @@ const LayoutStyles = {
         text: '#92400e',
         glow: 'rgba(251, 191, 36, 0.3)'
       },
-      accessible: {
+      preferential: {
         background: '#34d399',
         border: '#059669',
         text: '#047857'
@@ -115,7 +115,7 @@ const LayoutStyles = {
     const {
       isOccupied = false,
       isSelected = false,
-      isAccessible = false,
+      isPreferential = false,
       gridSize = 50,
       showName = false
     } = options;
@@ -124,8 +124,8 @@ const LayoutStyles = {
     let colorSet;
     if (isSelected) {
       colorSet = LayoutStyles.colors.seat.selected;
-    } else if (isAccessible) {
-      colorSet = LayoutStyles.colors.seat.accessible;
+    } else if (isPreferential) {
+      colorSet = LayoutStyles.colors.seat.preferential;
     } else if (isOccupied) {
       colorSet = LayoutStyles.colors.seat.occupied;
     } else {

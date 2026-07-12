@@ -1324,7 +1324,7 @@ const SeatingViewerCanvas = ({
           const seatStyle = LayoutStyles.getSeatStyle(seat, {
             isOccupied: !!assignedStudent,
             isSelected: false,
-            isAccessible: false,
+            isPreferential: false,
             gridSize: gridSize,
             showName: !!assignedStudent
           });
@@ -1363,6 +1363,24 @@ const SeatingViewerCanvas = ({
                 ? `${assignedStudent.first_name} ${assignedStudent.last_name}`
                 : `Seat ${seat.seat_number}`,
             },
+            seat.is_preferential
+              ? React.createElement(
+                  "span",
+                  {
+                    className: "seat-preferential-marker",
+                    style: {
+                      position: "absolute",
+                      top: "2px",
+                      right: "2px",
+                      fontSize: "10px",
+                      lineHeight: 1,
+                      color: "#f59e0b",
+                      pointerEvents: "none",
+                    },
+                  },
+                  "★"
+                )
+              : null,
             assignedStudent
               ? (() => {
                   const { line1, line2 } = LayoutStyles.formatSeatName(

@@ -1695,7 +1695,7 @@ class ClassroomLayoutViewSet(viewsets.ModelViewSet):
                                 "seat_number": str,
                                 "relative_x": float,
                                 "relative_y": float,
-                                "is_accessible": bool,
+                                "is_preferential": bool,
                                 "notes": str
                             }
                         ]
@@ -1750,7 +1750,7 @@ class ClassroomLayoutViewSet(viewsets.ModelViewSet):
                         seat_number=seat_data["seat_number"],
                         relative_x=seat_data["relative_x"],
                         relative_y=seat_data["relative_y"],
-                        is_accessible=seat_data["is_accessible"],
+                        is_preferential=seat_data["is_preferential"],
                         notes=seat_data.get("notes", ""),
                     )
 
@@ -1825,7 +1825,7 @@ class ClassroomLayoutViewSet(viewsets.ModelViewSet):
                         seat_number=seat_data["seat_number"],
                         relative_x=seat_data["relative_x"],
                         relative_y=seat_data["relative_y"],
-                        is_accessible=seat_data["is_accessible"],
+                        is_preferential=seat_data["is_preferential"],
                         notes=seat_data.get("notes", ""),
                     )
 
@@ -1892,7 +1892,7 @@ class TableSeatViewSet(viewsets.ModelViewSet):
         - relative_x, relative_y: Position relative to table center (float)
     
     Optional Fields:
-        - is_accessible: Wheelchair accessible flag (bool)
+        - is_preferential: Preferential seating flag (bool)
         - notes: Additional seat notes (text)
     
     Important:

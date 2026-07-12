@@ -1040,7 +1040,7 @@ const SpecialPointsVisual = ({ classId, onBack, navigateTo }) => {
                     ? window.LayoutStyles.getSeatStyle(seat, {
                         isOccupied: !!student,
                         isSelected: false,
-                        isAccessible: false,
+                        isPreferential: false,
                         gridSize: gridSize,
                         showName: !!student,
                       })

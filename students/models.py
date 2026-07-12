@@ -149,7 +149,7 @@ class TableSeat(models.Model):
     relative_y = models.FloatField(help_text="Y position relative to table (0.0 - 1.0)")
 
     # Seat properties
-    is_accessible = models.BooleanField(default=True, help_text="Is this seat wheelchair accessible?")
+    is_preferential = models.BooleanField(default=False, help_text="Is this a preferential seating seat?")
     notes = models.CharField(max_length=200, blank=True, help_text="Special notes about this seat")
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -174,7 +174,7 @@ class TableSeat(models.Model):
             "absolute_seat_id": self.absolute_seat_id,
             "relative_x": self.relative_x,
             "relative_y": self.relative_y,
-            "is_accessible": self.is_accessible,
+            "is_preferential": self.is_preferential,
             "notes": self.notes,
         }
 
@@ -304,7 +304,7 @@ class Class(models.Model):
                         "table_name": table.table_name,
                         "seat_id": seat.absolute_seat_id,
                         "seat_number": seat.seat_number,
-                        "is_accessible": seat.is_accessible,
+                        "is_preferential": seat.is_preferential,
                         "table_shape": table.table_shape,
                     }
                 )

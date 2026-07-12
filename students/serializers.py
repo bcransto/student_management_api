@@ -151,7 +151,7 @@ class TableSeatSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = TableSeat
-        fields = ["id", "seat_number", "absolute_seat_id", "relative_x", "relative_y", "is_accessible", "notes"]
+        fields = ["id", "seat_number", "absolute_seat_id", "relative_x", "relative_y", "is_preferential", "notes"]
 
 
 class ClassroomTableSerializer(serializers.ModelSerializer):
