@@ -1,17 +1,31 @@
-// SeatingOptimizer.js - Least-repeat-pairings seating optimizer
+// SeatingOptimizer.js - Seating optimizer with two objectives
 //
-// Fills the empty (active) seats of a layout with unseated students so that the
-// number of "repeat pairings" -- pairs of students at the same table who have
-// already sat together in a completed period -- is as small as possible.
+// Fills the empty (active) seats of a layout with unseated students. It supports
+// two objectives, selected by config.objective:
 //
-// Objective, compared lexicographically (earlier entries strictly dominate):
+// "optimize" (default) -- Least-repeat-pairings. Minimizes the number of
+// "repeat pairings" (pairs at the same table who already sat together in a
+// completed period). Objective, compared lexicographically:
 //   H  count of co-seated pairs that have sat together before
 //   M  among repeat pairs, prior co-seatings beyond the first (capped) --
 //      when repeats are unavoidable, prefer the least-repeated pairs
 //   S  soft rating score: -1 (Avoid) discouraged, +1/+2 (Good/Best) rewarded
 //   B  table-size balance (squared deviation from balanced targets)
 //
-// Hard constraints, enforced by construction and never merely penalized:
+// "choice" -- Student-choice-honoring fill (GH issue #24). Seats students so
+// that as many MUTUAL partner requests (pairs whose merged rating is +2) as
+// possible end up at the same table. Partnership history is IGNORED ENTIRELY
+// (repeats are desirable, not penalized) -- this is the seasonal counterpart to
+// optimize: teachers use optimize early in the year to force novel pairings,
+// then switch to choice later once students know who they work well with.
+// Objective, compared lexicographically:
+//   H  count of UNSATISFIED mutual (+2) requests (both placed, not same table)
+//   M  unused (always 0)
+//   S  soft rating score, same as optimize (-1 penalized, +1/+2 rewarded)
+//   B  table-size balance
+//
+// Hard constraints, enforced by construction and never merely penalized (IDENTICAL
+// in both modes):
 //   - locked students (everyone already seated when optimize is called) never move
 //   - pairs rated -2 (Never Together) never share a table
 //   - deactivated seats are never filled
@@ -21,8 +35,14 @@
 // steepest-descent local search (cross-table swaps and relocations) over table
 // GROUPS -- seat positions within a table don't affect the objective, so seats
 // are materialized once at the end (locked students keep their exact seats).
+// The construction/local-search/materialization machinery is SHARED by both
+// objectives; only the per-pair tier weights and a choice-mode +2-pair seeding
+// step differ.
 
 const OPTIMIZER_DEFAULTS = {
+  // "optimize" (least repeat pairings, history-aware) or "choice" (honor mutual
+  // +2 requests, history ignored). See the header comment.
+  objective: "optimize",
   // If true, a +2 (Best) rating exempts a pair from the repeat count H.
   // Default false: ratings are preferences; pre-seating a pair is the
   // teacher's absolute override for "keep them together anyway".
@@ -146,6 +166,34 @@ class SeatingOptimizer {
       pairS[k] = cfg.ratingScore[String(r)] || 0;
     }
 
+    // ---- Objective selection (which per-pair weights the tiers use) ---------
+    // The construction, local search, scoring and materialization below all read
+    // tierH / tierM (tier-1 / tier-2 per-pair contributions). "optimize" uses the
+    // repeat matrices; "choice" swaps in a +2-request tier and IGNORES history.
+    const choiceMode = cfg.objective === "choice";
+    // Choice tier 1: a co-seated mutual (+2) pair contributes -1, so summing over
+    // co-seated pairs yields -(honored). scoreOf adds baseH (= total mutual pairs)
+    // to turn that back into the count of UNSATISFIED requests (>= 0). History
+    // (pairH/pairM) is not consulted at all in choice mode.
+    const pairChoiceH = choiceMode ? new Int32Array(n * n) : null;
+    const zerosM = choiceMode ? new Int32Array(n * n) : null; // tier 2 unused
+    const mutualPairs = []; // [i, j] index pairs with merged rating +2
+    let baseH = 0;
+    if (choiceMode) {
+      for (let i = 0; i < n; i++) {
+        for (let j = i + 1; j < n; j++) {
+          if (forb[i * n + j]) continue; // -2 can never also be +2, but be safe
+          if (pairRating[i * n + j] === 2) {
+            pairChoiceH[i * n + j] = pairChoiceH[j * n + i] = -1;
+            mutualPairs.push([i, j]);
+          }
+        }
+      }
+      baseH = mutualPairs.length;
+    }
+    const tierH = choiceMode ? pairChoiceH : pairH;
+    const tierM = choiceMode ? zerosM : pairM;
+
     // ---- Tables: capacities, locked members, free seats ------------------
     // Locked students keep their seats even if that seat was deactivated
     // after they were placed; deactivated EMPTY seats are simply unavailable.
@@ -265,12 +313,14 @@ class SeatingOptimizer {
     const neverDeg = new Int32Array(n);
     const repSum = new Int32Array(n);
     const avoidDeg = new Int32Array(n);
+    const mutualDeg = new Int32Array(n); // count of +2 partners (choice ordering)
     for (let i = 0; i < n; i++) {
       for (let j = 0; j < n; j++) {
         if (i === j) continue;
         if (forb[i * n + j]) neverDeg[i]++;
         repSum[i] += pairCount[i * n + j];
         if (pairRating[i * n + j] === -1) avoidDeg[i]++;
+        if (pairRating[i * n + j] === 2) mutualDeg[i]++;
       }
     }
 
@@ -292,8 +342,8 @@ class SeatingOptimizer {
         if (o === skip) continue;
         const p = s * n + o;
         if (forb[p]) return null;
-        dH += pairH[p];
-        dM += pairM[p];
+        dH += tierH[p];
+        dM += tierM[p];
         dS += pairS[p];
       }
       return { dH, dM, dS };
@@ -307,17 +357,68 @@ class SeatingOptimizer {
       tables.forEach((t, ti) => t.lockedMembers.forEach((si) => (tableOf[si] = ti)));
 
       const jitter = new Map(pool.map((s) => [s, rand()]));
+      // Choice mode orders by mutual-request degree (NOT history); optimize mode
+      // orders by repeat-history sum. neverDeg (-2 constraints) leads either way.
       const order = pool
         .slice()
         .sort(
-          (a, b) =>
-            neverDeg[b] - neverDeg[a] ||
-            repSum[b] - repSum[a] ||
-            avoidDeg[b] - avoidDeg[a] ||
-            jitter.get(a) - jitter.get(b)
+          choiceMode
+            ? (a, b) =>
+                neverDeg[b] - neverDeg[a] ||
+                mutualDeg[b] - mutualDeg[a] ||
+                avoidDeg[b] - avoidDeg[a] ||
+                jitter.get(a) - jitter.get(b)
+            : (a, b) =>
+                neverDeg[b] - neverDeg[a] ||
+                repSum[b] - repSum[a] ||
+                avoidDeg[b] - avoidDeg[a] ||
+                jitter.get(a) - jitter.get(b)
         );
 
+      // Choice mode: seed mutual (+2) pairs at a shared table first, so both
+      // members are considered together (greedy alone can't, since a partner may
+      // still be unplaced). Deterministic under seed via a jittered pair order.
+      if (choiceMode && mutualPairs.length > 0) {
+        const pjit = new Map(mutualPairs.map((_, i) => [i, rand()]));
+        const pairSeq = mutualPairs
+          .map((_, i) => i)
+          .sort((x, y) => pjit.get(x) - pjit.get(y));
+        for (const pi of pairSeq) {
+          const [a, b] = mutualPairs[pi];
+          const aAt = tableOf[a];
+          const bAt = tableOf[b];
+          if (aAt >= 0 && bAt >= 0) continue; // both settled already
+          if (aAt >= 0 || bAt >= 0) {
+            // One member is placed (possibly locked): pull the other to its table.
+            const one = aAt >= 0 ? a : b;
+            const other = aAt >= 0 ? b : a;
+            const t = tableOf[one];
+            if (memb[t].length < tables[t].capacity && joinDelta(other, memb[t], -1) !== null) {
+              memb[t].push(other);
+              tableOf[other] = t;
+            }
+          } else {
+            // Neither placed: find the first table with room for both.
+            for (let t = 0; t < T; t++) {
+              if (memb[t].length + 2 > tables[t].capacity) continue;
+              if (joinDelta(a, memb[t], -1) === null) continue;
+              memb[t].push(a);
+              tableOf[a] = t;
+              if (joinDelta(b, memb[t], -1) === null) {
+                memb[t].pop();
+                tableOf[a] = -1;
+                continue;
+              }
+              memb[t].push(b);
+              tableOf[b] = t;
+              break;
+            }
+          }
+        }
+      }
+
       for (const s of order) {
+        if (tableOf[s] >= 0) continue; // already seeded (choice mode)
         // Two passes: balanced targets first, physical capacity second
         let placedAt = -1;
         for (const cap of [target, tables.map((t) => t.capacity)]) {
@@ -440,13 +541,15 @@ class SeatingOptimizer {
         for (let i = 0; i < m.length; i++) {
           for (let j = i + 1; j < m.length; j++) {
             const p = m[i] * n + m[j];
-            H += pairH[p];
-            M += pairM[p];
+            H += tierH[p];
+            M += tierM[p];
             S += pairS[p];
           }
         }
       }
-      return { H, M, S, B };
+      // choice: H starts at -(honored); baseH (= total mutual pairs) turns it into
+      // the count of UNSATISFIED requests. optimize: baseH is 0, H is repeat pairs.
+      return { H: H + baseH, M, S, B };
     };
 
     let best = null;
@@ -541,16 +644,37 @@ class SeatingOptimizer {
       }
     }
 
+    // ---- Choice-mode request stats -----------------------------------------
+    // Every mutual (+2) pair with both members placed is honored iff they share a
+    // table. mutualPairs is empty outside choice mode (honored 0 of 0).
+    let honored = 0;
+    const unhonored = [];
+    for (const [a, b] of mutualPairs) {
+      if (best.tableOf[a] >= 0 && best.tableOf[a] === best.tableOf[b]) {
+        honored++;
+      } else {
+        unhonored.push({ student1: nameOf.get(ids[a]), student2: nameOf.get(ids[b]) });
+      }
+    }
+
     return {
       ok: true,
       assignments: result,
       stats: {
         placed: pool.length,
-        repeatPairs: bestScore.H,
+        // optimize: H is the repeat-pair count. choice: report the actual repeat
+        // pairs present (informational; not part of the choice objective).
+        repeatPairs: choiceMode ? repeatDetail.length : bestScore.H,
         repeatDetail,
         avoidPairsSeated,
         bestPairsSeated,
+        // choice: H is the count of UNSATISFIED mutual requests; 0 => all honored.
+        // optimize: H is repeat pairs; 0 => zero-repeat certificate.
         provablyOptimal: bestScore.H === 0,
+        // Choice-mode summary (mutualRequests === honored + unhonored.length).
+        mutualRequests: mutualPairs.length,
+        honored,
+        unhonored,
         restarts,
         ms: Math.round(nowMs() - start),
         seed: baseSeed,
@@ -807,6 +931,121 @@ function runOptimizerTests() {
     // Feasible: 1 alone is impossible (2 tables x 2 seats, 4 students) -> must fail loudly
     assert(res.ok === false, "expected ok:false");
     assert(res.unplaced && res.unplaced.length > 0, "expected unplaced report");
+  });
+
+  // ---- Choice-mode tests (GH #24) ----
+  const choice = (over) =>
+    new SeatingOptimizer(Object.assign({ objective: "choice", seed: 42, timeBudgetMs: 800 }, over));
+  const coSeated = (assignments, x, y) =>
+    seatedPairs(assignments).some(([a, b]) => (a === x && b === y) || (a === y && b === x));
+
+  check("choice: mutual +2 pair seated together even after sitting together EVERY past period", () => {
+    // THE defining behavior vs optimize: history is ignored, so a repeat is fine.
+    const history = makeHistory([[1, 2, 5]]); // paired in every prior chart
+    const ratings = makeRatings([[1, 2, 2]]);
+    const res = choice().optimize({}, makeStudents(8), makeLayout(2, 4), {
+      partnershipHistory: history,
+      partnershipRatings: ratings,
+    });
+    assert(res.ok, `expected ok, got: ${res.error}`);
+    assert(coSeated(res.assignments, 1, 2), "mutual +2 pair not seated together in choice mode");
+    assert(res.stats.mutualRequests === 1, `expected 1 request, got ${res.stats.mutualRequests}`);
+    assert(res.stats.honored === 1, `expected 1 honored, got ${res.stats.honored}`);
+    assert(res.stats.provablyOptimal === true, "all requests honored should be provablyOptimal");
+    // Contrast: optimize mode separates them (a repeat can't be bought by +2)
+    const optRes = opt().optimize({}, makeStudents(8), makeLayout(2, 4), {
+      partnershipHistory: history,
+      partnershipRatings: ratings,
+    });
+    assert(optRes.ok, `optimize expected ok, got: ${optRes.error}`);
+    assert(!coSeated(optRes.assignments, 1, 2), "optimize mode should have separated the repeat");
+  });
+
+  check("choice: teacher -2 never co-seated (hard constraint still wins)", () => {
+    // -2 is teacher-authored (students can only reach -1); it is never a +2 request.
+    const ratings = makeRatings([[1, 2, -2]]);
+    for (let seed = 1; seed <= 5; seed++) {
+      const res = choice({ seed }).optimize({}, makeStudents(8), makeLayout(2, 4), {
+        partnershipRatings: ratings,
+      });
+      assert(res.ok, `seed ${seed}: ${res.error}`);
+      assert(!coSeated(res.assignments, 1, 2), `seed ${seed}: -2 pair co-seated in choice mode`);
+    }
+  });
+
+  check("choice: locked student stays; mutual partner joins its table", () => {
+    const current = { 100: { 1: 1 } }; // student 1 locked at table 100 seat 1
+    const ratings = makeRatings([[1, 2, 2]]);
+    const res = choice().optimize(current, makeStudents(8), makeLayout(2, 4), {
+      partnershipRatings: ratings,
+    });
+    assert(res.ok, `expected ok, got: ${res.error}`);
+    assert(res.assignments["100"]["1"] === 1, "locked student 1 moved");
+    assert(
+      Object.values(res.assignments["100"]).map(Number).includes(2),
+      "mutual partner 2 did not join the locked member's table"
+    );
+    assert(res.stats.honored === 1, `expected 1 honored, got ${res.stats.honored}`);
+  });
+
+  check("choice: unhonorable request is reported, not violated", () => {
+    // Table 100 (2 seats) is locked full with 1 and 3; 2 wants 1 (+2) but is -2 with 3,
+    // so 2 cannot join table 100 -> request 1-2 is unhonorable and must be reported.
+    const current = { 100: { 1: 1, 2: 3 } };
+    const ratings = makeRatings([
+      [1, 2, 2],
+      [2, 3, -2],
+    ]);
+    const res = choice().optimize(current, makeStudents(4), makeLayout(2, 2), {
+      partnershipRatings: ratings,
+    });
+    assert(res.ok, `expected ok, got: ${res.error}`);
+    assert(!coSeated(res.assignments, 1, 2), "unhonorable +2 pair was co-seated");
+    assert(!coSeated(res.assignments, 2, 3), "-2 pair co-seated");
+    assert(res.stats.mutualRequests === 1, `expected 1 request, got ${res.stats.mutualRequests}`);
+    assert(res.stats.honored === 0, `expected 0 honored, got ${res.stats.honored}`);
+    assert(res.stats.unhonored.length === 1, "expected 1 unhonored entry");
+    const u = res.stats.unhonored[0];
+    assert(
+      (u.student1 && u.student2) &&
+        [u.student1, u.student2].every((nm) => typeof nm === "string"),
+      "unhonored entry should carry both names"
+    );
+  });
+
+  check("choice: same seed reproduces the identical chart", () => {
+    const ratings = makeRatings([
+      [1, 2, 2],
+      [4, 5, 2],
+      [7, 8, 1],
+    ]);
+    const history = makeHistory([[1, 2, 2]]); // ignored, but present
+    const run = () =>
+      choice({ seed: 7 }).optimize({}, makeStudents(10), makeLayout(3, 4), {
+        partnershipHistory: history,
+        partnershipRatings: ratings,
+      });
+    const a = run();
+    const b = run();
+    assert(a.ok && b.ok, "runs failed");
+    assert(JSON.stringify(a.assignments) === JSON.stringify(b.assignments), "seeded runs differ");
+  });
+
+  check("choice: clique of 3 mutual pairs at 2-seat tables honors the max and reports the rest", () => {
+    // Triangle 1-2, 1-3, 2-3 all +2. With 2-seat tables only ONE edge can be seated.
+    const ratings = makeRatings([
+      [1, 2, 2],
+      [1, 3, 2],
+      [2, 3, 2],
+    ]);
+    const res = choice().optimize({}, makeStudents(4), makeLayout(2, 2), {
+      partnershipRatings: ratings,
+    });
+    assert(res.ok, `expected ok, got: ${res.error}`);
+    assert(res.stats.mutualRequests === 3, `expected 3 requests, got ${res.stats.mutualRequests}`);
+    assert(res.stats.honored === 1, `expected 1 honored (the max), got ${res.stats.honored}`);
+    assert(res.stats.unhonored.length === 2, `expected 2 unhonored, got ${res.stats.unhonored.length}`);
+    assert(res.stats.provablyOptimal === false, "2 unsatisfied requests should not be provablyOptimal");
   });
 
   const passed = results.filter((r) => r.ok).length;
