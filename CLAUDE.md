@@ -942,13 +942,50 @@ materialized at the end. Replaced the old simulated-annealing implementation.
 
 **API**: `new SeatingOptimizer(config).optimize(assignments, students, layout,
 {partnershipHistory, partnershipRatings, deactivatedSeats})` -> editor-shape
-assignments + stats. Config: `seed` (reproducible output), `timeBudgetMs`
-(default 400), `allowBestPairRepeats`. Runs 10-100ms for typical classes.
+assignments + stats. Config: `objective` ("optimize" default | "choice"), `seed`
+(reproducible output), `timeBudgetMs` (default 400), `allowBestPairRepeats`. Runs
+10-100ms for typical classes.
+
+### Choice mode (issue #24 - `objective: "choice"`)
+
+A SECOND fill objective alongside Optimize, wired into SeatingEditor via the
+**Choice** button directly below Optimize (same styling/disabled logic; one undo
+entry; alert reads `Choice fill: honored X of Y mutual requests.` plus any
+`Couldn't pair:` list and the same conflict reporting). Seasonal intent: teachers
+use **Optimize early** in the year to force novel pairings (repeat-avoidance),
+then switch to **Choice later** once students know who they work well with - so
+choice mode **IGNORES partnership history entirely** (repeats are desirable, not
+penalized; history isn't even a tiebreak). The construction/local-search/
+materialize machinery is shared with optimize mode; only the per-pair tier
+weights + a choice-only +2-pair seeding step differ.
+
+**Choice objective** (lexicographic; no H/M repeat tiers anywhere):
+1. Tier 1: count of UNSATISFIED mutual requests - pairs with merged rating **+2**
+   both placed but NOT at the same table (teacher +2 and survey-mutual +2 count
+   the same). Encoded by reusing the H slot: a co-seated +2 pair contributes -1,
+   plus a `baseH` (= total mutual pairs) constant, yielding the unsatisfied count.
+2. Tier 2: soft rating score S, same as optimize (-1 +40, +1 -25, +2 seated -60).
+3. Tier 3: table-size balance B.
+- `stats.provablyOptimal` (tier1 === 0) means every mutual request was honored.
+- Extra stats: `{mutualRequests, honored, unhonored:[{student1,student2}]}`.
+
+**Construction seeding** (choice): mutual +2 pairs are seeded together first
+(deterministic under seed; respects locks/-2/capacity - a pair with one locked
+member pulls the other to the locked member's table), then the rest greedy-fill
+by S; local search improves the tuple. Hard constraints are IDENTICAL to optimize
+mode (locked stay, -2 never co-seated, deactivated never filled, infeasibility
+reported not violated).
 
 ### Testing
-- `node frontend/seating/SeatingOptimizer.js` - asserting suite (12 tests:
-  locked seats, -2 enforcement, deactivated seats, zero-repeat certificate,
-  brute-force optimality match, infeasibility reporting, seeded reproducibility)
+- `node frontend/seating/SeatingOptimizer.js` - asserting suite (18 tests: 12
+  optimize-mode - locked seats, -2 enforcement, deactivated seats, zero-repeat
+  certificate, brute-force optimality match, infeasibility reporting, seeded
+  reproducibility - plus 6 choice-mode: mutual +2 seated together despite sitting
+  together every prior period (history ignored - the defining behavior vs
+  optimize), teacher -2 still never co-seated, locked member keeps its seat while
+  its mutual partner joins that table, unhonorable request reported in `unhonored`
+  not violated, seeded reproducibility, and a 3-pair clique at 2-seat tables
+  honoring the max and reporting the rest)
 - Browser: http://127.0.0.1:8000/test_optimizer.html (same suite)
 - `SeatingUtils.js` / `SeatingConstants.js` predate the rewrite and are not
   used by the optimizer

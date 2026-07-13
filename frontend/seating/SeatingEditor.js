@@ -1552,6 +1552,66 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo, startInD
     alert(summary);
   };
 
+  // Handle Choice: fill empty seats honoring mutual (+2) student partner
+  // requests, IGNORING partnership history (repeats are fine here). Same hard
+  // constraints as Optimize (-2 never together, locked stay, deactivated empty).
+  const handleChoiceFill = () => {
+    if (!layout || !layout.tables) {
+      alert("No layout loaded!");
+      return;
+    }
+    if (!window.SeatingOptimizer) {
+      alert("Optimizer failed to load - refresh the page and try again.");
+      return;
+    }
+    const unassignedStudents = getUnassignedStudents();
+    if (unassignedStudents.length === 0) {
+      alert("No unassigned students available!");
+      return;
+    }
+
+    const optimizer = new window.SeatingOptimizer({ objective: "choice" });
+    const result = optimizer.optimize(assignments, students, layout, {
+      // history is passed but IGNORED by the optimizer in choice mode
+      partnershipHistory: partnershipHistory,
+      partnershipRatings: effectivePartnershipRatings,
+      deactivatedSeats: deactivatedSeats,
+    });
+
+    if (!result.ok) {
+      let message = result.error;
+      if (result.conflicts && result.conflicts.length > 0) {
+        message += "\n" + result.conflicts
+          .map((c) => `- ${c.student1} + ${c.student2} (table ${c.tableId})`)
+          .join("\n");
+      }
+      if (result.unplaced && result.unplaced.length > 0) {
+        message += "\nCould not place: " + result.unplaced.join(", ");
+      }
+      alert(message);
+      return;
+    }
+
+    const stats = result.stats;
+    addToHistory(
+      result.assignments,
+      `Choice fill: seat ${stats.placed} students (honored ${stats.honored}/${stats.mutualRequests} requests)`
+    );
+
+    let summary = `Choice fill: honored ${stats.honored} of ${stats.mutualRequests} mutual requests.`;
+    if (stats.unhonored && stats.unhonored.length > 0) {
+      const shown = stats.unhonored.slice(0, 8);
+      summary += "\nCouldn't pair: " + shown
+        .map((d) => `${d.student1} & ${d.student2}`)
+        .join(", ");
+      if (stats.unhonored.length > shown.length) {
+        summary += `, ...and ${stats.unhonored.length - shown.length} more`;
+      }
+    }
+    console.log(`Choice fill: honored ${stats.honored}/${stats.mutualRequests}, ${stats.restarts} restarts, ${stats.ms}ms, seed ${stats.seed}`);
+    alert(summary);
+  };
+
   // Handle layout selection from modal
   const handleLayoutSelection = async (layoutId) => {
     console.log("Selecting layout:", layoutId);
@@ -3302,6 +3362,22 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo, startInD
                 },
                 React.createElement("i", { className: "fas fa-wand-magic-sparkles", style: { fontSize: "10px" } }),
                 " Optimize"
+              ),
+              // Choice button - fills empty seats honoring mutual student requests
+              React.createElement(
+                "button",
+                {
+                  className: "btn btn-sm btn-primary",
+                  style: {
+                    width: "100%",
+                    fontSize: "12px",
+                    marginTop: "0.5rem"
+                  },
+                  onClick: handleChoiceFill,
+                  title: "Fill empty seats honoring student partner choices (ignores seating history)"
+                },
+                React.createElement("i", { className: "fas fa-user-group", style: { fontSize: "10px" } }),
+                " Choice"
               )
             )
           ),
