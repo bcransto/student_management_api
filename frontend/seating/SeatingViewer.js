@@ -15,7 +15,27 @@ const SeatingViewer = ({ classId, periodId, onEdit, onBack, onNewChart, navigate
   const [isDeleting, setIsDeleting] = React.useState(false);
   const [viewMode, setViewMode] = React.useState("teacher"); // "teacher", "student", or "print"
   const [showViewDropdown, setShowViewDropdown] = React.useState(false);
+  const [printMode, setPrintMode] = React.useState(null); // null | "single" | "week" - drives the print-only DOM
   const dropdownRef = React.useRef(null);
+
+  // When a print format is chosen, let the hidden print DOM paint, then open
+  // the browser print dialog. Clear the mode once printing finishes so the
+  // heavy multi-chart DOM is torn down again.
+  React.useEffect(() => {
+    if (!printMode) return;
+
+    const timer = setTimeout(() => {
+      window.print();
+    }, 150);
+
+    const handleAfterPrint = () => setPrintMode(null);
+    window.addEventListener("afterprint", handleAfterPrint);
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("afterprint", handleAfterPrint);
+    };
+  }, [printMode]);
 
   // Handle click outside to close dropdown
   React.useEffect(() => {
@@ -471,14 +491,138 @@ const SeatingViewer = ({ classId, periodId, onEdit, onBack, onNewChart, navigate
     // No period yet - single line
     return React.createElement(
       "div",
-      { 
-        style: { 
+      {
+        style: {
           fontSize: "1.125rem",
           fontWeight: "500",
           color: "#1f2937"
-        } 
+        }
       },
       `No Seating Period • ${className}`
+    );
+  };
+
+  // Build the print-only DOM (hidden on screen, revealed under @media print).
+  // Returns null unless a print format is active. Uses a FIXED grid size so the
+  // chart fits the paper, and reflects the currently selected teacher/student
+  // view mode so what you see is what prints.
+  const buildPrintContent = () => {
+    if (!printMode || !layout || !classInfo) return null;
+
+    // Orientation rule (GH #12): tall layouts -> portrait, wide layouts -> landscape
+    const roomW = layout.room_width || 1;
+    const roomH = layout.room_height || 1;
+    const isPortrait = roomH >= roomW;
+
+    const className = classInfo.name || "Class";
+    const periodName = viewedPeriod?.name || "Seating Chart";
+
+    // Printable content budget in CSS px at 96dpi, inside ~0.4in page margins
+    // on US Letter (8.5x11). Kept a touch conservative so nothing clips.
+    const pageBox = isPortrait ? { w: 720, h: 940 } : { w: 960, h: 700 };
+
+    const renderChart = (gs) =>
+      React.createElement(SeatingViewerCanvas, {
+        layout,
+        assignments,
+        students,
+        highlightMode: "none",
+        viewMode,
+        fixedGridSize: gs,
+        onSeatClick: () => {},
+        onStudentDrop: () => {},
+        onStudentUnassign: () => {},
+        onStudentSwap: () => {},
+        draggedStudent: null,
+        onDragStart: () => {},
+        onDragEnd: () => {},
+      });
+
+    const pageHeader = (label) =>
+      React.createElement(
+        "div",
+        { className: "seating-print-header" },
+        React.createElement("span", { className: "seating-print-title" }, periodName),
+        React.createElement("span", { className: "seating-print-subtitle" }, className),
+        label && React.createElement("span", { className: "seating-print-day" }, label)
+      );
+
+    const orientationClass = isPortrait ? "portrait" : "landscape";
+
+    // Format 1: one chart per page, sized to fill the page under the header
+    if (printMode === "single") {
+      const headerH = 64;
+      const gs = Math.max(
+        20,
+        Math.floor(Math.min(pageBox.w / roomW, (pageBox.h - headerH) / roomH))
+      );
+      return React.createElement(
+        "div",
+        { className: "seating-print-root", "aria-hidden": "true" },
+        React.createElement(
+          "div",
+          { className: `seating-print-page ${orientationClass}` },
+          pageHeader(null),
+          React.createElement(
+            "div",
+            { className: "seating-print-chart" },
+            renderChart(gs)
+          )
+        )
+      );
+    }
+
+    // Format 2: five copies labeled Mon-Fri on one page.
+    // Portrait -> 2 cols x 3 rows; Landscape -> 3 cols x 2 rows (5 charts + 1 empty).
+    const cols = isPortrait ? 2 : 3;
+    const rows = isPortrait ? 3 : 2;
+    const headerH = 44;
+    const labelH = 22;
+    const gap = 12;
+    const cellW = (pageBox.w - gap * (cols - 1)) / cols;
+    const cellH = (pageBox.h - headerH - gap * (rows - 1)) / rows;
+    const gs = Math.max(
+      12,
+      Math.floor(Math.min((cellW - 8) / roomW, (cellH - labelH) / roomH))
+    );
+
+    const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+
+    return React.createElement(
+      "div",
+      { className: "seating-print-root", "aria-hidden": "true" },
+      React.createElement(
+        "div",
+        { className: `seating-print-page ${orientationClass}` },
+        React.createElement(
+          "div",
+          { className: "seating-print-weekhead" },
+          React.createElement("span", { className: "seating-print-title" }, periodName),
+          React.createElement("span", { className: "seating-print-subtitle" }, className)
+        ),
+        React.createElement(
+          "div",
+          {
+            className: "seating-print-grid",
+            style: {
+              gridTemplateColumns: `repeat(${cols}, 1fr)`,
+              gridTemplateRows: `repeat(${rows}, 1fr)`,
+            },
+          },
+          days.map((day) =>
+            React.createElement(
+              "div",
+              { key: day, className: "seating-print-cell" },
+              React.createElement("div", { className: "seating-print-day" }, day),
+              React.createElement(
+                "div",
+                { className: "seating-print-chart" },
+                renderChart(gs)
+              )
+            )
+          )
+        )
+      )
     );
   };
 
@@ -645,13 +789,32 @@ const SeatingViewer = ({ classId, periodId, onEdit, onBack, onNewChart, navigate
             },
             "Student View"
           ),
+          // Divider between view modes and print actions
+          React.createElement("div", {
+            style: { height: "1px", backgroundColor: "#e5e7eb", margin: "0.25rem 0" }
+          }),
+          // Print section label
+          React.createElement(
+            "div",
+            {
+              style: {
+                padding: "0.25rem 1rem",
+                fontSize: "0.6875rem",
+                fontWeight: "600",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+                color: "#9ca3af"
+              }
+            },
+            "Print"
+          ),
+          // Print: one chart per page
           React.createElement(
             "button",
             {
               onClick: () => {
-                // Print view is placeholder for now
-                console.log("Print view not yet implemented");
                 setShowViewDropdown(false);
+                setPrintMode("single");
               },
               style: {
                 display: "block",
@@ -659,15 +822,37 @@ const SeatingViewer = ({ classId, periodId, onEdit, onBack, onNewChart, navigate
                 padding: "0.5rem 1rem",
                 textAlign: "left",
                 border: "none",
-                backgroundColor: viewMode === "print" ? "#f3f4f6" : "transparent",
+                backgroundColor: "transparent",
                 cursor: "pointer",
-                fontSize: "0.875rem",
-                color: "#9ca3af" // Grayed out since it's a placeholder
+                fontSize: "0.875rem"
               },
               onMouseEnter: (e) => e.target.style.backgroundColor = "#f3f4f6",
-              onMouseLeave: (e) => e.target.style.backgroundColor = viewMode === "print" ? "#f3f4f6" : "transparent"
+              onMouseLeave: (e) => e.target.style.backgroundColor = "transparent"
             },
-            "Print View"
+            "1 per page"
+          ),
+          // Print: five copies labeled Mon-Fri
+          React.createElement(
+            "button",
+            {
+              onClick: () => {
+                setShowViewDropdown(false);
+                setPrintMode("week");
+              },
+              style: {
+                display: "block",
+                width: "100%",
+                padding: "0.5rem 1rem",
+                textAlign: "left",
+                border: "none",
+                backgroundColor: "transparent",
+                cursor: "pointer",
+                fontSize: "0.875rem"
+              },
+              onMouseEnter: (e) => e.target.style.backgroundColor = "#f3f4f6",
+              onMouseLeave: (e) => e.target.style.backgroundColor = "transparent"
+            },
+            "5 per page (Mon-Fri)"
           )
         )
         ),
@@ -967,7 +1152,10 @@ const SeatingViewer = ({ classId, periodId, onEdit, onBack, onNewChart, navigate
           )
         )
       )
-    )
+    ),
+
+    // Print-only DOM (hidden on screen; revealed by @media print in seating-viewer.css)
+    buildPrintContent()
   ); // Close main div
 };
 
@@ -978,6 +1166,7 @@ const SeatingViewerCanvas = ({
   students,
   highlightMode,
   viewMode = "teacher", // Default to teacher view
+  fixedGridSize = null, // When set (print), use this exact scale instead of the window-driven one
   onSeatClick,
   onStudentDrop,
   onStudentUnassign,
@@ -989,43 +1178,50 @@ const SeatingViewerCanvas = ({
   // Get format function from shared utils
   const { formatStudentName } = window.SharedUtils;
   const containerRef = React.useRef(null);
-  const [gridSize, setGridSize] = React.useState(80);
-  
+  const [gridSizeState, setGridSizeState] = React.useState(80);
+
+  // In print mode a fixed scale is supplied so charts fit the paper; otherwise
+  // fall back to the responsive, window-driven size computed below.
+  const gridSize = fixedGridSize || gridSizeState;
+
   // Apply view transformations if needed
   const displayLayout = React.useMemo(() => {
     if (!layout || !window.ViewTransformations) return layout;
     return window.ViewTransformations.transformLayoutForView(layout, viewMode);
   }, [layout, viewMode]);
 
-  // Calculate grid size based on container
+  // Calculate grid size based on container (skipped entirely when a fixed
+  // print scale is provided - no window listener, no override of fixedGridSize)
   React.useEffect(() => {
+    if (fixedGridSize) return;
+
     const calculateGridSize = () => {
       if (!containerRef.current) return;
-      
+
       const container = containerRef.current.parentElement?.parentElement; // Go up two levels to get main container
       if (!container) return;
-      
+
       // Get available space more accurately
       const containerRect = container.getBoundingClientRect();
       const availableWidth = containerRect.width - 40; // Small padding
       const availableHeight = window.innerHeight - containerRect.top - 100; // Use viewport height minus top position
-      
+
       // Calculate optimal grid size to fit the layout
       const gridSizeByWidth = Math.floor(availableWidth / displayLayout.room_width);
       const gridSizeByHeight = Math.floor(availableHeight / displayLayout.room_height);
-      
+
       // Use the smaller of the two to ensure it fits
       const optimalGridSize = Math.min(gridSizeByWidth, gridSizeByHeight, 120); // Increased cap to 120px
       const finalGridSize = Math.max(optimalGridSize, 50); // Increased min to 50px
-      
-      setGridSize(finalGridSize);
+
+      setGridSizeState(finalGridSize);
     };
-    
+
     // Add small delay to ensure DOM is ready
     setTimeout(calculateGridSize, 100);
     window.addEventListener('resize', calculateGridSize);
     return () => window.removeEventListener('resize', calculateGridSize);
-  }, [displayLayout?.room_width, displayLayout?.room_height]);
+  }, [displayLayout?.room_width, displayLayout?.room_height, fixedGridSize]);
 
   // Don't render if no layout
   if (!displayLayout) return null;
@@ -1128,7 +1324,7 @@ const SeatingViewerCanvas = ({
           const seatStyle = LayoutStyles.getSeatStyle(seat, {
             isOccupied: !!assignedStudent,
             isSelected: false,
-            isAccessible: false,
+            isPreferential: false,
             gridSize: gridSize,
             showName: !!assignedStudent
           });
@@ -1167,6 +1363,24 @@ const SeatingViewerCanvas = ({
                 ? `${assignedStudent.first_name} ${assignedStudent.last_name}`
                 : `Seat ${seat.seat_number}`,
             },
+            seat.is_preferential
+              ? React.createElement(
+                  "span",
+                  {
+                    className: "seat-preferential-marker",
+                    style: {
+                      position: "absolute",
+                      top: "2px",
+                      right: "2px",
+                      fontSize: "10px",
+                      lineHeight: 1,
+                      color: "#f59e0b",
+                      pointerEvents: "none",
+                    },
+                  },
+                  "★"
+                )
+              : null,
             assignedStudent
               ? (() => {
                   const { line1, line2 } = LayoutStyles.formatSeatName(

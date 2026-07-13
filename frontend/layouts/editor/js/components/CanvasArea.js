@@ -256,7 +256,7 @@ const CanvasArea = ({
     ...LayoutStyles.getSeatStyle(seat, {
       isOccupied: false,
       isSelected: isSelected,
-      isAccessible: false,
+      isPreferential: false,
       gridSize: GRID_SIZE,
       showName: false
     }),

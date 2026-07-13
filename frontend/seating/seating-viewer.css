@@ -254,3 +254,137 @@
     padding: 10px;
   }
 }
+
+/* ==========================================================================
+   Seating chart printing (GH issue #12)
+   Two formats: one chart per page, or five copies labeled Mon-Fri per page.
+   Orientation is chosen in JS (tall layout -> portrait, wide -> landscape) and
+   applied to a page via the .portrait / .landscape class + named @page rules.
+   ========================================================================== */
+
+/* Named pages so a single container can request portrait or landscape paper. */
+@page seating-print-portrait {
+  size: portrait;
+  margin: 0.4in;
+}
+@page seating-print-landscape {
+  size: landscape;
+  margin: 0.4in;
+}
+
+/* Hidden entirely on screen - only exists for the print stylesheet below. */
+.seating-print-root {
+  display: none;
+}
+
+@media print {
+  /* Isolate the print DOM: hide everything, then reveal only the print root.
+     Using visibility (not display) keeps ancestor layout intact so the
+     absolutely-positioned charts still measure correctly. */
+  body * {
+    visibility: hidden;
+  }
+  .seating-print-root,
+  .seating-print-root * {
+    visibility: visible;
+  }
+
+  /* Ancestors of the print root clip/scroll on screen - undo that for print. */
+  .seating-viewer-integrated {
+    overflow: visible !important;
+    height: auto !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+  }
+
+  .seating-print-root {
+    display: block;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    /* Ensure table/seat fills render on paper. */
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .seating-print-root * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Drop the on-screen shadow/border-radius from the reused canvas. */
+  .seating-print-root .seating-canvas {
+    box-shadow: none !important;
+  }
+
+  /* One page per .seating-print-page; each requests the right paper size. */
+  .seating-print-page {
+    box-sizing: border-box;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    break-after: page;
+    page-break-after: always;
+  }
+  .seating-print-page:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+  .seating-print-page.portrait {
+    page: seating-print-portrait;
+  }
+  .seating-print-page.landscape {
+    page: seating-print-landscape;
+  }
+
+  /* Header for the single-chart format. */
+  .seating-print-header,
+  .seating-print-weekhead {
+    width: 100%;
+    text-align: center;
+    margin-bottom: 10px;
+  }
+  .seating-print-title {
+    display: block;
+    font-size: 18px;
+    font-weight: 700;
+    color: #111827;
+  }
+  .seating-print-subtitle {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: #4b5563;
+  }
+  .seating-print-day {
+    display: block;
+    font-size: 13px;
+    font-weight: 700;
+    color: #1f2937;
+    margin-bottom: 4px;
+  }
+
+  .seating-print-chart {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+  }
+
+  /* Five-copies-per-page grid. Column/row counts are set inline from JS. */
+  .seating-print-grid {
+    display: grid;
+    gap: 12px;
+    width: 100%;
+    flex: 1;
+  }
+  .seating-print-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}

@@ -385,8 +385,21 @@ body.seating-editor-page .main-container {
 
 /* Removed hover animations for seats - no movement on hover */
 
-.seat.accessible {
-  box-shadow: 0 0 0 2px #10b981;
+/* Preferential seats are indicated solely by the corner star marker below -
+   a colored ring would collide with the gender/previous highlight modes
+   (green already means "female" in gender mode). */
+
+/* Preferential seat marker - small star badge in the corner, always on
+   regardless of empty/occupied state or highlight mode */
+.seat-preferential-marker {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  font-size: 10px;
+  line-height: 1;
+  color: #f59e0b;
+  pointer-events: none;
+  z-index: 6;
 }
 
 /* Status Badge */

@@ -182,14 +182,7 @@ const Dashboard = ({ data, navigateTo }) => {
                 React.createElement(
                   "div",
                   { className: "dashboard-class-header" },
-                  React.createElement("h3", { className: "dashboard-class-name" }, cls.name),
-                  React.createElement(
-                    "span",
-                    {
-                      className: `dashboard-class-status ${cls.is_active ? "active" : "inactive"}`,
-                    },
-                    cls.is_active ? "Active" : "Inactive"
-                  )
+                  React.createElement("h3", { className: "dashboard-class-name" }, cls.name)
                 ),
                 React.createElement(
                   "div",
@@ -207,12 +200,12 @@ const Dashboard = ({ data, navigateTo }) => {
                     React.createElement("span", null, formatDate(cls.updated_at))
                   )
                 ),
-                cls.teacher &&
+                cls.teacher_name &&
                   React.createElement(
                     "div",
                     { className: "dashboard-class-teacher" },
                     React.createElement("i", { className: "fas fa-user-tie" }),
-                    React.createElement("span", null, cls.teacher.name)
+                    React.createElement("span", null, cls.teacher_name)
                   )
               )
             )

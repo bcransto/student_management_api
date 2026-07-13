@@ -120,7 +120,7 @@ const LayoutEditor = () => {
               seat_number: seat.seat_number,
               relative_x: seat.relative_x,
               relative_y: seat.relative_y,
-              is_accessible: seat.is_accessible,
+              is_preferential: seat.is_preferential,
               notes: seat.notes || "",
             })) || [],
         })),

@@ -127,6 +127,35 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo, startInD
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [hasUnsavedChanges]);
 
+  // GH #21b: guard in-app (SPA) navigation - notably the BROWSER Back/Forward
+  // button, which changes the hash and would otherwise let the router unmount
+  // this editor with no warning. We register a callback with the global
+  // NavigationGuard; the router calls it before honoring a hash change.
+  //
+  // The callback must read CURRENT state, so it reads a ref (updated by the
+  // effect below) rather than closing over stale hasUnsavedChanges/isDraftMode.
+  // Condition mirrors the editor's own Back button exactly: prompt iff
+  // hasUnsavedChanges. An UNTOUCHED draft has hasUnsavedChanges === false (see
+  // enterDraftMode), so it stays silently discardable. Wording matches the
+  // existing in-app confirms (draft vs. saved period).
+  const navGuardStateRef = React.useRef({ hasUnsavedChanges: false, isDraftMode: false });
+  useEffect(() => {
+    navGuardStateRef.current = { hasUnsavedChanges, isDraftMode };
+  }, [hasUnsavedChanges, isDraftMode]);
+
+  useEffect(() => {
+    if (!window.NavigationGuard) return;
+    const guard = () => {
+      const { hasUnsavedChanges: dirty, isDraftMode: draft } = navGuardStateRef.current;
+      if (!dirty) return null;
+      return draft
+        ? "You have an unsaved new chart. Discard it and navigate away?"
+        : "You have unsaved changes. Do you want to continue without saving?";
+    };
+    window.NavigationGuard.register(guard);
+    return () => window.NavigationGuard.unregister(guard);
+  }, []);
+
   // Helper function to get partnership data for a specific student
   const getStudentPartnershipData = (studentId) => {
     if (!partnershipHistory || !studentId) {
@@ -387,6 +416,44 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo, startInD
     return duplicates;
   };
 
+  // GH #25: short display name for "Never Together" alerts (nickname
+  // fallback to first_name, plus last initial - e.g. "Alex J.")
+  const formatNeverTogetherName = (student) => {
+    if (!student) return "Student";
+    const first = student.nickname || student.first_name || "Student";
+    const lastInitial = student.last_name ? `${student.last_name.charAt(0)}.` : "";
+    return `${first} ${lastInitial}`.trim();
+  };
+
+  // GH #25: find any already-seated students at `tableId` (within the given
+  // assignments snapshot) who have a -2 "Never Together" rating with
+  // `studentId`. Checks both directions in the ratings grid; missing/absent
+  // rating data is treated as no conflict. This is a WARN-BUT-ALLOW check -
+  // callers still perform the placement and just surface the result via
+  // window.alert (matching how Optimize treats pre-seated pairs as a
+  // teacher override).
+  const findNeverPairConflicts = (studentId, tableId, assignments) => {
+    const grid = effectivePartnershipRatings?.grid;
+    if (!grid || !tableId) return [];
+
+    const tableAssignments = assignments?.[tableId] || {};
+    const s1 = String(studentId);
+    const conflicts = [];
+
+    Object.values(tableAssignments).forEach((seatedId) => {
+      if (seatedId == null || String(seatedId) === s1) return; // skip self/empty seats
+      const s2 = String(seatedId);
+      const rating1 = grid[s1]?.ratings?.[s2];
+      const rating2 = grid[s2]?.ratings?.[s1];
+      if (rating1 === -2 || rating2 === -2) {
+        const seatedStudent = students.find((s) => s.id === seatedId);
+        conflicts.push({ id: seatedId, name: formatNeverTogetherName(seatedStudent) });
+      }
+    });
+
+    return conflicts;
+  };
+
   const loadClassData = async (preservedAssignments = null) => {
     try {
       setLoading(true);
@@ -606,7 +673,12 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo, startInD
   const handleSeatAssignment = (studentId, tableId, seatNumber) => {
     const student = students.find(s => s.id === studentId);
     const studentName = student ? `${student.first_name} ${student.last_name}` : "Student";
-    
+
+    // GH #25: WARN BUT ALLOW - check for -2 "Never Together" conflicts at
+    // the target table BEFORE placement (so "already-seated" doesn't
+    // include the student being placed). The placement proceeds either way.
+    const neverPairConflicts = findNeverPairConflicts(studentId, tableId, assignments);
+
     const newAssignments = {
       ...assignments,
       [tableId]: {
@@ -614,9 +686,17 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo, startInD
         [seatNumber]: studentId,
       },
     };
-    
+
     addToHistory(newAssignments, `Place ${studentName}`);
-    
+
+    if (neverPairConflicts.length > 0) {
+      const placedName = formatNeverTogetherName(student);
+      const otherNames = neverPairConflicts.map(c => c.name).join(" and ");
+      window.alert(
+        `⚠️ Never Together: ${placedName} and ${otherNames} are marked "Never Together" but are now at the same table.`
+      );
+    }
+
     // Check for duplicates AFTER placement
     // Find table number from table ID
     const table = layout?.tables?.find(t => String(t.id) === String(tableId));
@@ -695,7 +775,34 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo, startInD
 
     console.log("Final result:", JSON.parse(JSON.stringify(result)));
     addToHistory(result, `Swap ${nameA} and ${nameB}`);
-    
+
+    // GH #25: WARN BUT ALLOW - check both swapped students against their
+    // NEW table's occupants. `newAssignments` at this point still reflects
+    // the post-removal/pre-reassignment state (result spreads it into new
+    // objects rather than mutating it), so each destination table's
+    // occupants correctly exclude both students mid-swap - no separate
+    // "vacated seat" exclusion needed. Student A lands at tableB/seatB;
+    // Student B lands at tableA/seatA (see `result` above).
+    const neverPairConflictsA = findNeverPairConflicts(studentA, tableB, newAssignments);
+    const neverPairConflictsB = findNeverPairConflicts(studentB, tableA, newAssignments);
+
+    if (neverPairConflictsA.length > 0 || neverPairConflictsB.length > 0) {
+      const swapWarnings = [];
+      if (neverPairConflictsA.length > 0) {
+        swapWarnings.push(
+          `${formatNeverTogetherName(studentAObj)} and ${neverPairConflictsA.map(c => c.name).join(" and ")}`
+        );
+      }
+      if (neverPairConflictsB.length > 0) {
+        swapWarnings.push(
+          `${formatNeverTogetherName(studentBObj)} and ${neverPairConflictsB.map(c => c.name).join(" and ")}`
+        );
+      }
+      window.alert(
+        `⚠️ Never Together: ${swapWarnings.join("; ")} are marked "Never Together" but are now at the same table.`
+      );
+    }
+
     // Check for duplicates for both swapped students
     const tableAObj = layout?.tables?.find(t => String(t.id) === String(tableA));
     const tableBObj = layout?.tables?.find(t => String(t.id) === String(tableB));
@@ -1854,10 +1961,18 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo, startInD
       // Get full details of the target period
       const fullTargetPeriod = await window.ApiModule.request(`/seating-periods/${targetPeriod.id}/`);
 
-      // Update URL to reflect the new period being edited
+      // Update URL to reflect the new period being edited. We've already
+      // prompted above (if dirty), so tell the router's navigation guard to
+      // skip the resulting hash change - otherwise the browser-back guard
+      // would fire a second, duplicate confirm (GH #21b). Only suppress on the
+      // branches that actually change the hash (the fallback below is
+      // state-only, so suppressing there would wrongly swallow the next
+      // genuine browser-back).
       if (nav?.toSeatingEditPeriod) {
+        if (window.NavigationGuard) window.NavigationGuard.suppressNext();
         nav.toSeatingEditPeriod(classId, targetPeriod.id);
       } else if (navigateTo) {
+        if (window.NavigationGuard) window.NavigationGuard.suppressNext();
         navigateTo(`seating/edit/${classId}/period/${targetPeriod.id}`);
       } else {
         // Fallback: just update the UI state
@@ -2706,6 +2821,9 @@ const SeatingEditor = ({ classId, periodId, onBack, onView, navigateTo, startInD
               ) {
                 return;
               }
+              // Already prompted here; suppress the router's guard for the
+              // hash change onBack triggers so it doesn't prompt again (#21b).
+              if (window.NavigationGuard) window.NavigationGuard.suppressNext();
               if (onBack) {
                 onBack();
               }
@@ -3953,11 +4071,14 @@ const SeatingCanvas = ({
           const seatId = `${table.id}-${seat.seat_number}`;
           const isDeactivated = deactivatedSeats && deactivatedSeats.has(seatId);
           
-          // Use shared seat styles
+          // Use shared seat styles. Preferential seats are indicated only by
+          // the corner star marker, never by the green preferential colorSet -
+          // it would override occupied styling and collide with the gender
+          // highlight's green.
           const seatStyle = LayoutStyles.getSeatStyle(seat, {
             isOccupied: !!assignedStudent,
             isSelected: false,
-            isAccessible: seat.is_accessible,
+            isPreferential: false,
             gridSize: gridSize,
             showName: !!assignedStudent
           });
@@ -4054,7 +4175,7 @@ const SeatingCanvas = ({
           }
 
           const finalClassName = `seat ${assignedStudent ? "occupied" : "empty"} ${
-            seat.is_accessible ? "accessible" : ""
+            seat.is_preferential ? "preferential-seat" : ""
           } ${genderClass} ${previousClass} ${preferentialClass} ${!assignedStudent && !isDeactivated ? "fillable" : ""}`.trim();
           
           if (genderClass) {
@@ -4243,6 +4364,24 @@ const SeatingCanvas = ({
                 ? `${assignedStudent.nickname || assignedStudent.first_name} ${assignedStudent.last_name}`
                 : `Seat ${seat.seat_number}`,
             },
+            seat.is_preferential
+              ? React.createElement(
+                  "span",
+                  {
+                    className: "seat-preferential-marker",
+                    style: {
+                      position: "absolute",
+                      top: "2px",
+                      right: "2px",
+                      fontSize: "10px",
+                      lineHeight: 1,
+                      color: "#f59e0b",
+                      pointerEvents: "none",
+                    },
+                  },
+                  "★"
+                )
+              : null,
             isDeactivated
               ? React.createElement(
                   "div",

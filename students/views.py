@@ -740,12 +740,28 @@ class ClassViewSet(viewsets.ModelViewSet):
 
         # For list action, no heavy prefetching - just an efficient student
         # count computed in the same query (the current_enrollment model
-        # property would otherwise fire a COUNT query per class)
+        # property would otherwise fire a COUNT query per class), plus an
+        # Exists() annotation for has_seating_periods (GH #21a) so the
+        # seating list can tell "no charts yet" apart from an empty chart
+        # without an N+1 .exists() call per class.
         if self.action == 'list':
-            return base_qs.annotate(
+            # Archived classes (is_active=False) are hidden from every class
+            # list by default (dashboard, #classes, seating, attendance,
+            # special-points all consume this endpoint). Pass
+            # ?include_archived=1 (or "true") to include them so the
+            # "Show archived" toggle can offer unarchive. Detail/other actions
+            # are NOT filtered, so unarchiving an archived class still works.
+            include_archived = str(
+                self.request.query_params.get("include_archived", "")
+            ).lower() in ("1", "true", "yes")
+            list_qs = base_qs if include_archived else base_qs.filter(is_active=True)
+            return list_qs.annotate(
                 student_count=models.Count(
                     "roster", filter=models.Q(roster__is_active=True)
-                )
+                ),
+                has_seating_periods_annotated=models.Exists(
+                    SeatingPeriod.objects.filter(class_assigned=models.OuterRef("pk"))
+                ),
             )
 
         # For detail/other actions, prefetch related data
@@ -1679,7 +1695,7 @@ class ClassroomLayoutViewSet(viewsets.ModelViewSet):
                                 "seat_number": str,
                                 "relative_x": float,
                                 "relative_y": float,
-                                "is_accessible": bool,
+                                "is_preferential": bool,
                                 "notes": str
                             }
                         ]
@@ -1734,7 +1750,7 @@ class ClassroomLayoutViewSet(viewsets.ModelViewSet):
                         seat_number=seat_data["seat_number"],
                         relative_x=seat_data["relative_x"],
                         relative_y=seat_data["relative_y"],
-                        is_accessible=seat_data["is_accessible"],
+                        is_preferential=seat_data["is_preferential"],
                         notes=seat_data.get("notes", ""),
                     )
 
@@ -1809,7 +1825,7 @@ class ClassroomLayoutViewSet(viewsets.ModelViewSet):
                         seat_number=seat_data["seat_number"],
                         relative_x=seat_data["relative_x"],
                         relative_y=seat_data["relative_y"],
-                        is_accessible=seat_data["is_accessible"],
+                        is_preferential=seat_data["is_preferential"],
                         notes=seat_data.get("notes", ""),
                     )
 
@@ -1876,7 +1892,7 @@ class TableSeatViewSet(viewsets.ModelViewSet):
         - relative_x, relative_y: Position relative to table center (float)
     
     Optional Fields:
-        - is_accessible: Wheelchair accessible flag (bool)
+        - is_preferential: Preferential seating flag (bool)
         - notes: Additional seat notes (text)
     
     Important:

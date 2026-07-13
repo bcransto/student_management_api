@@ -15,6 +15,50 @@ const Components = {
   Sidebar: window.Sidebar,
 };
 
+// Global navigation-guard registry (GH #21b). An editor with unsaved changes
+// registers a callback that returns a warning string when navigation should be
+// confirmed (or null/falsy when it's clean). The SPA router consults these
+// before honoring a hash change - including the BROWSER Back/Forward button,
+// which would otherwise tear the editor down silently. Dependency-free by
+// design (a plain array of callbacks). Only SeatingEditor wires into it today,
+// but the API is generic.
+window.NavigationGuard = window.NavigationGuard || {
+  _guards: [],
+  _suppressNext: false,
+  register(fn) {
+    if (typeof fn === "function" && !this._guards.includes(fn)) {
+      this._guards.push(fn);
+    }
+  },
+  unregister(fn) {
+    this._guards = this._guards.filter((g) => g !== fn);
+  },
+  // Skip the guard check for exactly the next hash change. Used by an editor
+  // that has ALREADY prompted via its own in-app control (e.g. the Back button
+  // or period navigation) and is about to change the hash itself - prevents a
+  // second, duplicate prompt from the router.
+  suppressNext() {
+    this._suppressNext = true;
+  },
+  // Returns a warning string if any guard wants to block navigation, else null.
+  check() {
+    if (this._suppressNext) {
+      this._suppressNext = false;
+      return null;
+    }
+    for (const fn of this._guards) {
+      let message = null;
+      try {
+        message = fn();
+      } catch (e) {
+        message = null;
+      }
+      if (message) return message;
+    }
+    return null;
+  },
+};
+
 // Main App Component
 const App = () => {
   const { useState, useEffect, useCallback, useReducer } = React;
@@ -208,7 +252,34 @@ const App = () => {
 
   // Handle hash changes (browser back/forward)
   useEffect(() => {
+    // GH #21b: track the last hash we actually acted on, so a cancelled
+    // guarded navigation (e.g. the browser Back button while the seating
+    // editor has unsaved changes) can be restored without tearing the
+    // editor down. `ignoreNextHashChange` swallows the restore write so it
+    // doesn't re-enter the handler and loop.
+    let lastAcceptedHash = window.location.hash;
+    let ignoreNextHashChange = false;
+
     const handleHashChange = () => {
+      // Swallow the programmatic restore from a cancelled guarded navigation.
+      if (ignoreNextHashChange) {
+        ignoreNextHashChange = false;
+        return;
+      }
+
+      // Consult navigation guards BEFORE acting on the new hash. If a guard
+      // returns a message (e.g. seating editor with unsaved changes) and the
+      // user cancels, restore the previous hash and bail out - crucially
+      // without any setState, so the mounted editor is never unmounted.
+      const guardMessage = window.NavigationGuard ? window.NavigationGuard.check() : null;
+      if (guardMessage && !window.confirm(guardMessage)) {
+        ignoreNextHashChange = true;
+        window.location.hash = lastAcceptedHash;
+        return;
+      }
+      // Navigation accepted - this becomes the restore point for next time.
+      lastAcceptedHash = window.location.hash;
+
       const hash = window.location.hash.slice(1).split("?")[0]; // strip any query marker (e.g. ?google=connected)
 
       // Check for password reset pattern

@@ -78,16 +78,24 @@ const Layouts = ({ data, navigateTo }) => {
     window.location.href = "/layout-editor/?mode=new";
   };
 
-  const handleDeleteLayout = async (layoutId, layoutName) => {
-    if (confirm(`Are you sure you want to delete the layout "${layoutName}"?`)) {
+  // Archive a layout (GH #20). The DELETE endpoint is already a soft delete
+  // (sets is_active=False); SeatingPeriod.layout is PROTECT so existing charts
+  // keep working - the layout just stops appearing when building new charts.
+  const handleArchiveLayout = async (layoutId, layoutName) => {
+    if (
+      confirm(
+        `Archive the layout "${layoutName}"? It will stop appearing when you ` +
+          `build new charts. Existing seating charts using it keep working.`
+      )
+    ) {
       try {
         await window.ApiModule.request(`/layouts/${layoutId}/`, {
           method: "DELETE",
         });
         fetchLayouts(); // Refresh the list
       } catch (err) {
-        console.error("Error deleting layout:", err);
-        alert("Failed to delete layout. Please try again.");
+        console.error("Error archiving layout:", err);
+        alert("Failed to archive layout. Please try again.");
       }
     }
   };
@@ -250,20 +258,19 @@ const Layouts = ({ data, navigateTo }) => {
                     React.createElement("i", { className: "fas fa-calendar" }),
                     `Modified: ${formatDate(layout.updated_at)}`
                   ),
-                  (layout.used_by_classes || 0) === 0 &&
-                    React.createElement(
-                      "button",
-                      {
-                        className: "btn btn-sm btn-ghost layout-delete-btn",
-                        onClick: (e) => {
-                          e.stopPropagation();
-                          handleDeleteLayout(layout.id, layout.name);
-                        },
-                        title: "Delete Layout",
-                        style: { marginLeft: "auto" }
+                  React.createElement(
+                    "button",
+                    {
+                      className: "btn btn-sm btn-ghost layout-delete-btn",
+                      onClick: (e) => {
+                        e.stopPropagation();
+                        handleArchiveLayout(layout.id, layout.name);
                       },
-                      React.createElement("i", { className: "fas fa-trash" })
-                    )
+                      title: "Archive Layout",
+                      style: { marginLeft: "auto" }
+                    },
+                    React.createElement("i", { className: "fas fa-box-archive" })
+                  )
                 )
               )
             )

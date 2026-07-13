@@ -30,7 +30,7 @@ class UserAdmin(admin.ModelAdmin):
 class TableSeatInline(admin.TabularInline):
     model = TableSeat
     extra = 1
-    fields = ["seat_number", "relative_x", "relative_y", "is_accessible", "notes"]
+    fields = ["seat_number", "relative_x", "relative_y", "is_preferential", "notes"]
 
 
 class ClassroomTableInline(admin.TabularInline):
@@ -70,8 +70,8 @@ class ClassroomTableAdmin(admin.ModelAdmin):
 
 @admin.register(TableSeat)
 class TableSeatAdmin(admin.ModelAdmin):
-    list_display = ["table", "seat_number", "absolute_seat_id", "relative_x", "relative_y", "is_accessible"]
-    list_filter = ["is_accessible", "table__layout"]
+    list_display = ["table", "seat_number", "absolute_seat_id", "relative_x", "relative_y", "is_preferential"]
+    list_filter = ["is_preferential", "table__layout"]
     search_fields = ["table__table_name", "table__layout__name"]
 
 

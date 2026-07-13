@@ -104,7 +104,7 @@ class Command(BaseCommand):
 
                     for seat_num, rel_x, rel_y in seat_positions:
                         TableSeat.objects.create(
-                            table=table, seat_number=seat_num, relative_x=rel_x, relative_y=rel_y, is_accessible=True
+                            table=table, seat_number=seat_num, relative_x=rel_x, relative_y=rel_y, is_preferential=False
                         )
 
                 self.stdout.write(f"  Created layout: {layout_name}")
